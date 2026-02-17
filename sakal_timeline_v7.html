@@ -1,0 +1,3727 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Senaryo Timeline Editörü</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Firebase Realtime Database (Gerçek Zamanlı İşbirliği) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#08080c;--bg2:#0e0e14;--bg3:#16161f;--bg4:#1e1e2a;--bg5:#262635;
+  --brd:#2a2a3a;--brd2:#3a3a4f;
+  --tx:#e8e6f0;--tx2:#a8a4b8;--tx3:#706c82;--tx4:#4a475a;
+  --red:#ef4444;--blue:#3b82f6;--green:#10b981;--yellow:#f59e0b;--purple:#a855f7;--orange:#f97316;--cyan:#06b6d4;--pink:#ec4899;
+  --radius:6px;--shadow:0 4px 16px rgba(0,0,0,.4);
+}
+body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);color:var(--tx);overflow:hidden;height:100vh;font-size:13px;}
+.app{display:flex;flex-direction:column;height:100vh;}
+::selection{background:var(--blue);color:#fff;}
+
+/* ── TOPBAR ── */
+.topbar{height:48px;background:var(--bg2);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0;z-index:50;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo h1{font-size:15px;font-weight:700;letter-spacing:.5px;cursor:pointer;}
+.logo h1:hover{color:var(--blue);}
+.logo span{font-size:10px;color:var(--tx3);letter-spacing:.5px;}
+.tba{display:flex;gap:6px;align-items:center;}
+.btn{padding:7px 13px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx2);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:1;}
+.btn:hover{background:var(--bg4);color:var(--tx);border-color:var(--brd2);}
+.btn:active{transform:scale(.97);}
+.btn-p{background:var(--blue);border-color:var(--blue);color:#fff;}.btn-p:hover{background:#2563eb;border-color:#2563eb;}
+.btn-d{background:var(--red);border-color:var(--red);color:#fff;}.btn-d:hover{background:#dc2626;}
+.btn-s{padding:4px 8px;font-size:11px;}
+.btn-icon{padding:6px 8px;font-size:14px;}
+.badge{background:var(--orange);color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700;min-width:18px;text-align:center;}
+.view-modes{display:flex;gap:2px;background:var(--bg);border-radius:var(--radius);padding:2px;border:1px solid var(--brd);}
+.view-mode{padding:5px 12px;border-radius:4px;font-size:11px;cursor:pointer;color:var(--tx3);border:none;background:none;font-family:inherit;transition:all .15s;}
+.view-mode.active{background:var(--bg4);color:var(--tx);}
+.view-mode:hover:not(.active){color:var(--tx2);}
+
+/* ── TOOLBAR ── */
+.toolbar{min-height:40px;background:var(--bg2);border-bottom:1px solid var(--brd);display:flex;align-items:center;padding:4px 16px;gap:10px;flex-wrap:wrap;flex-shrink:0;z-index:40;}
+.toolbar label{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;font-weight:500;}
+.toolbar select{padding:4px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx2);font-size:12px;font-family:inherit;cursor:pointer;outline:none;}
+.toolbar select:focus{border-color:var(--blue);}
+.sep{width:1px;height:22px;background:var(--brd);flex-shrink:0;}
+.pill{padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;user-select:none;font-weight:500;}
+.pill.off{opacity:.2;}
+.pill:hover{opacity:1;}
+
+/* ── MAIN LAYOUT ── */
+.main-wrap{display:flex;flex:1;overflow:hidden;position:relative;}
+
+/* ── SCREENPLAY PANEL (LEFT) ── */
+.sp-panel{width:0;background:var(--bg2);border-right:1px solid var(--brd);overflow:hidden;transition:width .25s ease;flex-shrink:0;display:flex;flex-direction:column;position:relative;z-index:30;}
+.sp-panel.open{width:380px;}
+.sp-resize{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:35;transition:background .15s;}
+.sp-resize:hover,.sp-resize.active{background:var(--blue);}
+.sp-header{padding:10px 14px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:var(--bg2);}
+.sp-header h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}
+.sp-toolbar{padding:6px 14px;border-bottom:1px solid var(--brd);display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;background:var(--bg3);}
+.sp-episodes{flex:1;overflow-y:auto;padding:0;}
+
+/* Episode tree */
+.ep-tree{border-bottom:1px solid var(--brd);}
+.ep-tree-hdr{padding:8px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .12s;user-select:none;}
+.ep-tree-hdr:hover{background:var(--bg3);}
+.ep-tree-hdr .arrow{font-size:10px;color:var(--tx3);transition:transform .2s;width:12px;}
+.ep-tree-hdr .arrow.open{transform:rotate(90deg);}
+.ep-tree-hdr .ep-info{flex:1;}
+.ep-tree-hdr .ep-num{font-weight:600;font-size:12px;}
+.ep-tree-hdr .ep-title{font-size:11px;color:var(--tx2);margin-left:6px;}
+.ep-tree-hdr .ep-meta{font-size:10px;color:var(--tx3);font-family:'Courier New',monospace;}
+.ep-tree-body{display:none;padding-left:8px;}
+.ep-tree-body.open{display:block;}
+
+/* Scene cards */
+.scene-card{padding:8px 14px;border-bottom:1px solid rgba(42,42,58,.5);cursor:pointer;transition:background .12s;position:relative;}
+.scene-card:hover{background:var(--bg3);}
+.scene-card.active{background:var(--bg4);border-left:3px solid var(--blue);}
+.scene-card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.scene-card-title{font-size:12px;font-weight:500;}
+.scene-card-badges{display:flex;gap:4px;align-items:center;}
+.scene-card-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg4);color:var(--tx3);}
+.scene-card-chars{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;}
+.scene-card-char{width:22px;height:22px;border-radius:50%;background:var(--bg5);font-size:9px;display:flex;align-items:center;justify-content:center;color:var(--tx2);border:1px solid var(--brd);}
+.scene-card-body{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);}
+.scene-card.expanded .scene-card-body{display:block;}
+
+/* Scene editor */
+.scene-editor{padding:8px;}
+.scene-block{margin-bottom:6px;border-radius:4px;position:relative;}
+.scene-block-action{padding:6px 8px;background:var(--bg3);border:1px solid var(--brd);border-radius:4px;min-height:30px;font-size:12px;color:var(--tx2);line-height:1.5;outline:none;}
+.scene-block-action:focus{border-color:var(--blue);background:var(--bg4);}
+.scene-block-dialogue{border:1px solid var(--brd);border-radius:4px;overflow:hidden;}
+.scene-block-dialogue .char-line{padding:4px 8px;background:var(--bg4);font-size:11px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:6px;}
+.scene-block-dialogue .char-line select{padding:2px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--brd);color:var(--tx);border-radius:3px;font-family:inherit;}
+.scene-block-dialogue .paren{padding:2px 8px;font-size:10px;color:var(--tx3);font-style:italic;}
+.scene-block-dialogue .dial-text{padding:6px 8px;background:var(--bg3);min-height:28px;font-size:12px;color:var(--tx);outline:none;line-height:1.5;}
+.scene-block-dialogue .dial-text:focus{background:var(--bg4);}
+.scene-block-transition{padding:4px 8px;background:var(--bg4);border:1px solid var(--brd);border-radius:4px;text-align:center;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;}
+.scene-meta-row{display:flex;gap:8px;margin-bottom:6px;}
+.scene-meta-field{flex:1;display:flex;flex-direction:column;gap:2px;}
+.scene-meta-field label{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;}
+.scene-meta-field input,.scene-meta-field select{padding:4px 7px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:11px;outline:none;transition:border-color .15s;}
+.scene-meta-field input:focus,.scene-meta-field select:focus{border-color:var(--blue);}
+/* Screenplay text area */
+.scene-screenplay-wrap{position:relative;margin-bottom:6px;}
+.scene-screenplay-label{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;margin-bottom:3px;}
+.scene-screenplay{min-height:120px;max-height:400px;overflow-y:auto;padding:8px 10px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:12px;line-height:1.7;outline:none;white-space:pre-wrap;word-wrap:break-word;}
+.scene-screenplay:focus{border-color:var(--blue);background:var(--bg4);}
+.scene-screenplay:empty::before{content:attr(data-placeholder);color:var(--tx4);pointer-events:none;}
+.scene-screenplay .mention{color:var(--cyan);font-weight:600;background:rgba(6,182,212,.1);padding:0 3px;border-radius:3px;cursor:default;user-select:all;}
+.mention-popup{position:absolute;left:0;top:0;min-width:180px;max-height:200px;overflow-y:auto;background:var(--bg2);border:1px solid var(--brd2);border-radius:var(--radius);box-shadow:var(--shadow);z-index:100;display:none;}
+.mention-popup.open{display:block;}
+.mention-popup .mp-item{padding:7px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .1s;}
+.mention-popup .mp-item:hover,.mention-popup .mp-item.active{background:var(--bg4);color:var(--cyan);}
+.mention-popup .mp-item .mp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.mention-popup .mp-empty{padding:8px 12px;font-size:11px;color:var(--tx4);}
+.scene-chars-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.scene-char-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;border:1px solid var(--brd);background:var(--bg4);color:var(--tx2);}
+.scene-char-tag .remove-char{cursor:pointer;opacity:.5;font-size:12px;line-height:1;}
+.scene-char-tag .remove-char:hover{opacity:1;color:var(--red);}
+.scene-block-acts{display:flex;gap:4px;margin-top:4px;padding:4px 0;}
+.scene-block-acts .btn{font-size:10px;padding:3px 7px;}
+.add-scene-btn{padding:8px 14px;display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--tx3);font-size:12px;transition:all .15s;border:none;background:none;width:100%;text-align:left;font-family:inherit;}
+.add-scene-btn:hover{background:var(--bg3);color:var(--blue);}
+
+/* ── TIMELINE ── */
+.tl-area{flex:1;overflow:auto;position:relative;cursor:grab;}
+.tl-area.panning{cursor:grabbing;}
+.tl-container{position:relative;transform-origin:0 0;}
+
+/* Ruler */
+.ruler{position:sticky;top:0;z-index:20;height:32px;background:var(--bg2);border-bottom:1px solid var(--brd);margin-left:100px;}
+.rtick{position:absolute;bottom:0;font-family:'Courier New',Consolas,monospace;font-size:9px;color:var(--tx4);padding-bottom:4px;}
+.rtick.minor{border-left:1px solid var(--brd);}
+.rtick.major{border-left:1px solid var(--tx4);color:var(--tx3);}
+
+/* Snap guide */
+.snap-guide{position:absolute;top:0;bottom:0;width:1px;background:var(--cyan);z-index:25;pointer-events:none;opacity:0;transition:opacity .1s;}
+.snap-guide.show{opacity:.6;}
+
+/* Rows */
+.ep-row{display:flex;border-bottom:1px solid var(--brd);min-height:60px;position:relative;}
+.ep-row:nth-child(even){background:rgba(255,255,255,.008);}
+.ep-hdr{width:100px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);border-right:1px solid var(--brd);position:sticky;left:0;z-index:10;gap:2px;}
+.ep-hdr .num{font-size:22px;font-weight:700;}
+.ep-hdr .sub{font-size:9px;color:var(--tx3);font-weight:500;}
+.ep-hdr .dur{font-family:'Courier New',monospace;font-size:9px;color:var(--tx4);margin-top:2px;}
+.ep-body{position:relative;flex-shrink:0;}
+
+/* Gridlines */
+.gl{position:absolute;top:0;bottom:0;width:1px;pointer-events:none;}
+.gl.mi{background:rgba(255,255,255,.025);}
+.gl.ma{background:rgba(255,255,255,.07);}
+
+/* Heatmap overlay */
+.heatmap-bar{position:absolute;bottom:0;height:3px;pointer-events:none;border-radius:1px;opacity:.6;}
+
+/* ── EVENT BLOCKS ── */
+.evb{position:absolute;height:42px;border-radius:var(--radius);z-index:5;display:flex;align-items:center;padding:0 10px;overflow:hidden;cursor:grab;user-select:none;border:1px solid;transition:box-shadow .15s,transform .1s;font-size:12px;font-weight:500;}
+.evb:hover{z-index:15;box-shadow:0 4px 20px rgba(0,0,0,.5);transform:scale(1.02);}
+.evb.selected{box-shadow:0 0 0 2px var(--cyan)!important;z-index:16;}
+.evb.drag{opacity:.85;z-index:50;box-shadow:0 8px 32px rgba(0,0,0,.7);cursor:grabbing;transform:scale(1.04);}
+.evb.ghost{opacity:.3!important;pointer-events:none;z-index:4;}
+.evb.dim{opacity:.1!important;}
+.evb.hl{box-shadow:0 0 0 2px rgba(255,255,255,.5)!important;z-index:16;}
+.evb.warn-hl{box-shadow:0 0 0 2px var(--orange),0 0 16px rgba(249,115,22,.5)!important;z-index:20;opacity:1!important;}
+.evb.collision{box-shadow:0 0 0 2px var(--red)!important;}
+.evb.impact-1{box-shadow:0 0 0 2px var(--red),0 0 12px rgba(239,68,68,.4)!important;z-index:17;}
+.evb.impact-2{box-shadow:0 0 0 2px var(--orange),0 0 12px rgba(249,115,22,.3)!important;z-index:17;}
+.evb.impact-3{box-shadow:0 0 0 2px var(--yellow),0 0 12px rgba(245,158,11,.2)!important;z-index:17;}
+.evb .etxt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;flex:1;}
+.evb .scene-link{font-size:10px;opacity:.5;margin-left:4px;pointer-events:none;}
+.evb .rh{position:absolute;top:0;width:7px;height:100%;cursor:ew-resize;z-index:6;}
+.evb .rh:hover{background:rgba(255,255,255,.15);}
+.evb .rh.l{left:0;border-radius:var(--radius) 0 0 var(--radius);}
+.evb .rh.r{right:0;border-radius:0 var(--radius) var(--radius) 0;}
+
+/* Drop zone */
+.ep-body.drop-target{background:rgba(59,130,246,.06)!important;outline:2px dashed var(--blue);outline-offset:-2px;}
+
+/* ── RIGHT PANELS ── */
+.rpanel{width:0;background:var(--bg2);border-left:1px solid var(--brd);overflow:hidden;transition:width .2s ease;flex-shrink:0;display:flex;flex-direction:column;}
+.rpanel.open{width:320px;}
+.rpanel-hdr{padding:10px 14px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:var(--bg2);z-index:2;}
+.rpanel-hdr h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}
+.rpanel-body{flex:1;overflow-y:auto;}
+.close-btn{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:4px;border-radius:4px;line-height:1;}
+.close-btn:hover{color:var(--tx);background:var(--bg4);}
+
+/* Tabs */
+.rtabs{display:flex;border-bottom:1px solid var(--brd);background:var(--bg3);flex-shrink:0;}
+.rtab{flex:1;padding:8px 6px;text-align:center;font-size:10px;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;font-family:inherit;background:none;border-top:none;border-left:none;border-right:none;}
+.rtab:hover{color:var(--tx2);}
+.rtab.active{color:var(--tx);border-bottom-color:var(--blue);}
+
+/* Warning items */
+.wi{padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .12s;}
+.wi:hover{background:var(--bg3);}
+.wi.active{background:var(--bg4);border-left:3px solid var(--orange);}
+.wi .wt{font-size:12px;font-weight:500;margin-bottom:3px;}
+.wi .wd{font-size:11px;color:var(--tx3);line-height:1.4;}
+.wi .wf{margin-top:6px;display:flex;gap:4px;}
+.nw{padding:20px 14px;text-align:center;color:var(--tx3);font-size:12px;}
+
+/* Edit panel form */
+.fg{margin-bottom:10px;}
+.fg label{display:block;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;font-weight:500;}
+.fg input,.fg textarea,.fg select{width:100%;padding:6px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:12px;outline:none;transition:border-color .15s;}
+.fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--blue);}
+.fg textarea{resize:vertical;min-height:50px;}
+.chw{display:flex;flex-wrap:wrap;gap:4px;}
+.chcb{display:flex;align-items:center;gap:3px;font-size:11px;color:var(--tx2);cursor:pointer;}
+.chcb input{width:auto;margin:0;}
+.epf{padding:10px 14px;border-top:1px solid var(--brd);display:flex;gap:6px;flex-shrink:0;background:var(--bg2);}
+.epc{margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);}
+.eci{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--tx2);}
+
+/* Analysis specific */
+.char-row{padding:8px 14px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .12s;}
+.char-row:hover{background:var(--bg3);}
+.char-bar{height:6px;border-radius:3px;margin-top:4px;transition:width .3s;}
+.tempo-row{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid var(--brd);font-size:11px;}
+.tempo-bar{flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;}
+.tempo-fill{height:100%;border-radius:4px;transition:width .3s;}
+.impact-info{padding:14px;background:var(--bg3);border-radius:var(--radius);margin:10px 14px;font-size:12px;line-height:1.6;}
+
+/* ── STATUS BAR ── */
+.statusbar{height:28px;background:var(--bg2);border-top:1px solid var(--brd);display:flex;align-items:center;padding:0 16px;gap:16px;font-size:11px;color:var(--tx3);flex-shrink:0;z-index:40;}
+.statusbar .st-item{display:flex;align-items:center;gap:4px;}
+.statusbar .st-sep{width:1px;height:14px;background:var(--brd);}
+.statusbar .st-warn{color:var(--orange);cursor:pointer;}
+.statusbar .st-warn:hover{color:var(--yellow);}
+
+/* ── TOOLTIP ── */
+.ttp{position:fixed;background:var(--bg4);border:1px solid var(--brd2);border-radius:var(--radius);padding:10px 14px;z-index:200;pointer-events:none;max-width:300px;box-shadow:var(--shadow);display:none;font-size:12px;}
+.ttp.show{display:block;}
+.ttp .tt{font-weight:600;margin-bottom:4px;}
+.ttp .td{color:var(--tx2);font-size:11px;line-height:1.5;}
+.ttp .tm{font-family:'Courier New',monospace;font-size:10px;color:var(--tx3);margin-top:4px;}
+
+/* ── CONTEXT MENU ── */
+.ctx-menu{position:fixed;background:var(--bg3);border:1px solid var(--brd2);border-radius:var(--radius);z-index:250;min-width:180px;box-shadow:var(--shadow);padding:4px 0;display:none;}
+.ctx-menu.show{display:block;}
+.ctx-item{padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--tx2);transition:all .1s;}
+.ctx-item:hover{background:var(--bg4);color:var(--tx);}
+.ctx-item.danger{color:var(--red);}
+.ctx-item.danger:hover{background:rgba(239,68,68,.1);}
+.ctx-sep{height:1px;background:var(--brd);margin:4px 0;}
+
+/* ── MODAL ── */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
+.mbg.open{display:flex;}
+.mdl{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.mh{padding:14px 16px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600;}
+.mb{padding:16px;}
+.mf{padding:12px 16px;border-top:1px solid var(--brd);display:flex;justify-content:flex-end;gap:6px;}
+
+/* ── TOAST ── */
+.tbox{position:fixed;bottom:44px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:6px;align-items:center;}
+.tst{padding:8px 16px;background:var(--bg4);border:1px solid var(--brd2);border-radius:var(--radius);font-size:12px;box-shadow:var(--shadow);animation:toast-in .25s ease,toast-out .25s ease 2.3s forwards;white-space:nowrap;}
+@keyframes toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateY(-6px)}}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--brd2);}
+
+/* ── SYNC / COLLABORATION ── */
+.sync-bar{display:none;align-items:center;gap:8px;margin-right:8px;}
+.sync-bar.active{display:flex;}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s;}
+.sync-dot.connected{background:var(--green);}
+.sync-dot.connecting{background:var(--yellow);animation:syncPulse 1s infinite;}
+.sync-dot.disconnected{background:var(--red);}
+@keyframes syncPulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.sync-status-text{font-size:10px;color:var(--tx3);white-space:nowrap;}
+.presence-bar{display:flex;align-items:center;gap:4px;}
+.presence-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:default;border:2px solid var(--bg2);position:relative;flex-shrink:0;transition:transform .15s;}
+.presence-avatar:hover{transform:scale(1.15);z-index:1;}
+.presence-avatar .pa-tip{display:none;position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);background:var(--bg4);color:var(--tx);font-size:10px;padding:2px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:99;}
+.presence-avatar:hover .pa-tip{display:block;}
+.room-code{font-family:'Courier New',monospace;font-size:12px;color:var(--cyan);background:var(--bg);padding:3px 8px;border-radius:4px;border:1px solid var(--brd);cursor:pointer;letter-spacing:1px;font-weight:600;transition:all .15s;}
+.room-code:hover{background:var(--bg3);border-color:var(--cyan);}
+.btn-leave{background:var(--red);border-color:var(--red);color:#fff;font-size:11px;padding:5px 10px;}
+.btn-leave:hover{background:#dc2626;border-color:#dc2626;}
+.sync-modal-body{display:flex;gap:16px;margin-top:12px;}
+.sync-modal-col{flex:1;background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:10px;}
+.sync-modal-col h3{font-size:13px;color:var(--tx2);margin-bottom:4px;}
+.sync-modal-col input{width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;}
+.sync-modal-col input:focus{border-color:var(--blue);}
+.sync-modal-col .btn{width:100%;justify-content:center;margin-top:4px;}
+.sync-name-row{margin-bottom:8px;}
+.sync-name-row label{font-size:11px;color:var(--tx3);display:block;margin-bottom:4px;}
+.sync-name-row input{width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;}
+.sync-name-row input:focus{border-color:var(--blue);}
+.sync-info{font-size:11px;color:var(--tx3);line-height:1.5;margin-top:8px;}
+.sync-room-info{background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius);padding:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+.sync-room-info .room-code{font-size:16px;text-align:center;display:block;padding:8px;letter-spacing:2px;}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  /* Sync mobile */
+  .sync-bar{gap:4px;margin-right:4px;}
+  .sync-status-text{display:none;}
+  .presence-avatar{width:22px;height:22px;font-size:9px;}
+  .room-code{font-size:10px;padding:2px 6px;}
+  .sync-modal-body{flex-direction:column;}
+  /* Topbar */
+  .topbar{height:auto;flex-wrap:wrap;padding:8px 10px;gap:6px;}
+  .logo{width:100%;justify-content:space-between;}
+  .logo h1{font-size:14px;} .logo span{display:none;}
+  .view-modes{order:1;}
+  .tba{order:2;width:100%;flex-wrap:wrap;gap:4px;justify-content:flex-start;}
+  .tba .sep{display:none;}
+  .tba .btn{padding:6px 8px;font-size:11px;}
+  .tba .btn-icon{padding:5px 7px;font-size:12px;}
+  #zLvl{display:none;}
+
+  /* Toolbar */
+  .toolbar{padding:4px 10px;gap:6px;min-height:36px;}
+  .toolbar label{font-size:9px;}
+  .toolbar select{padding:3px 6px;font-size:11px;}
+  #catP{display:none!important;} /* Hide category pills on mobile */
+
+  /* Main layout — stack vertically */
+  .main-wrap{flex-direction:column;}
+
+  /* Screenplay panel — full width overlay */
+  .sp-panel{width:100%!important;max-height:50vh;border-right:none;border-bottom:1px solid var(--brd);z-index:35;}
+  .sp-panel.open{width:100%!important;}
+  .sp-resize{display:none;}
+
+  /* Timeline — full width */
+  .tl-area{flex:1;min-height:200px;-webkit-overflow-scrolling:touch;}
+
+  /* Right panel — full width overlay */
+  .rpanel{position:fixed;bottom:0;left:0;right:0;width:100%!important;max-height:60vh;border-left:none;border-top:1px solid var(--brd);z-index:60;border-radius:12px 12px 0 0;}
+  .rpanel.open{width:100%!important;}
+
+  /* Event blocks — larger touch targets */
+  .evb{height:36px;font-size:11px;min-width:40px;}
+  .evb .rh{width:12px;} /* Wider resize handles for touch */
+
+  /* Episode headers */
+  .ep-hdr{width:60px;}
+  .ep-hdr .num{font-size:18px;}
+  .ep-hdr .sub{font-size:8px;} .ep-hdr .dur{font-size:8px;}
+  .ruler{margin-left:60px;}
+
+  /* Scene cards */
+  .scene-card{padding:8px 10px;}
+  .scene-meta-row{flex-direction:column;gap:4px;}
+  .scene-meta-field{flex:1 1 100%!important;}
+  .scene-screenplay{min-height:100px;font-size:13px;}
+
+  /* Modal — nearly full screen on mobile */
+  .mdl{width:calc(100% - 16px)!important;max-width:100%;max-height:calc(100vh - 40px);border-radius:10px;margin:8px;}
+  .mbg{align-items:center;padding:0;}
+
+  /* Status bar */
+  .statusbar{height:auto;padding:4px 10px;flex-wrap:wrap;gap:4px 10px;font-size:10px;}
+  .statusbar .st-sep{display:none;}
+  #stProj{display:none;}
+
+  /* Toast */
+  .tbox{bottom:80px;left:10px;right:10px;transform:none;}
+
+  /* Tooltip — hide on mobile */
+  .ttp{display:none!important;}
+
+  /* Context menu */
+  .ctx-menu{position:fixed;bottom:0;left:0;right:0;top:auto;border-radius:12px 12px 0 0;min-width:100%;max-height:60vh;overflow-y:auto;}
+
+  /* Mention popup */
+  .mention-popup{max-height:150px;}
+  .mention-popup .mp-item{padding:10px 14px;font-size:13px;}
+
+  /* Scrollbar — hide on mobile */
+  ::-webkit-scrollbar{width:3px;height:3px;}
+}
+
+/* Small phone */
+@media(max-width:400px){
+  .topbar{padding:6px 8px;}
+  .tba .btn{padding:5px 6px;font-size:10px;}
+  .view-mode{padding:4px 8px;font-size:10px;}
+  .sp-panel.open{max-height:45vh;}
+  .ep-hdr{width:44px;}
+  .ep-hdr .num{font-size:15px;}
+  .ep-hdr .sub,.ep-hdr .dur{display:none;}
+  .ruler{margin-left:44px;}
+  .evb{height:32px;font-size:10px;padding:0 6px;}
+}
+
+/* ── PRINT ── */
+@media print{
+  .topbar,.toolbar,.sp-panel,.rpanel,.ttp,.mbg,.tbox,.statusbar,.ctx-menu{display:none!important;}
+  .main-wrap{overflow:visible!important;}
+  .tl-area{overflow:visible!important;cursor:default!important;}
+  .tl-container{transform:none!important;}
+  body{background:#fff;color:#111;overflow:visible;height:auto;}
+  .ep-hdr{background:#f5f5f5!important;color:#111;}
+  .ep-hdr .num,.ep-hdr .sub,.ep-hdr .dur{color:#111!important;}
+  .ep-row{border-color:#ccc!important;}
+  .evb{border-width:2px!important;font-weight:600!important;color:#111!important;}
+  .gl.ma{background:rgba(0,0,0,.12)!important;}
+  .gl.mi{background:rgba(0,0,0,.05)!important;}
+  .ruler{background:#f5f5f5!important;border-color:#ccc!important;}
+  .rtick{color:#666!important;border-color:#999!important;}
+}
+</style>
+</head>
+<body>
+<noscript><div style="color:var(--red);background:var(--bg2);padding:24px;margin:20px;font-size:16px;border:2px solid var(--red);border-radius:8px;">JavaScript devre dışı. Lütfen tarayıcı ayarlarından JavaScript'i etkinleştirin.</div></noscript>
+<div id="loadMsg" style="color:var(--tx2);padding:20px;font-size:14px;">Yükleniyor...</div>
+
+<div class="app" id="appRoot" style="display:none;">
+  <div class="topbar">
+    <div class="logo">
+      <h1 id="projTitle" onclick="App.Panels.openSettings()">Yeni Proje</h1>
+      <span id="projSub">Senaryo Timeline Editörü</span>
+    </div>
+    <div class="view-modes">
+      <button class="view-mode" data-vm="screenplay" onclick="App.setViewMode('screenplay')">Senaryo</button>
+      <button class="view-mode active" data-vm="split" onclick="App.setViewMode('split')">Bölünmüş</button>
+      <button class="view-mode" data-vm="timeline" onclick="App.setViewMode('timeline')">Timeline</button>
+    </div>
+    <div class="sync-bar" id="syncBar">
+      <span class="sync-dot disconnected" id="syncDot"></span>
+      <span class="sync-status-text" id="syncStatusText">Bağlantı yok</span>
+      <div class="presence-bar" id="presenceBar"></div>
+      <span class="room-code" id="roomCodeLabel" style="display:none" onclick="App.Sync.copyRoomLink()" title="Oda linkini kopyala"></span>
+      <button class="btn btn-leave" id="leaveBtn" style="display:none" onclick="App.Sync.leaveRoom()">Ayrıl</button>
+    </div>
+    <div class="tba">
+      <button class="btn" id="syncBtn" onclick="App.Sync.openSyncPanel()" title="Gerçek Zamanlı İşbirliği">👥 İşbirliği</button>
+      <div class="sep"></div>
+      <button class="btn btn-icon" onclick="App.Store.undo()" title="Geri Al (Ctrl+Z)">↩</button>
+      <button class="btn btn-icon" onclick="App.Store.redo()" title="Yinele (Ctrl+Y)">↪</button>
+      <div class="sep"></div>
+      <button class="btn" onclick="App.Timeline.zoomOut()">−</button>
+      <span id="zLvl" style="font-size:10px;color:var(--tx3);font-family:monospace;min-width:36px;text-align:center">100%</span>
+      <button class="btn" onclick="App.Timeline.zoomIn()">+</button>
+      <button class="btn" onclick="App.Timeline.zoomReset()">Sığdır</button>
+      <div class="sep"></div>
+      <button class="btn" id="wBtn" onclick="App.Panels.togglePanel('warn')">⚠ Uyarılar <span class="badge" id="wBdg" style="display:none">0</span></button>
+      <button class="btn" onclick="App.Panels.togglePanel('analysis')">◎ Analiz</button>
+      <button class="btn" onclick="App.IO.exportJSON()">↓ JSON</button>
+      <button class="btn" onclick="document.getElementById('fIn').click()">↑ Yükle</button>
+      <button class="btn" onclick="App.IO.loadDemo()">Demo Proje</button>
+      <button class="btn" onclick="App.Panels.openSettings()">⚙</button>
+      <button class="btn btn-p" onclick="App.Panels.openAddEvent()">+ Olay</button>
+      <input type="file" id="fIn" accept=".json" style="display:none" onchange="App.IO.importJSON(event)">
+    </div>
+  </div>
+
+  <div class="toolbar" id="tb">
+    <label>Bölüm</label>
+    <select id="fEp" onchange="App.Timeline.doFilter()"><option value="all">Tümü</option></select>
+    <label>Karakter</label>
+    <select id="fCh" onchange="App.Timeline.doFilter()"><option value="all">Tümü</option></select>
+    <div class="sep"></div>
+    <label>Snap</label>
+    <select id="snapSel" onchange="App.Interaction.setSnap(+this.value)">
+      <option value="0">Kapalı</option>
+      <option value="5">5sn</option>
+      <option value="10" selected>10sn</option>
+      <option value="15">15sn</option>
+      <option value="30">30sn</option>
+      <option value="60">60sn</option>
+    </select>
+    <div class="sep"></div>
+    <div id="catP" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+
+  <div class="main-wrap">
+    <div class="sp-panel" id="spPanel">
+      <div class="sp-resize" id="spResize"></div>
+      <div class="sp-header">
+        <h3>📝 Senaryo</h3>
+        <button class="close-btn" onclick="App.setViewMode('timeline')">✕</button>
+      </div>
+      <div class="sp-toolbar">
+        <button class="btn btn-s" onclick="App.Screenplay.addEpisode()">+ Bölüm</button>
+        <button class="btn btn-s" onclick="document.getElementById('docxIn').click()">📄 DOCX</button>
+        <input type="file" id="docxIn" accept=".docx" style="display:none" onchange="App.IO.handleDocx(event)">
+      </div>
+      <div class="sp-episodes" id="spEpisodes"></div>
+    </div>
+
+    <div class="tl-area" id="tlA">
+      <div class="tl-container" id="tlC"></div>
+    </div>
+
+    <div class="rpanel" id="rPanel"></div>
+  </div>
+
+  <div class="statusbar" id="statusbar">
+    <div class="st-item" id="stProj">Proje: Yeni Proje</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stEps">0 bölüm</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stScenes">0 sahne</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stEvents">0 olay</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stDur">00:00</div>
+    <div style="flex:1"></div>
+    <div class="st-item st-warn" id="stWarn" onclick="App.Panels.togglePanel('warn')"></div>
+    <div class="st-item" id="stSel"></div>
+    <div class="st-item" id="stSync" style="display:none"></div>
+  </div>
+</div>
+
+<div class="ttp" id="ttp"></div>
+<div class="ctx-menu" id="ctxMenu"></div>
+<div class="mbg" id="mbg" onclick="if(event.target===this)App.UI.closeModal()"><div class="mdl" id="mdl"></div></div>
+<div class="tbox" id="tbox"></div>
+
+<script>
+// ═══════════════════════════════════════
+// SENARYO TIMELINE EDITÖRÜ — MODÜLER MİMARİ
+// ═══════════════════════════════════════
+const App = {};
+
+// ═══ UTILS MODULE ═══
+App.Utils = (function(){
+  let _nid = 1;
+  const s2t = s => { const m=Math.floor(s/60); return m+':'+String(Math.floor(s%60)).padStart(2,'0'); };
+  const s2px = (s,pps) => s * (pps||0.5);
+  const px2s = (p,pps) => p / (pps||0.5);
+  const genId = (prefix) => prefix + (_nid++);
+  const setIdCounter = (n) => { _nid = n; };
+  const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
+  const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const debounce = (fn,ms) => { let t; return (...a) => { clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+  const snap = (val, grid) => grid > 0 ? Math.round(val/grid)*grid : val;
+  const epLbl = e => e==='fb'?'FB':'B'+e;
+  const deepClone = o => JSON.parse(JSON.stringify(o));
+  return { s2t, s2px, px2s, genId, setIdCounter, clamp, escHtml, debounce, snap, epLbl, deepClone };
+})();
+
+// ═══ STORE MODULE ═══
+App.Store = (function(){
+  const U = App.Utils;
+  const MAX_UNDO = 50;
+  let undoStack = [];
+  let redoStack = [];
+  let listeners = {};
+
+  // Default empty project
+  let project = {
+    meta: { title: 'Yeni Proje', author: '', settings: { episodeDuration: 2700, pixelsPerSecond: 0.5, snapGrid: 10 } },
+    categories: {
+      operasyon:{label:'Operasyon',color:'#ef4444'},
+      karakter:{label:'Karakter',color:'#3b82f6'},
+      organizasyon:{label:'Organizasyon',color:'#10b981'},
+      sistem:{label:'Sistem',color:'#f59e0b'},
+      flashback:{label:'Flashback',color:'#a855f7'},
+      ihanet:{label:'İhanet',color:'#f97316'}
+    },
+    characters: [],
+    episodes: [],
+    scenes: [],
+    events: [],
+    connections: []
+  };
+
+  // Event bus
+  function on(evt, fn) { if(!listeners[evt]) listeners[evt]=[]; listeners[evt].push(fn); }
+  function emit(evt, data) { (listeners[evt]||[]).forEach(fn => fn(data)); }
+
+  // Snapshot for undo
+  function snapshot() {
+    undoStack.push(U.deepClone(project));
+    if(undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+  }
+  function undo() {
+    if(!undoStack.length) return;
+    redoStack.push(U.deepClone(project));
+    project = undoStack.pop();
+    emit('change', {type:'undo'});
+  }
+  function redo() {
+    if(!redoStack.length) return;
+    undoStack.push(U.deepClone(project));
+    project = redoStack.pop();
+    emit('change', {type:'redo'});
+  }
+
+  function get() { return project; }
+  function set(p) { project = p; emit('change', {type:'set'}); }
+  function getPPS() { return project.meta.settings.pixelsPerSecond; }
+  function getEPDUR() { return project.meta.settings.episodeDuration; }
+  function getEPPX() { return getEPDUR() * getPPS(); }
+  function getSnap() { return project.meta.settings.snapGrid; }
+  function setSnap(v) { project.meta.settings.snapGrid = v; }
+
+  // Episode helpers
+  function getEpisodeIds() { return project.episodes.map(e=>e.id); }
+  function getEpisode(id) { return project.episodes.find(e=>e.id===id); }
+  function addEpisode(ep) { snapshot(); project.episodes.push(ep); project.episodes.sort((a,b)=>a.order-b.order); emit('change',{type:'addEp'}); }
+  function updateEpisode(id, data) { snapshot(); const ep=getEpisode(id); if(ep) Object.assign(ep,data); emit('change',{type:'updateEp'}); }
+  function removeEpisode(id) { snapshot(); project.episodes=project.episodes.filter(e=>e.id!==id); project.scenes=project.scenes.filter(s=>s.episodeId!==id); project.events=project.events.filter(e=>e.episodeId!==id); emit('change',{type:'removeEp'}); }
+
+  // Scene helpers
+  function getScenes(epId) { return project.scenes.filter(s=>s.episodeId===epId).sort((a,b)=>a.order-b.order); }
+  function getScene(id) { return project.scenes.find(s=>s.id===id); }
+  function addScene(sc) { snapshot(); project.scenes.push(sc); emit('change',{type:'addScene'}); }
+  function updateScene(id, data) { snapshot(); const sc=getScene(id); if(sc) Object.assign(sc,data); emit('change',{type:'updateScene'}); }
+  function removeScene(id) { snapshot(); project.scenes=project.scenes.filter(s=>s.id!==id); project.events=project.events.filter(e=>e.sceneId!==id); emit('change',{type:'removeScene'}); }
+
+  // Event helpers
+  function getEvents(epId) { return epId ? project.events.filter(e=>e.episodeId===epId) : project.events; }
+  function getEvent(id) { return project.events.find(e=>e.id===id); }
+  function addEvent(ev) { snapshot(); project.events.push(ev); emit('change',{type:'addEvent'}); }
+  function updateEvent(id, data) { snapshot(); const ev=getEvent(id); if(ev) Object.assign(ev,data); emit('change',{type:'updateEvent'}); }
+  function removeEvent(id) { snapshot(); project.events=project.events.filter(e=>e.id!==id); project.connections=project.connections.filter(c=>c.from!==id&&c.to!==id); emit('change',{type:'removeEvent'}); }
+
+  // Connection helpers
+  function getConnections(evId) { return evId ? project.connections.filter(c=>c.from===evId||c.to===evId) : project.connections; }
+  function addConnection(cn) { snapshot(); if(!project.connections.some(c=>c.from===cn.from&&c.to===cn.to&&c.type===cn.type)){project.connections.push(cn);} emit('change',{type:'addCn'}); }
+  function removeConnection(from,to,type) { snapshot(); project.connections=project.connections.filter(c=>!(c.from===from&&c.to===to&&c.type===type)); emit('change',{type:'removeCn'}); }
+
+  // Character helpers
+  function getCharacters() { return project.characters; }
+  function addCharacter(ch) { snapshot(); project.characters.push(ch); emit('change',{type:'addChar'}); }
+  function removeCharacter(id) { snapshot(); project.characters=project.characters.filter(c=>c.id!==id); emit('change',{type:'removeChar'}); }
+
+  // Category helpers
+  function getCategories() { return project.categories; }
+  function addCategory(key, data) { snapshot(); project.categories[key]=data; emit('change',{type:'addCat'}); }
+  function removeCategory(key) { snapshot(); delete project.categories[key]; emit('change',{type:'removeCat'}); }
+
+  // Batch update without multiple snapshots
+  function batch(fn) { snapshot(); fn(); emit('change',{type:'batch'}); }
+
+  return {
+    on, emit, snapshot, undo, redo, get, set, getPPS, getEPDUR, getEPPX, getSnap, setSnap,
+    getEpisodeIds, getEpisode, addEpisode, updateEpisode, removeEpisode,
+    getScenes, getScene, addScene, updateScene, removeScene,
+    getEvents, getEvent, addEvent, updateEvent, removeEvent,
+    getConnections, addConnection, removeConnection,
+    getCharacters, addCharacter, removeCharacter,
+    getCategories, addCategory, removeCategory, batch
+  };
+})();
+
+// ═══ UI MODULE ═══
+App.UI = (function(){
+  function toast(msg) {
+    const t = document.createElement('div');
+    t.className = 'tst'; t.textContent = msg;
+    document.getElementById('tbox').appendChild(t);
+    setTimeout(() => t.remove(), 2800);
+  }
+
+  function openModal(html) {
+    document.getElementById('mdl').innerHTML = html;
+    document.getElementById('mbg').classList.add('open');
+  }
+  function closeModal() { document.getElementById('mbg').classList.remove('open'); }
+
+  function showTooltip(html, anchorEl) {
+    const tt = document.getElementById('ttp');
+    tt.innerHTML = html;
+    const r = anchorEl.getBoundingClientRect();
+    tt.style.left = Math.min(r.left, window.innerWidth - 310) + 'px';
+    tt.style.top = (r.bottom + 8) + 'px';
+    tt.classList.add('show');
+  }
+  function hideTooltip() { document.getElementById('ttp').classList.remove('show'); }
+
+  function showContextMenu(x, y, items) {
+    const cm = document.getElementById('ctxMenu');
+    let h = '';
+    items.forEach(item => {
+      if(item === 'sep') { h += '<div class="ctx-sep"></div>'; return; }
+      h += `<div class="ctx-item${item.danger?' danger':''}" data-act="${item.id}">${item.icon||''} ${item.label}</div>`;
+    });
+    cm.innerHTML = h;
+    cm.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+    cm.style.top = Math.min(y, window.innerHeight - 300) + 'px';
+    cm.classList.add('show');
+
+    // Bind clicks
+    cm.querySelectorAll('.ctx-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const act = el.dataset.act;
+        const item = items.find(i => i.id === act);
+        if(item && item.action) item.action();
+        hideContextMenu();
+      });
+    });
+
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('click', _ctxClose, {once:true});
+      document.addEventListener('contextmenu', _ctxClose, {once:true});
+    }, 10);
+  }
+  function _ctxClose() { hideContextMenu(); }
+  function hideContextMenu() { document.getElementById('ctxMenu').classList.remove('show'); }
+
+  function updateStatusBar() {
+    const P = App.Store.get();
+    document.getElementById('stProj').textContent = 'Proje: ' + P.meta.title;
+    document.getElementById('stEps').textContent = P.episodes.length + ' bölüm';
+    document.getElementById('stScenes').textContent = P.scenes.length + ' sahne';
+    document.getElementById('stEvents').textContent = P.events.length + ' olay';
+    const totalDur = P.events.reduce((s,e) => s + (e.dur||0), 0);
+    document.getElementById('stDur').textContent = App.Utils.s2t(totalDur);
+    const warns = App.Analysis ? App.Analysis.getWarnings().length : 0;
+    const wEl = document.getElementById('stWarn');
+    wEl.textContent = warns ? '⚠ ' + warns + ' uyarı' : '';
+    const bdg = document.getElementById('wBdg');
+    bdg.textContent = warns; bdg.style.display = warns ? '' : 'none';
+    const sel = App.Interaction ? App.Interaction.getSelection() : [];
+    document.getElementById('stSel').textContent = sel.length ? sel.length + ' seçili' : '';
+  }
+
+  return { toast, openModal, closeModal, showTooltip, hideTooltip, showContextMenu, hideContextMenu, updateStatusBar };
+})();
+
+// ═══ TIMELINE MODULE ═══
+App.Timeline = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+  let zoomLvl = 1;
+  let flt = { ep:'all', ch:'all', cats:new Set() };
+
+  function initFilter() {
+    const cats = S.getCategories();
+    flt.cats = new Set(Object.keys(cats));
+  }
+
+  function buildToolbar() {
+    const P = S.get();
+    // Episodes
+    const es = document.getElementById('fEp');
+    es.innerHTML = '<option value="all">Tümü</option>';
+    P.episodes.forEach(ep => {
+      const o = document.createElement('option');
+      o.value = ep.id; o.textContent = U.epLbl(ep.number);
+      es.appendChild(o);
+    });
+    // Characters
+    const cs = document.getElementById('fCh');
+    cs.innerHTML = '<option value="all">Tümü</option>';
+    P.characters.forEach(ch => {
+      const o = document.createElement('option');
+      o.value = ch.id; o.textContent = ch.name;
+      cs.appendChild(o);
+    });
+    // Category pills
+    const cp = document.getElementById('catP'); cp.innerHTML = '';
+    Object.entries(P.categories).forEach(([k,v]) => {
+      const p = document.createElement('div');
+      p.className = 'pill' + (flt.cats.has(k)?'':' off');
+      p.dataset.cat = k;
+      p.style.borderColor = v.color; p.style.color = v.color;
+      p.textContent = v.label;
+      p.onclick = () => { p.classList.toggle('off'); if(flt.cats.has(k)) flt.cats.delete(k); else flt.cats.add(k); doFilter(); };
+      cp.appendChild(p);
+    });
+  }
+
+  function render() {
+    const P = S.get();
+    const cont = document.getElementById('tlC');
+    cont.innerHTML = '';
+    const PPS = S.getPPS();
+    const EPDUR = S.getEPDUR();
+    const EPPX = S.getEPPX();
+    const LH = 46, HDRW = 100, RH = 32;
+
+    if(!P.episodes.length) {
+      cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx3);">Timeline boş. Senaryo panelinden bölüm ekleyin veya Demo Proje yükleyin.</div>';
+      applyZoom();
+      return;
+    }
+
+    // Lane calc for each episode
+    P.episodes.forEach(ep => {
+      const rowEvs = P.events.filter(e => e.episodeId === ep.id).sort((a,b) => a.s - b.s);
+      const lanes = [];
+      rowEvs.forEach(ev => {
+        let lane = 0;
+        for(; lane < lanes.length; lane++) { if(ev.s >= lanes[lane]) break; }
+        if(lane >= lanes.length) lanes.push(0);
+        lanes[lane] = ev.s + ev.dur;
+        ev._lane = lane;
+      });
+      rowEvs.forEach(ev => ev._laneCount = Math.max(lanes.length, 1));
+    });
+
+    // Ruler
+    const maxMin = Math.ceil(EPDUR / 60);
+    const ruler = document.createElement('div');
+    ruler.className = 'ruler'; ruler.style.width = EPPX + 'px';
+    for(let m = 0; m <= maxMin; m++) {
+      const tk = document.createElement('div');
+      tk.className = 'rtick' + (m%5===0?' major':' minor');
+      tk.style.left = U.s2px(m*60, PPS) + 'px';
+      if(m%5===0) tk.innerHTML = `<span style="position:absolute;bottom:3px;left:4px">${m}dk</span>`;
+      ruler.appendChild(tk);
+    }
+    // Snap guide
+    const sg = document.createElement('div');
+    sg.className = 'snap-guide'; sg.id = 'snapGuide';
+    ruler.appendChild(sg);
+    cont.appendChild(ruler);
+
+    // Rows
+    let cumY = RH;
+    P.episodes.forEach(ep => {
+      const rowEvs = P.events.filter(e => e.episodeId === ep.id);
+      const laneCount = rowEvs.length > 0 ? Math.max(...rowEvs.map(e => (e._lane||0))) + 1 : 1;
+      const rowH = Math.max(laneCount * (LH + 6) + 16, 64);
+
+      const row = document.createElement('div');
+      row.className = 'ep-row'; row.style.height = rowH + 'px';
+
+      const hdr = document.createElement('div');
+      hdr.className = 'ep-hdr'; hdr.style.height = rowH + 'px';
+      const epDurTotal = rowEvs.reduce((s,e) => Math.max(s, e.s+e.dur), 0);
+      hdr.innerHTML = `<div class="num">${ep.number==='fb'?'FB':ep.number}</div><div class="sub">${ep.title||((ep.number==='fb')?'Flashback':'Bölüm')}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
+      row.appendChild(hdr);
+
+      const body = document.createElement('div');
+      body.className = 'ep-body'; body.dataset.ep = ep.id; body.style.height = rowH + 'px'; body.style.width = EPPX + 'px';
+
+      // Gridlines
+      for(let m = 0; m <= maxMin; m++) {
+        const gl = document.createElement('div');
+        gl.className = 'gl' + (m%5===0?' ma':' mi');
+        gl.style.left = U.s2px(m*60, PPS) + 'px';
+        body.appendChild(gl);
+      }
+
+      // Event blocks
+      rowEvs.forEach(ev => {
+        const cat = P.categories[ev.category] || {color:'#888'};
+        const bl = document.createElement('div');
+        bl.className = 'evb'; bl.dataset.id = ev.id; bl.dataset.c = ev.category;
+        bl.style.left = U.s2px(ev.s, PPS) + 'px';
+        bl.style.width = Math.max(U.s2px(ev.dur, PPS), 20) + 'px';
+        bl.style.top = (8 + (ev._lane||0) * (LH + 6)) + 'px';
+        bl.style.height = LH + 'px';
+        // Dynamic category colors
+        const c = cat.color;
+        bl.style.background = c + '1a'; bl.style.borderColor = c + '4d'; bl.style.color = c;
+        const hasScene = ev.sceneId ? '<span class="scene-link">📝</span>' : '';
+        bl.innerHTML = `<div class="rh l"></div><span class="etxt">${U.escHtml(ev.title)}</span>${hasScene}<div class="rh r"></div>`;
+
+        bl.addEventListener('mouseenter', () => {
+          if(App.Interaction && App.Interaction.isDragging()) return;
+          hlRel(ev.id);
+          const chNames = (ev.characters||[]).map(cid => { const ch = P.characters.find(c=>c.id===cid); return ch?ch.name:cid; });
+          App.UI.showTooltip(`<div class="tt">${U.escHtml(ev.title)}</div><div class="td">${U.escHtml(ev.description||'')}</div>
+            <div class="tm">${U.epLbl(P.episodes.find(e=>e.id===ev.episodeId)?.number||'?')} | ${U.s2t(ev.s)}–${U.s2t(ev.s+ev.dur)} (${Math.round(ev.dur/60)}dk)</div>
+            ${chNames.length?'<div class="tm">'+chNames.join(', ')+'</div>':''}`, bl);
+        });
+        bl.addEventListener('mouseleave', () => {
+          if(App.Interaction && App.Interaction.isDragging()) return;
+          clrHL(); App.UI.hideTooltip();
+        });
+        bl.addEventListener('contextmenu', (e) => { e.preventDefault(); App.Interaction.showEventContext(e, ev.id); });
+
+        body.appendChild(bl);
+      });
+
+      row.appendChild(body);
+      cont.appendChild(row);
+      cumY += rowH;
+    });
+
+    cont.style.height = cumY + 'px';
+    cont.style.width = (HDRW + EPPX + 40) + 'px';
+    applyZoom();
+    doFilter();
+  }
+
+  function hlRel(id) {
+    const cns = App.Store.get().connections;
+    const rel = new Set([id]);
+    cns.forEach(c => { if(c.from===id) rel.add(c.to); if(c.to===id) rel.add(c.from); });
+    document.querySelectorAll('.evb').forEach(el => {
+      if(rel.has(el.dataset.id)) el.classList.add('hl'); else el.classList.add('dim');
+    });
+  }
+  function clrHL() {
+    document.querySelectorAll('.evb').forEach(el => el.classList.remove('hl','dim','warn-hl','impact-1','impact-2','impact-3'));
+  }
+
+  function applyZoom() {
+    const c = document.getElementById('tlC');
+    c.style.transform = `scale(${zoomLvl})`; c.style.transformOrigin = '0 0';
+    document.getElementById('zLvl').textContent = Math.round(zoomLvl*100) + '%';
+  }
+  function zoomIn() { zoomLvl = Math.min(3, zoomLvl + 0.15); applyZoom(); }
+  function zoomOut() { zoomLvl = Math.max(0.25, zoomLvl - 0.15); applyZoom(); }
+  function zoomReset() { zoomLvl = 1; applyZoom(); }
+  function getZoom() { return zoomLvl; }
+  function setZoom(z) { zoomLvl = z; applyZoom(); }
+
+  function doFilter() {
+    flt.ep = document.getElementById('fEp').value;
+    flt.ch = document.getElementById('fCh').value;
+    const P = App.Store.get();
+    document.querySelectorAll('.evb').forEach(el => {
+      const ev = P.events.find(e => e.id === el.dataset.id);
+      if(!ev) { el.style.display = 'none'; return; }
+      let v = true;
+      if(flt.ep !== 'all' && ev.episodeId !== flt.ep) v = false;
+      if(flt.ch !== 'all' && !(ev.characters||[]).includes(flt.ch)) v = false;
+      if(!flt.cats.has(ev.category)) v = false;
+      el.style.display = v ? '' : 'none';
+    });
+    document.querySelectorAll('.ep-row').forEach(row => {
+      if(flt.ep === 'all') { row.style.display = ''; return; }
+      const body = row.querySelector('.ep-body');
+      if(!body) return;
+      row.style.display = body.dataset.ep === flt.ep ? '' : 'none';
+    });
+  }
+
+  function scrollToEvent(id) {
+    const el = document.querySelector(`[data-id="${id}"]`);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+  }
+
+  return { render, buildToolbar, initFilter, applyZoom, zoomIn, zoomOut, zoomReset, getZoom, setZoom, doFilter, hlRel, clrHL, scrollToEvent };
+})();
+
+// ═══ SCREENPLAY MODULE ═══
+App.Screenplay = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+  let openEps = new Set();
+  let activeSceneId = null;
+
+  function render() {
+    const P = S.get();
+    const cont = document.getElementById('spEpisodes');
+    if(!P.episodes.length) {
+      cont.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx4);font-size:12px;line-height:1.6;">Henüz bölüm yok.<br>Yukarıdan <b>+ Bölüm</b> ekleyin veya<br><b>Demo Proje</b> yükleyin.</div>';
+      return;
+    }
+    let h = '';
+    P.episodes.forEach(ep => {
+      const scenes = S.getScenes(ep.id);
+      const isOpen = openEps.has(ep.id);
+      const sceneCount = scenes.length;
+      const totalDur = P.events.filter(e=>e.episodeId===ep.id).reduce((s,e)=>s+e.dur,0);
+      h += `<div class="ep-tree">
+        <div class="ep-tree-hdr" onclick="App.Screenplay.toggleEp('${ep.id}')">
+          <span class="arrow${isOpen?' open':''}">▶</span>
+          <div class="ep-info">
+            <span class="ep-num">${ep.number==='fb'?'FB':'Bölüm '+ep.number}</span>
+            <span class="ep-title">${U.escHtml(ep.title||'')}</span>
+          </div>
+          <span class="ep-meta">${sceneCount} sahne · ${U.s2t(totalDur)}</span>
+        </div>
+        <div class="ep-tree-body${isOpen?' open':''}">`;
+      scenes.forEach((sc, idx) => {
+        const isActive = sc.id === activeSceneId;
+        const catObj = P.categories[sc.category]||{color:'#888',label:'?'};
+        const charNames = (sc.characters||[]).map(cid=>{const c=P.characters.find(x=>x.id===cid);return c?c.name[0]:'?';});
+        h += `<div class="scene-card${isActive?' active expanded':''}" data-sid="${sc.id}">
+          <div class="scene-card-hdr" onclick="App.Screenplay.selectScene('${sc.id}')">
+            <span class="scene-card-title">${idx+1}. ${U.escHtml(sc.title||'Adsız Sahne')}</span>
+            <div class="scene-card-badges">
+              ${sc.location?'<span class="scene-card-badge">'+U.escHtml(sc.location)+'</span>':''}
+              ${sc.timeOfDay?'<span class="scene-card-badge">'+U.escHtml(sc.timeOfDay)+'</span>':''}
+              <span class="scene-card-badge" style="color:${catObj.color}">${catObj.label}</span>
+            </div>
+          </div>
+          <div class="scene-card-chars" onclick="App.Screenplay.selectScene('${sc.id}')">${charNames.map(n=>'<div class="scene-card-char">'+n+'</div>').join('')}</div>
+          <div class="scene-card-body">
+            ${renderSceneEditor(sc)}
+          </div>
+        </div>`;
+      });
+      h += `<button class="add-scene-btn" onclick="event.stopPropagation();App.Screenplay.addScene('${ep.id}')">+ Sahne Ekle</button>`;
+      h += '</div></div>';
+    });
+    cont.innerHTML = h;
+  }
+
+  function renderSceneEditor(sc) {
+    const P = S.get();
+    const content = sc.content || [];
+    let h = '<div class="scene-editor">';
+    // Scene metadata fields
+    const catOpts = Object.entries(P.categories).map(([k,v]) => `<option value="${k}"${k===sc.category?' selected':''}>${v.label}</option>`).join('');
+    h += `<div class="scene-meta-row">
+      <div class="scene-meta-field">
+        <label>Başlık</label>
+        <input type="text" value="${U.escHtml(sc.title||'')}" onchange="App.Screenplay.saveSceneMeta('${sc.id}','title',this.value)" onclick="event.stopPropagation()" />
+      </div>
+      <div class="scene-meta-field" style="flex:0 0 110px">
+        <label>Kategori</label>
+        <select onchange="App.Screenplay.saveSceneMeta('${sc.id}','category',this.value)" onclick="event.stopPropagation()">${catOpts}</select>
+      </div>
+    </div>
+    <div class="scene-meta-row">
+      <div class="scene-meta-field">
+        <label>Mekan</label>
+        <select onchange="App.Screenplay.saveSceneMeta('${sc.id}','location',this.value)" onclick="event.stopPropagation()">
+          <option value=""${!sc.location?' selected':''}>—</option>
+          <option value="İÇ"${'İÇ'===sc.location?' selected':''}>İÇ</option>
+          <option value="DIŞ"${'DIŞ'===sc.location?' selected':''}>DIŞ</option>
+          <option value="İÇ/DIŞ"${'İÇ/DIŞ'===sc.location?' selected':''}>İÇ/DIŞ</option>
+        </select>
+      </div>
+      <div class="scene-meta-field">
+        <label>Zaman</label>
+        <select onchange="App.Screenplay.saveSceneMeta('${sc.id}','timeOfDay',this.value)" onclick="event.stopPropagation()">
+          <option value=""${!sc.timeOfDay?' selected':''}>—</option>
+          <option value="GÜN"${'GÜN'===sc.timeOfDay?' selected':''}>GÜN</option>
+          <option value="GECE"${'GECE'===sc.timeOfDay?' selected':''}>GECE</option>
+          <option value="AKŞAM"${'AKŞAM'===sc.timeOfDay?' selected':''}>AKŞAM</option>
+          <option value="ŞAFAK"${'ŞAFAK'===sc.timeOfDay?' selected':''}>ŞAFAK</option>
+        </select>
+      </div>
+    </div>`;
+    // Character tags
+    const scChars = (sc.characters||[]).map(cid => P.characters.find(c=>c.id===cid)).filter(Boolean);
+    if(scChars.length) {
+      h += '<div class="scene-chars-row">';
+      scChars.forEach(c => {
+        h += `<span class="scene-char-tag"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${sc.id}','${c.id}')">✕</span></span>`;
+      });
+      h += '</div>';
+    }
+    // Full screenplay text area with @ mention
+    const scText = sc.screenplay || '';
+    h += `<div class="scene-screenplay-wrap">
+      <div class="scene-screenplay-label">Senaryo Metni <span style="color:var(--tx4);font-weight:400;text-transform:none">— karakter eklemek için <b style="color:var(--cyan)">@</b> yazın</span></div>
+      <div class="scene-screenplay" contenteditable="true" data-sid="${sc.id}" data-placeholder="Sahne metnini buraya yazın... Karakter eklemek için @ kullanın.">${formatScreenplayHTML(sc.id, scText)}</div>
+      <div class="mention-popup" id="mp_${sc.id}"></div>
+    </div>`;
+    content.forEach((block, bi) => {
+      if(block.type === 'action') {
+        h += `<div class="scene-block"><div class="scene-block-action" contenteditable="true" data-sid="${sc.id}" data-bi="${bi}" onblur="App.Screenplay.saveBlock('${sc.id}',${bi},this.textContent)">${U.escHtml(block.text||'')}</div></div>`;
+      } else if(block.type === 'dialogue') {
+        const charSel = P.characters.map(c=>`<option value="${c.id}"${c.id===block.characterId?' selected':''}>${c.name}</option>`).join('');
+        h += `<div class="scene-block"><div class="scene-block-dialogue">
+          <div class="char-line"><select onchange="App.Screenplay.saveBlockChar('${sc.id}',${bi},this.value)">${charSel}</select></div>
+          ${block.parenthetical?'<div class="paren">('+U.escHtml(block.parenthetical)+')</div>':''}
+          <div class="dial-text" contenteditable="true" data-sid="${sc.id}" data-bi="${bi}" onblur="App.Screenplay.saveBlock('${sc.id}',${bi},this.textContent)">${U.escHtml(block.text||'')}</div>
+        </div></div>`;
+      } else if(block.type === 'transition') {
+        h += `<div class="scene-block"><div class="scene-block-transition" contenteditable="true" onblur="App.Screenplay.saveBlock('${sc.id}',${bi},this.textContent)">${U.escHtml(block.text||'KESME')}</div></div>`;
+      }
+    });
+    h += `<div class="scene-block-acts">
+      <button class="btn btn-s" onclick="event.stopPropagation();App.Screenplay.addBlock('${sc.id}','action')">+ Aksiyon</button>
+      <button class="btn btn-s" onclick="event.stopPropagation();App.Screenplay.addBlock('${sc.id}','dialogue')">+ Diyalog</button>
+      <button class="btn btn-s" onclick="event.stopPropagation();App.Screenplay.addBlock('${sc.id}','transition')">+ Geçiş</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-s" style="color:var(--red)" onclick="event.stopPropagation();App.Screenplay.deleteScene('${sc.id}')">Sil</button>
+    </div>`;
+    h += '</div>';
+    return h;
+  }
+
+  function toggleEp(epId) {
+    if(openEps.has(epId)) openEps.delete(epId); else openEps.add(epId);
+    render();
+  }
+
+  function selectScene(scId) {
+    activeSceneId = activeSceneId === scId ? null : scId;
+    render();
+    // Sync: highlight in timeline
+    const sc = S.getScene(scId);
+    if(sc) {
+      const ev = S.get().events.find(e => e.sceneId === scId);
+      if(ev) App.Timeline.scrollToEvent(ev.id);
+    }
+  }
+
+  function addEpisode() {
+    const P = S.get();
+    const maxNum = P.episodes.reduce((m,e) => typeof e.number==='number'?Math.max(m,e.number):m, 0);
+    const newNum = maxNum + 1;
+    const ep = { id: U.genId('ep'), number: newNum, title: '', duration: S.getEPDUR(), type:'normal', order: newNum };
+    // Set open BEFORE triggering render
+    openEps.add(ep.id);
+    S.addEpisode(ep);
+  }
+
+  function addScene(epId) {
+    const P = S.get();
+    const existing = S.getScenes(epId);
+    const order = existing.length ? Math.max(...existing.map(s=>s.order)) + 1 : 1;
+    const sc = {
+      id: U.genId('sc'), episodeId: epId, order, title: 'Yeni Sahne', location: '',
+      timeOfDay: '', category: 'karakter', characters: [], timelineStart: 0, timelineDuration: 180,
+      content: [{ type: 'action', text: '' }]
+    };
+    // Set active BEFORE triggering renders
+    openEps.add(epId);
+    activeSceneId = sc.id;
+    // Now add to store (triggers render with correct activeSceneId)
+    S.snapshot();
+    P.scenes.push(sc);
+    // Auto-create timeline event without double-render
+    const epEvs = P.events.filter(e => e.episodeId === sc.episodeId);
+    const lastEnd = epEvs.reduce((m,e) => Math.max(m, e.s + e.dur), 0);
+    const dur = calcSceneDuration(sc);
+    const s = Math.min(lastEnd + 10, S.getEPDUR() - dur);
+    P.events.push({
+      id: U.genId('ev'), title: sc.title, description: '', episodeId: sc.episodeId,
+      sceneId: sc.id, category: sc.category, characters: sc.characters||[],
+      s: Math.max(0, s), dur: dur
+    });
+    S.emit('change', {type:'addScene'});
+    // Focus the first editable block after render
+    setTimeout(() => {
+      const el = document.querySelector(`[data-sid="${sc.id}"][contenteditable]`);
+      if(el) el.focus();
+    }, 50);
+  }
+
+  function deleteScene(scId) {
+    if(!confirm('Bu sahne silinsin mi?')) return;
+    S.removeScene(scId);
+    if(activeSceneId === scId) activeSceneId = null;
+  }
+
+  function addBlock(scId, type) {
+    const sc = S.getScene(scId);
+    if(!sc) return;
+    const block = { type };
+    if(type === 'action') block.text = '';
+    else if(type === 'dialogue') { block.characterId = ''; block.text = ''; block.parenthetical = ''; }
+    else if(type === 'transition') block.text = 'KESME';
+    S.snapshot();
+    sc.content = sc.content || [];
+    sc.content.push(block);
+    const bi = sc.content.length - 1;
+    updateTimelineDuration(sc);
+    S.emit('change', {type:'updateScene'});
+    // Focus the new block after render
+    setTimeout(() => {
+      const blocks = document.querySelectorAll(`[data-sid="${scId}"][contenteditable]`);
+      const lastBlock = blocks[blocks.length - 1];
+      if(lastBlock) lastBlock.focus();
+      // For dialogue, focus the text area not the select
+      if(type === 'dialogue') {
+        const dialTexts = document.querySelectorAll(`.scene-card.active .dial-text[contenteditable]`);
+        const last = dialTexts[dialTexts.length - 1];
+        if(last) last.focus();
+      }
+    }, 50);
+  }
+
+  function saveBlock(scId, bi, text) {
+    const sc = S.getScene(scId);
+    if(!sc || !sc.content[bi]) return;
+    if(sc.content[bi].text === text) return;
+    S.snapshot();
+    sc.content[bi].text = text;
+    // Update timeline duration silently (no full re-render to preserve editing)
+    updateTimelineDuration(sc);
+    // Only update timeline + status, NOT screenplay panel (to preserve focus)
+    App.Analysis.invalidateCache();
+    App.Timeline.render();
+    App.UI.updateStatusBar();
+    if(App.Sync && App.Sync.isInRoom()) App.Sync.pushChange('scenes', 800);
+  }
+
+  function saveSceneMeta(scId, field, value) {
+    const sc = S.getScene(scId);
+    if(!sc) return;
+    if(sc[field] === value) return;
+    S.snapshot();
+    sc[field] = value;
+    // Sync to linked timeline event
+    const P = S.get();
+    const ev = P.events.find(e => e.sceneId === scId);
+    if(ev) {
+      if(field === 'title') ev.title = value;
+      if(field === 'category') ev.category = value;
+    }
+    // Re-render timeline + status but NOT screenplay (preserve editing)
+    App.Analysis.invalidateCache();
+    App.Timeline.render();
+    App.UI.updateStatusBar();
+    // Update scene card header badges without losing focus
+    const card = document.querySelector(`.scene-card[data-sid="${scId}"]`);
+    if(card) {
+      const catObj = P.categories[sc.category]||{color:'#888',label:'?'};
+      const badges = card.querySelector('.scene-card-badges');
+      if(badges) {
+        badges.innerHTML = `${sc.location?'<span class="scene-card-badge">'+U.escHtml(sc.location)+'</span>':''}${sc.timeOfDay?'<span class="scene-card-badge">'+U.escHtml(sc.timeOfDay)+'</span>':''}<span class="scene-card-badge" style="color:${catObj.color}">${catObj.label}</span>`;
+      }
+      if(field === 'title') {
+        const titleEl = card.querySelector('.scene-card-title');
+        if(titleEl) {
+          const idx = titleEl.textContent.match(/^(\d+)\./);
+          titleEl.textContent = (idx?idx[0]+' ':'')+value;
+        }
+      }
+    }
+    if(App.Sync && App.Sync.isInRoom()) { App.Sync.pushChange('scenes'); App.Sync.pushChange('events'); }
+  }
+
+  // ── SCREENPLAY TEXT WITH @ MENTION ──
+  let mentionState = null; // { scId, query, range, popupEl }
+
+  function formatScreenplayHTML(scId, text) {
+    if(!text) return '';
+    const P = S.get();
+    // Replace @CharName with mention spans
+    return text.replace(/@\[([^\]]+)\]\(([^)]+)\)/g, (m, name, id) => {
+      const c = P.characters.find(x => x.id === id);
+      const color = c ? c.color : 'var(--cyan)';
+      return `<span class="mention" contenteditable="false" data-char-id="${id}" style="border-bottom:2px solid ${color}">@${U.escHtml(name)}</span>`;
+    });
+  }
+
+  function getScreenplayText(el) {
+    // Convert DOM back to plain text with mention markers
+    let text = '';
+    el.childNodes.forEach(node => {
+      if(node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if(node.classList && node.classList.contains('mention')) {
+        const cid = node.dataset.charId;
+        const name = node.textContent.replace(/^@/, '');
+        text += `@[${name}](${cid})`;
+      } else if(node.tagName === 'BR') {
+        text += '\n';
+      } else if(node.tagName === 'DIV' || node.tagName === 'P') {
+        if(text && !text.endsWith('\n')) text += '\n';
+        text += node.textContent || '';
+      } else {
+        text += node.textContent || '';
+      }
+    });
+    return text;
+  }
+
+  function saveScreenplay(scId, el) {
+    const sc = S.getScene(scId);
+    if(!sc) return;
+    const newText = getScreenplayText(el);
+    if(sc.screenplay === newText) return;
+    S.snapshot();
+    sc.screenplay = newText;
+    // Extract characters from mentions and sync
+    const mentionIds = [];
+    el.querySelectorAll('.mention[data-char-id]').forEach(m => {
+      const cid = m.dataset.charId;
+      if(cid && !mentionIds.includes(cid)) mentionIds.push(cid);
+    });
+    // Add any mentioned characters not already in scene
+    let changed = false;
+    sc.characters = sc.characters || [];
+    mentionIds.forEach(cid => {
+      if(!sc.characters.includes(cid)) { sc.characters.push(cid); changed = true; }
+    });
+    updateTimelineDuration(sc);
+    App.Analysis.invalidateCache();
+    App.Timeline.render();
+    App.UI.updateStatusBar();
+    if(changed) {
+      // Update character tags without full re-render
+      const P = S.get();
+      const card = document.querySelector(`.scene-card[data-sid="${scId}"]`);
+      if(card) {
+        const charRow = card.querySelector('.scene-chars-row');
+        const scChars = (sc.characters||[]).map(cid => P.characters.find(c=>c.id===cid)).filter(Boolean);
+        const html = scChars.map(c => `<span class="scene-char-tag"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${scId}','${c.id}')">✕</span></span>`).join('');
+        if(charRow) { charRow.innerHTML = html; }
+        else {
+          const editor = card.querySelector('.scene-editor');
+          if(editor) {
+            const row = document.createElement('div');
+            row.className = 'scene-chars-row';
+            row.innerHTML = html;
+            editor.insertBefore(row, editor.querySelector('.scene-screenplay-wrap'));
+          }
+        }
+      }
+    }
+    if(App.Sync && App.Sync.isInRoom()) App.Sync.pushChange('scenes', 800);
+  }
+
+  function removeSceneChar(scId, charId) {
+    const sc = S.getScene(scId);
+    if(!sc) return;
+    S.snapshot();
+    sc.characters = (sc.characters||[]).filter(c => c !== charId);
+    // Also sync to timeline event
+    const P = S.get();
+    const ev = P.events.find(e => e.sceneId === scId);
+    if(ev) ev.characters = sc.characters.slice();
+    S.emit('change', {type:'updateScene'});
+  }
+
+  function handleMentionInput(e) {
+    const el = e.target.closest('.scene-screenplay');
+    if(!el) return;
+    const scId = el.dataset.sid;
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    // Get text before cursor in current text node
+    if(range.startContainer.nodeType !== Node.TEXT_NODE) { closeMentionPopup(); return; }
+    const textBefore = range.startContainer.textContent.substring(0, range.startOffset);
+    const atIdx = textBefore.lastIndexOf('@');
+
+    if(atIdx === -1) { closeMentionPopup(); return; }
+    // Check no space between @ and cursor (allow Turkish characters)
+    const query = textBefore.substring(atIdx + 1);
+    if(query.includes(' ') && query.trim().includes(' ')) { closeMentionPopup(); return; }
+
+    const P = S.get();
+    const q = query.toLowerCase();
+    const matches = P.characters.filter(c => c.name.toLowerCase().includes(q));
+
+    const popup = document.getElementById('mp_' + scId);
+    if(!popup) return;
+
+    if(!matches.length) {
+      popup.innerHTML = '<div class="mp-empty">Karakter bulunamadı</div>';
+      popup.classList.add('open');
+      mentionState = { scId, query, textNode: range.startContainer, atIdx, popupEl: popup, matches: [], activeIdx: 0 };
+      positionPopup(popup, range);
+      return;
+    }
+
+    let html = '';
+    matches.forEach((c, i) => {
+      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Screenplay.insertMention('${scId}','${c.id}')"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
+    });
+    popup.innerHTML = html;
+    popup.classList.add('open');
+    mentionState = { scId, query, textNode: range.startContainer, atIdx, popupEl: popup, matches, activeIdx: 0 };
+    positionPopup(popup, range);
+  }
+
+  function positionPopup(popup, range) {
+    const rect = range.getBoundingClientRect();
+    const wrapRect = popup.parentElement.getBoundingClientRect();
+    popup.style.left = Math.max(0, rect.left - wrapRect.left) + 'px';
+    popup.style.top = (rect.bottom - wrapRect.top + 4) + 'px';
+  }
+
+  function closeMentionPopup() {
+    if(mentionState && mentionState.popupEl) {
+      mentionState.popupEl.classList.remove('open');
+    }
+    mentionState = null;
+  }
+
+  function handleMentionKeydown(e) {
+    if(!mentionState || !mentionState.matches.length) {
+      if(mentionState && e.key === 'Escape') { closeMentionPopup(); e.preventDefault(); }
+      return;
+    }
+    const items = mentionState.popupEl.querySelectorAll('.mp-item');
+    if(e.key === 'ArrowDown') {
+      e.preventDefault();
+      mentionState.activeIdx = Math.min(mentionState.activeIdx + 1, items.length - 1);
+      items.forEach((it, i) => it.classList.toggle('active', i === mentionState.activeIdx));
+      items[mentionState.activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'ArrowUp') {
+      e.preventDefault();
+      mentionState.activeIdx = Math.max(mentionState.activeIdx - 1, 0);
+      items.forEach((it, i) => it.classList.toggle('active', i === mentionState.activeIdx));
+      items[mentionState.activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const active = items[mentionState.activeIdx];
+      if(active) insertMention(mentionState.scId, active.dataset.cid);
+    } else if(e.key === 'Escape') {
+      e.preventDefault();
+      closeMentionPopup();
+    }
+  }
+
+  function insertMention(scId, charId) {
+    if(!mentionState) return;
+    const P = S.get();
+    const c = P.characters.find(x => x.id === charId);
+    if(!c) return;
+    const { textNode, atIdx } = mentionState;
+    const beforeAt = textNode.textContent.substring(0, atIdx);
+    const afterQuery = textNode.textContent.substring(atIdx + 1 + mentionState.query.length);
+
+    // Create mention span
+    const mention = document.createElement('span');
+    mention.className = 'mention';
+    mention.contentEditable = 'false';
+    mention.dataset.charId = charId;
+    mention.style.borderBottom = '2px solid ' + (c.color || 'var(--cyan)');
+    mention.textContent = '@' + c.name;
+
+    // Split text node and insert mention
+    const parent = textNode.parentNode;
+    const beforeNode = document.createTextNode(beforeAt);
+    const afterNode = document.createTextNode('\u00A0' + afterQuery); // nbsp after mention
+
+    parent.insertBefore(beforeNode, textNode);
+    parent.insertBefore(mention, textNode);
+    parent.insertBefore(afterNode, textNode);
+    parent.removeChild(textNode);
+
+    // Place cursor after mention
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.setStart(afterNode, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+
+    closeMentionPopup();
+
+    // Auto-add character to scene
+    const sc = S.getScene(scId);
+    if(sc) {
+      sc.characters = sc.characters || [];
+      if(!sc.characters.includes(charId)) {
+        S.snapshot();
+        sc.characters.push(charId);
+        const ev = P.events.find(e => e.sceneId === scId);
+        if(ev) ev.characters = sc.characters.slice();
+        // Update character tags
+        const card = document.querySelector(`.scene-card[data-sid="${scId}"]`);
+        if(card) {
+          const scChars = sc.characters.map(cid => P.characters.find(cc=>cc.id===cid)).filter(Boolean);
+          const html = scChars.map(cc => `<span class="scene-char-tag"><span class="mp-dot" style="background:${cc.color||'var(--tx3)'}"></span>${U.escHtml(cc.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${scId}','${cc.id}')">✕</span></span>`).join('');
+          let charRow = card.querySelector('.scene-chars-row');
+          if(!charRow) {
+            charRow = document.createElement('div');
+            charRow.className = 'scene-chars-row';
+            const editor = card.querySelector('.scene-editor');
+            if(editor) editor.insertBefore(charRow, editor.querySelector('.scene-screenplay-wrap'));
+          }
+          charRow.innerHTML = html;
+        }
+        App.Analysis.invalidateCache();
+        App.Timeline.render();
+        App.UI.updateStatusBar();
+      }
+    }
+  }
+
+  // Event delegation for screenplay areas
+  function initMentionListeners() {
+    const sp = document.getElementById('spEpisodes');
+    sp.addEventListener('input', e => {
+      if(e.target.closest('.scene-screenplay')) handleMentionInput(e);
+    });
+    sp.addEventListener('keydown', e => {
+      if(e.target.closest('.scene-screenplay')) handleMentionKeydown(e);
+    });
+    sp.addEventListener('blur', e => {
+      const el = e.target.closest('.scene-screenplay');
+      if(el) {
+        setTimeout(() => closeMentionPopup(), 150);
+        saveScreenplay(el.dataset.sid, el);
+      }
+    }, true);
+    sp.addEventListener('click', e => {
+      // Close popup on click outside
+      if(!e.target.closest('.mention-popup')) closeMentionPopup();
+    });
+  }
+
+  function saveBlockChar(scId, bi, charId) {
+    const sc = S.getScene(scId);
+    if(!sc || !sc.content[bi]) return;
+    S.snapshot();
+    sc.content[bi].characterId = charId;
+    if(charId && !(sc.characters||[]).includes(charId)) {
+      sc.characters = sc.characters || [];
+      sc.characters.push(charId);
+    }
+    // Silent update — don't re-render screenplay to preserve editing context
+    App.Analysis.invalidateCache();
+    App.Timeline.render();
+    App.UI.updateStatusBar();
+  }
+
+  function autoCreateTimelineEvent(sc) {
+    const P = S.get();
+    const epEvs = P.events.filter(e => e.episodeId === sc.episodeId);
+    const lastEnd = epEvs.reduce((m,e) => Math.max(m, e.s + e.dur), 0);
+    const dur = calcSceneDuration(sc);
+    const s = Math.min(lastEnd + 10, S.getEPDUR() - dur);
+    const ev = {
+      id: U.genId('ev'), title: sc.title, description: '', episodeId: sc.episodeId,
+      sceneId: sc.id, category: sc.category, characters: sc.characters||[],
+      s: Math.max(0, s), dur: dur
+    };
+    S.addEvent(ev);
+  }
+
+  function calcSceneDuration(sc) {
+    const content = sc.content || [];
+    let dur = 0;
+    content.forEach(b => {
+      if(b.type === 'action') dur += Math.max(30, (b.text||'').split(/\s+/).length * 1.5);
+      else if(b.type === 'dialogue') dur += Math.max(20, (b.text||'').split(/\s+/).length / 2.5);
+      else if(b.type === 'transition') dur += 5;
+    });
+    return U.clamp(Math.round(dur), 60, 600);
+  }
+
+  function updateTimelineDuration(sc) {
+    const P = S.get();
+    const ev = P.events.find(e => e.sceneId === sc.id);
+    if(!ev) return;
+    const newDur = calcSceneDuration(sc);
+    if(Math.abs(ev.dur - newDur) > 10) {
+      ev.dur = newDur;
+      ev.title = sc.title;
+      ev.category = sc.category;
+      ev.characters = sc.characters || [];
+    }
+  }
+
+  // Called when timeline event is double-clicked — open scene in screenplay
+  function openSceneFromTimeline(evId) {
+    const P = S.get();
+    const ev = P.events.find(e => e.id === evId);
+    if(!ev || !ev.sceneId) return;
+    const sc = S.getScene(ev.sceneId);
+    if(!sc) return;
+    openEps.add(sc.episodeId);
+    activeSceneId = sc.id;
+    App.setViewMode('split');
+    render();
+    setTimeout(() => {
+      const el = document.querySelector(`[data-sid="${sc.id}"]`);
+      if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 100);
+  }
+
+  // Init mention listeners on DOM ready
+  setTimeout(initMentionListeners, 100);
+
+  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline };
+})();
+
+// ═══ INTERACTION MODULE ═══
+App.Interaction = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+  let drag = null;
+  let pan = null;
+  let selection = new Set();
+  let snapGrid = 10;
+
+  function getSelection() { return [...selection]; }
+  function isDragging() { return !!drag; }
+  function setSnap(v) { snapGrid = v; S.setSnap(v); }
+
+  function setup() {
+    const area = document.getElementById('tlA');
+
+    // Wheel zoom
+    area.addEventListener('wheel', e => {
+      if(e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const d = e.deltaY > 0 ? -0.1 : 0.1;
+        App.Timeline.setZoom(U.clamp(App.Timeline.getZoom() + d, 0.25, 3));
+      }
+    }, {passive:false});
+
+    // Unified pointer handler (mouse + touch)
+    function onPointerDown(clientX, clientY, target, isTouch) {
+      const bl = target.closest('.evb');
+      if(bl) {
+        const ev = S.getEvent(bl.dataset.id);
+        if(!ev) return;
+        if(!selection.has(ev.id)) { selection.clear(); selection.add(ev.id); updateSelectionVisual(); }
+
+        let mode = 'move';
+        if(target.classList.contains('rh')) mode = target.classList.contains('l') ? 'rl' : 'rr';
+
+        if(mode === 'move' && !isTouch) {
+          const ghost = bl.cloneNode(true);
+          ghost.classList.add('ghost');
+          ghost.style.pointerEvents = 'none';
+          bl.parentNode.appendChild(ghost);
+          bl.classList.add('drag');
+        }
+
+        S.snapshot();
+        const origTop = parseInt(bl.style.top) || 0;
+        const parentBody = bl.closest('.ep-body');
+        const parentRect = parentBody ? parentBody.getBoundingClientRect() : null;
+        drag = { id:ev.id, mode, sx:clientX, sy:clientY, os:ev.s, od:ev.dur, el:bl, origEp:ev.episodeId, origTop, parentBody, parentRect, isTouch };
+        App.UI.hideTooltip();
+        return true;
+      }
+      return false;
+    }
+
+    // Mouse down
+    area.addEventListener('mousedown', e => {
+      if(e.button !== 0) return;
+      if(e.target.closest('.evb')) {
+        e.preventDefault();
+        // Multi-selection
+        if(e.ctrlKey || e.metaKey) {
+          const bl = e.target.closest('.evb');
+          const evId = bl?.dataset.id;
+          if(evId) { if(selection.has(evId)) selection.delete(evId); else selection.add(evId); updateSelectionVisual(); }
+          return;
+        }
+        onPointerDown(e.clientX, e.clientY, e.target, false);
+      } else {
+        // Pan
+        if(!e.target.closest('.ep-hdr')) {
+          e.preventDefault();
+          pan = { sx:e.clientX, sy:e.clientY, scrollX:area.scrollLeft, scrollY:area.scrollTop };
+          area.classList.add('panning');
+        }
+      }
+    });
+
+    // Touch start
+    let touchTimer = null;
+    let touchStarted = false;
+    area.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      const bl = e.target.closest('.evb');
+      if(bl) {
+        // Long press for drag (short tap = select)
+        touchStarted = false;
+        touchTimer = setTimeout(() => {
+          touchStarted = true;
+          if(onPointerDown(t.clientX, t.clientY, e.target, true)) {
+            bl.classList.add('drag');
+          }
+        }, 300);
+        // Immediately select on tap
+        const ev = S.getEvent(bl.dataset.id);
+        if(ev) { selection.clear(); selection.add(ev.id); updateSelectionVisual(); }
+      }
+    }, {passive:true});
+
+    // Touch move
+    area.addEventListener('touchmove', e => {
+      if(!touchStarted) { clearTimeout(touchTimer); return; }
+      if(drag) {
+        e.preventDefault();
+        const t = e.touches[0];
+        handlePointerMove(t.clientX, t.clientY, false);
+      }
+    }, {passive:false});
+
+    // Touch end
+    area.addEventListener('touchend', e => {
+      clearTimeout(touchTimer);
+      if(drag && touchStarted) {
+        const t = e.changedTouches[0];
+        handlePointerUp(t.clientX, t.clientY, false);
+      } else if(!touchStarted && selection.size === 1) {
+        // Short tap — open edit panel
+        const selId = [...selection][0];
+        if(selId) App.Panels.openEditEvent(selId);
+      }
+      touchStarted = false;
+    }, {passive:true});
+
+    // Mouse move
+    function handlePointerMove(clientX, clientY, shiftKey) {
+      if(!drag) return;
+      const zoom = App.Timeline.getZoom();
+      const ev = S.getEvent(drag.id);
+      if(!ev) return;
+      const dpx = (clientX - drag.sx) / zoom;
+      const ds = U.px2s(dpx, S.getPPS());
+      const EPDUR = S.getEPDUR();
+
+      if(drag.mode === 'move') {
+        let newS = drag.os + ds;
+        newS = U.snap(newS, snapGrid);
+        newS = U.clamp(newS, 0, EPDUR - ev.dur);
+        ev.s = newS;
+
+        const sg = document.getElementById('snapGuide');
+        if(sg && snapGrid > 0) {
+          sg.style.left = U.s2px(newS, S.getPPS()) + 'px';
+          sg.classList.add('show');
+        }
+
+        if(!drag.isTouch) {
+          const dropBody = findDropEp(clientY);
+          document.querySelectorAll('.ep-body').forEach(b => b.classList.remove('drop-target'));
+          if(dropBody && dropBody.dataset.ep !== drag.origEp) {
+            dropBody.classList.add('drop-target');
+            if(drag.el.parentNode !== dropBody) { dropBody.appendChild(drag.el); drag.el.style.top = '8px'; }
+          } else if(dropBody && dropBody.dataset.ep === drag.origEp && drag.parentBody) {
+            if(drag.el.parentNode !== drag.parentBody) { drag.parentBody.appendChild(drag.el); drag.el.style.top = drag.origTop + 'px'; }
+          }
+        }
+
+        drag.el.classList.remove('collision');
+        const checkEpId = ev.episodeId;
+        const others = S.getEvents(checkEpId).filter(o => o.id !== ev.id);
+        const hasCollision = others.some(o => ev.s < o.s + o.dur && ev.s + ev.dur > o.s);
+        if(hasCollision && !shiftKey) drag.el.classList.add('collision');
+
+      } else if(drag.mode === 'rr') {
+        let newDur = drag.od + ds;
+        newDur = U.snap(newDur, snapGrid);
+        ev.dur = U.clamp(newDur, 60, EPDUR - ev.s);
+      } else if(drag.mode === 'rl') {
+        let newS = U.snap(drag.os + ds, snapGrid);
+        const diff = newS - drag.os;
+        const newDur = drag.od - diff;
+        if(newDur >= 60 && newS >= 0) { ev.s = newS; ev.dur = newDur; }
+      }
+      drag.el.style.left = U.s2px(ev.s, S.getPPS()) + 'px';
+      drag.el.style.width = Math.max(U.s2px(ev.dur, S.getPPS()), 20) + 'px';
+    }
+
+    function handlePointerUp(clientX, clientY, shiftKey) {
+      if(!drag) return;
+      const ev = S.getEvent(drag.id);
+      const didMove = Math.abs(clientX - drag.sx) > 3 || Math.abs(clientY - drag.sy) > 3;
+      if(ev && drag.mode === 'move' && !drag.isTouch) {
+        const dropBody = findDropEp(clientY);
+        if(dropBody && dropBody.dataset.ep !== drag.origEp) {
+          ev.episodeId = dropBody.dataset.ep;
+          const sc = ev.sceneId ? S.getScene(ev.sceneId) : null;
+          if(sc) sc.episodeId = ev.episodeId;
+          resolveCollisions(ev.episodeId, ev.id);
+          App.UI.toast('"' + ev.title + '" → ' + (App.Utils.epLbl(S.get().episodes.find(ep=>ep.id===ev.episodeId)?.number||'?')));
+        }
+        if(!shiftKey) resolveCollisions(ev.episodeId, ev.id);
+      }
+      const ghosts = document.querySelectorAll('.evb.ghost');
+      ghosts.forEach(g => g.remove());
+      drag.el.classList.remove('drag','collision');
+      document.querySelectorAll('.ep-body').forEach(b => b.classList.remove('drop-target'));
+      const sg = document.getElementById('snapGuide');
+      if(sg) sg.classList.remove('show');
+      drag = null;
+      if(didMove) {
+        App.refresh();
+      } else {
+        setTimeout(() => App.refresh(), 300);
+      }
+    }
+
+    window.addEventListener('mousemove', e => {
+      if(drag) handlePointerMove(e.clientX, e.clientY, e.shiftKey);
+      if(pan) {
+        area.scrollLeft = pan.scrollX - (e.clientX - pan.sx);
+        area.scrollTop = pan.scrollY - (e.clientY - pan.sy);
+      }
+    });
+
+    window.addEventListener('mouseup', e => {
+      if(drag) handlePointerUp(e.clientX, e.clientY, e.shiftKey);
+      if(pan) { pan = null; area.classList.remove('panning'); }
+    });
+
+    // Double-click via event delegation (survives DOM re-renders)
+    area.addEventListener('dblclick', e => {
+      const bl = e.target.closest('.evb');
+      if(bl && bl.dataset.id) {
+        e.stopPropagation();
+        App.Panels.openEditEvent(bl.dataset.id);
+      }
+    });
+
+    // Right-click on empty space
+    area.addEventListener('contextmenu', e => {
+      if(!e.target.closest('.evb') && e.target.closest('.ep-body')) {
+        e.preventDefault();
+        const body = e.target.closest('.ep-body');
+        const epId = body.dataset.ep;
+        App.UI.showContextMenu(e.clientX, e.clientY, [
+          { id:'add', icon:'+', label:'Buraya Olay Ekle', action:() => App.Panels.openAddEvent(epId) },
+          { id:'paste', icon:'📋', label:'Yapıştır', action:() => App.UI.toast('Panoya olay yok') }
+        ]);
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+      if(e.key === 'Escape') { App.Panels.closeAll(); selection.clear(); updateSelectionVisual(); }
+      if(e.key === 'Delete' || e.key === 'Backspace') {
+        if(selection.size) {
+          if(confirm(selection.size + ' olay silinsin mi?')) {
+            S.batch(() => { selection.forEach(id => { S.get().events = S.get().events.filter(e=>e.id!==id); S.get().connections = S.get().connections.filter(c=>c.from!==id&&c.to!==id); }); });
+            selection.clear();
+            App.refresh();
+            App.UI.toast('Silindi');
+          }
+        }
+      }
+      if((e.ctrlKey||e.metaKey) && e.key === 'z') { e.preventDefault(); S.undo(); }
+      if((e.ctrlKey||e.metaKey) && e.key === 'y') { e.preventDefault(); S.redo(); }
+      if((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); App.IO.exportJSON(); }
+      if((e.ctrlKey||e.metaKey) && e.key === 'n') { e.preventDefault(); App.Panels.openAddEvent(); }
+    });
+
+    // SP resize handle
+    const spResize = document.getElementById('spResize');
+    let spDrag = null;
+    spResize.addEventListener('mousedown', e => {
+      e.preventDefault();
+      spDrag = { sx: e.clientX, sw: document.getElementById('spPanel').offsetWidth };
+      spResize.classList.add('active');
+    });
+    window.addEventListener('mousemove', e => {
+      if(spDrag) {
+        const newW = U.clamp(spDrag.sw + (e.clientX - spDrag.sx), 250, 600);
+        document.getElementById('spPanel').style.width = newW + 'px';
+      }
+    });
+    window.addEventListener('mouseup', () => {
+      if(spDrag) { spDrag = null; spResize.classList.remove('active'); }
+    });
+  }
+
+  function findDropEp(clientY) {
+    let best = null, bestDist = 999999;
+    document.querySelectorAll('.ep-body').forEach(b => {
+      const r = b.getBoundingClientRect();
+      if(clientY >= r.top && clientY <= r.bottom) { best = b; bestDist = 0; }
+      else { const d = Math.abs(clientY - (r.top+r.height/2)); if(d < bestDist) { bestDist = d; best = b; } }
+    });
+    return best;
+  }
+
+  function resolveCollisions(epId, myId) {
+    const me = S.getEvent(myId);
+    if(!me) return;
+    const others = S.getEvents(epId).filter(e => e.id !== myId).sort((a,b) => a.s - b.s);
+    others.forEach(o => {
+      if(me.s < o.s + o.dur && me.s + me.dur > o.s) {
+        o.s = me.s + me.dur + 10;
+        if(o.s + o.dur > S.getEPDUR()) o.s = S.getEPDUR() - o.dur;
+      }
+    });
+  }
+
+  function updateSelectionVisual() {
+    document.querySelectorAll('.evb').forEach(el => {
+      el.classList.toggle('selected', selection.has(el.dataset.id));
+    });
+    App.UI.updateStatusBar();
+    // If analysis panel is open with impact tab, refresh it
+    if(App.Panels && App.Panels.isImpactActive()) {
+      App.Panels.renderPanel();
+    }
+  }
+
+  function showEventContext(e, evId) {
+    const P = S.get();
+    const ev = S.getEvent(evId);
+    if(!ev) return;
+    const items = [
+      { id:'edit', icon:'✏️', label:'Düzenle', action:() => App.Panels.openEditEvent(evId) },
+      { id:'scene', icon:'📝', label:'Senaryoda Gör', action:() => App.Screenplay.openSceneFromTimeline(evId) },
+      'sep',
+      { id:'copy', icon:'📋', label:'Kopyala', action:() => { copyEvent(evId); App.UI.toast('Kopyalandı'); } },
+      { id:'link', icon:'🔗', label:'Bağlantı Ekle', action:() => App.Panels.openAddConnection(evId) },
+      'sep',
+      { id:'del', icon:'🗑', label:'Sil', danger:true, action:() => { if(confirm('"'+ev.title+'" silinsin mi?')){ S.removeEvent(evId); App.refresh(); App.UI.toast('Silindi'); } } }
+    ];
+    App.UI.showContextMenu(e.clientX, e.clientY, items);
+  }
+
+  let clipboard = null;
+  function copyEvent(id) {
+    const ev = S.getEvent(id);
+    if(ev) clipboard = U.deepClone(ev);
+  }
+
+  return { setup, getSelection, isDragging, setSnap, showEventContext, updateSelectionVisual };
+})();
+
+// ═══ PANELS MODULE ═══
+App.Panels = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+  let currentPanel = null; // 'edit','warn','analysis'
+  let editId = null;
+  let analysisTab = 'warn';
+  let activeWarnIdx = -1;
+
+  function togglePanel(name) {
+    if(currentPanel === name) { closeAll(); return; }
+    currentPanel = name;
+    renderPanel();
+  }
+
+  function closeAll() {
+    currentPanel = null; editId = null; activeWarnIdx = -1;
+    document.getElementById('rPanel').classList.remove('open');
+    App.Timeline.clrHL();
+  }
+
+  function renderPanel() {
+    const rp = document.getElementById('rPanel');
+    rp.classList.add('open');
+    if(currentPanel === 'edit') renderEditPanel();
+    else if(currentPanel === 'warn') renderWarnPanel();
+    else if(currentPanel === 'analysis') renderAnalysisPanel();
+    else { rp.classList.remove('open'); }
+  }
+
+  // ── EDIT PANEL ──
+  function openEditEvent(id) {
+    editId = id; currentPanel = 'edit';
+    renderPanel();
+  }
+
+  function renderEditPanel() {
+    const P = S.get();
+    const ev = S.getEvent(editId);
+    if(!ev) { closeAll(); return; }
+    const rp = document.getElementById('rPanel');
+    const cns = S.getConnections(editId);
+    const tl = { neden:'Neden-Sonuç', karakter:'Karakter', kronoloji:'Kronoloji' };
+    rp.innerHTML = `<div class="rpanel-hdr"><h3>Olay Düzenle</h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div>
+      <div class="rpanel-body" style="padding:14px;">
+        <div class="fg"><label>Başlık</label><input id="dT" value="${U.escHtml(ev.title)}"></div>
+        <div class="fg"><label>Açıklama</label><textarea id="dD">${U.escHtml(ev.description||'')}</textarea></div>
+        <div class="fg"><label>Bölüm</label><select id="dEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ev.episodeId===ep.id?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${v.label}</option>`).join('')}</select></div>
+        <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
+        <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
+        <div class="fg"><label>Karakterler</label><div class="chw">${P.characters.map(c=>`<label class="chcb"><input type="checkbox" value="${c.id}"${(ev.characters||[]).includes(c.id)?' checked':''}>${c.name}</label>`).join('')}</div></div>
+        <div class="epc"><label style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500">Bağlantılar (${cns.length})</label>
+          ${cns.map(c=>{const o=c.from===editId?S.getEvent(c.to):S.getEvent(c.from);return `<div class="eci"><span>${c.from===editId?'→':'←'} ${o?U.escHtml(o.title):'?'} (${tl[c.type]||c.type})</span><button class="btn btn-s" style="color:var(--red)" onclick="App.Panels.rmCn('${c.from}','${c.to}','${c.type}')">✕</button></div>`;}).join('')}
+          <button class="btn btn-s" style="margin-top:6px" onclick="App.Panels.openAddConnection('${editId}')">+ Bağlantı</button>
+        </div>
+      </div>
+      <div class="epf">
+        <button class="btn" style="color:var(--red)" onclick="App.Panels.delEvent('${editId}')">Sil</button>
+        <div style="flex:1"></div>
+        <button class="btn" onclick="App.Panels.closeAll()">İptal</button>
+        <button class="btn btn-p" onclick="App.Panels.saveEvent('${editId}')">Kaydet</button>
+      </div>`;
+  }
+
+  function saveEvent(id) {
+    const ev = S.getEvent(id); if(!ev) return;
+    S.snapshot();
+    ev.title = document.getElementById('dT').value.trim() || ev.title;
+    ev.description = document.getElementById('dD').value.trim();
+    ev.episodeId = document.getElementById('dEp').value;
+    ev.category = document.getElementById('dC').value;
+    ev.s = Math.max(0, parseInt(document.getElementById('dS').value) || 0);
+    ev.dur = Math.max(60, parseInt(document.getElementById('dDur').value) || 120);
+    ev.characters = [];
+    document.querySelectorAll('#rPanel .chcb input:checked').forEach(cb => ev.characters.push(cb.value));
+    S.emit('change', {type:'updateEvent'});
+    closeAll();
+    App.UI.toast('"' + ev.title + '" güncellendi');
+  }
+
+  function delEvent(id) {
+    const ev = S.getEvent(id);
+    if(!ev || !confirm('"' + ev.title + '" silinsin mi?')) return;
+    S.removeEvent(id);
+    closeAll();
+    App.UI.toast('Silindi');
+  }
+
+  function rmCn(f,t,tp) { S.removeConnection(f,t,tp); if(editId) renderPanel(); App.UI.toast('Bağlantı kaldırıldı'); }
+
+  function openAddConnection(fromId) {
+    const P = S.get();
+    const others = P.events.filter(e => e.id !== fromId);
+    App.UI.openModal(`<div class="mh"><span>Bağlantı Ekle</span><button class="close-btn" onclick="App.UI.closeModal()">✕</button></div>
+      <div class="mb">
+        <div class="fg"><label>Hedef</label><select id="cTo">${others.map(e=>`<option value="${e.id}">${U.epLbl(P.episodes.find(ep=>ep.id===e.episodeId)?.number||'?')}: ${U.escHtml(e.title)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Tür</label><select id="cTp"><option value="neden">Neden-Sonuç</option><option value="karakter">Karakter</option><option value="kronoloji">Kronoloji</option></select></div>
+      </div>
+      <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Panels.doAddConnection('${fromId}')">Ekle</button></div>`);
+  }
+
+  function doAddConnection(fromId) {
+    const to = document.getElementById('cTo').value;
+    const type = document.getElementById('cTp').value;
+    S.addConnection({ id: U.genId('cn'), from: fromId, to, type, description:'', strength:1 });
+    App.UI.closeModal();
+    if(editId) renderPanel();
+    App.UI.toast('Bağlantı eklendi');
+  }
+
+  // ── ADD EVENT ──
+  let modalMention = null; // mention state for modal
+
+  function openAddEvent(epId) {
+    const P = S.get();
+    if(!P.episodes.length) { App.UI.toast('Önce bir bölüm ekleyin'); return; }
+    const defaultEp = epId || P.episodes[0].id;
+    App.UI.openModal(`<div class="mh"><span>Yeni Olay</span><button class="close-btn" onclick="App.UI.closeModal()">✕</button></div>
+      <div class="mb">
+        <div class="fg"><label>Başlık</label><input id="nT" placeholder="Olay başlığı"></div>
+        <div class="fg"><label>Bölüm</label><select id="nEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ep.id===defaultEp?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Kategori</label><select id="nC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select></div>
+        <div style="display:flex;gap:8px"><div class="fg" style="flex:1"><label>Başlangıç (dk)</label><input type="number" id="nS" value="0" min="0" max="${Math.floor(S.getEPDUR()/60)}"></div>
+        <div class="fg" style="flex:1"><label>Süre (dk)</label><input type="number" id="nDur" value="3" min="1" max="${Math.floor(S.getEPDUR()/60)}"></div></div>
+        <div class="fg"><label>Senaryo Metni <span style="color:var(--tx4);text-transform:none;font-weight:400">— karakter eklemek için <b style="color:var(--cyan)">@</b> yazın</span></label>
+          <div class="scene-screenplay-wrap">
+            <div class="scene-screenplay" id="nScreenplay" contenteditable="true" data-placeholder="Sahne metnini yazın... Karakter için @ kullanın." style="min-height:150px;max-height:300px;"></div>
+            <div class="mention-popup" id="nMentionPopup"></div>
+          </div>
+        </div>
+      </div>
+      <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Panels.doAddEvent()">Ekle</button></div>`);
+    // Setup mention listeners for modal
+    setTimeout(() => {
+      const el = document.getElementById('nScreenplay');
+      if(!el) return;
+      el.addEventListener('input', modalMentionInput);
+      el.addEventListener('keydown', modalMentionKeydown);
+    }, 50);
+  }
+
+  function modalMentionInput() {
+    const el = document.getElementById('nScreenplay');
+    if(!el) return;
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if(range.startContainer.nodeType !== Node.TEXT_NODE) { closeModalMention(); return; }
+    const textBefore = range.startContainer.textContent.substring(0, range.startOffset);
+    const atIdx = textBefore.lastIndexOf('@');
+    if(atIdx === -1) { closeModalMention(); return; }
+    const query = textBefore.substring(atIdx + 1);
+    if(query.includes(' ') && query.trim().includes(' ')) { closeModalMention(); return; }
+
+    const P = S.get();
+    const q = query.toLowerCase();
+    const matches = P.characters.filter(c => c.name.toLowerCase().includes(q));
+    const popup = document.getElementById('nMentionPopup');
+    if(!popup) return;
+
+    if(!matches.length) {
+      popup.innerHTML = '<div class="mp-empty">Karakter bulunamadı</div>';
+      popup.classList.add('open');
+      modalMention = { query, textNode: range.startContainer, atIdx, popupEl: popup, matches: [], activeIdx: 0 };
+      positionModalPopup(popup, range);
+      return;
+    }
+    let html = '';
+    matches.forEach((c, i) => {
+      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Panels.insertModalMention('${c.id}')"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
+    });
+    popup.innerHTML = html;
+    popup.classList.add('open');
+    modalMention = { query, textNode: range.startContainer, atIdx, popupEl: popup, matches, activeIdx: 0 };
+    positionModalPopup(popup, range);
+  }
+
+  function positionModalPopup(popup, range) {
+    const rect = range.getBoundingClientRect();
+    const wrapRect = popup.parentElement.getBoundingClientRect();
+    popup.style.left = Math.max(0, rect.left - wrapRect.left) + 'px';
+    popup.style.top = (rect.bottom - wrapRect.top + 4) + 'px';
+  }
+
+  function closeModalMention() {
+    if(modalMention && modalMention.popupEl) modalMention.popupEl.classList.remove('open');
+    modalMention = null;
+  }
+
+  function modalMentionKeydown(e) {
+    if(!modalMention || !modalMention.matches.length) {
+      if(modalMention && e.key === 'Escape') { closeModalMention(); e.preventDefault(); }
+      return;
+    }
+    const items = modalMention.popupEl.querySelectorAll('.mp-item');
+    if(e.key === 'ArrowDown') {
+      e.preventDefault();
+      modalMention.activeIdx = Math.min(modalMention.activeIdx + 1, items.length - 1);
+      items.forEach((it, i) => it.classList.toggle('active', i === modalMention.activeIdx));
+      items[modalMention.activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'ArrowUp') {
+      e.preventDefault();
+      modalMention.activeIdx = Math.max(modalMention.activeIdx - 1, 0);
+      items.forEach((it, i) => it.classList.toggle('active', i === modalMention.activeIdx));
+      items[modalMention.activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const active = items[modalMention.activeIdx];
+      if(active) insertModalMention(active.dataset.cid);
+    } else if(e.key === 'Escape') {
+      e.preventDefault(); closeModalMention();
+    }
+  }
+
+  function insertModalMention(charId) {
+    if(!modalMention) return;
+    const P = S.get();
+    const c = P.characters.find(x => x.id === charId);
+    if(!c) return;
+    const { textNode, atIdx } = modalMention;
+    const beforeAt = textNode.textContent.substring(0, atIdx);
+    const afterQuery = textNode.textContent.substring(atIdx + 1 + modalMention.query.length);
+
+    const mention = document.createElement('span');
+    mention.className = 'mention';
+    mention.contentEditable = 'false';
+    mention.dataset.charId = charId;
+    mention.style.borderBottom = '2px solid ' + (c.color || 'var(--cyan)');
+    mention.textContent = '@' + c.name;
+
+    const parent = textNode.parentNode;
+    const beforeNode = document.createTextNode(beforeAt);
+    const afterNode = document.createTextNode('\u00A0' + afterQuery);
+    parent.insertBefore(beforeNode, textNode);
+    parent.insertBefore(mention, textNode);
+    parent.insertBefore(afterNode, textNode);
+    parent.removeChild(textNode);
+
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.setStart(afterNode, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+
+    closeModalMention();
+    // Auto-check the character checkbox
+    const cb = document.querySelector(`#mbg .chcb input[value="${charId}"]`);
+    if(cb) cb.checked = true;
+  }
+
+  function getModalScreenplayText() {
+    const el = document.getElementById('nScreenplay');
+    if(!el) return { text: '', chars: [] };
+    let text = '';
+    const chars = [];
+    el.childNodes.forEach(node => {
+      if(node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if(node.classList && node.classList.contains('mention')) {
+        const cid = node.dataset.charId;
+        const name = node.textContent.replace(/^@/, '');
+        text += `@[${name}](${cid})`;
+        if(cid && !chars.includes(cid)) chars.push(cid);
+      } else if(node.tagName === 'BR') {
+        text += '\n';
+      } else if(node.tagName === 'DIV' || node.tagName === 'P') {
+        if(text && !text.endsWith('\n')) text += '\n';
+        text += node.textContent || '';
+      } else {
+        text += node.textContent || '';
+      }
+    });
+    return { text, chars };
+  }
+
+  function doAddEvent() {
+    const t = document.getElementById('nT').value.trim();
+    if(!t) { App.UI.toast('Başlık gerekli!'); return; }
+    const { text: screenplay, chars: mentionChars } = getModalScreenplayText();
+    const ch = [];
+    document.querySelectorAll('#mbg .chcb input:checked').forEach(cb => ch.push(cb.value));
+    // Merge mention chars
+    mentionChars.forEach(cid => { if(!ch.includes(cid)) ch.push(cid); });
+    const epId = document.getElementById('nEp').value;
+    const cat = document.getElementById('nC').value;
+    const sVal = (parseInt(document.getElementById('nS').value) || 0) * 60;
+    const durVal = (parseInt(document.getElementById('nDur').value) || 3) * 60;
+    // Plain text for description (strip mention markers)
+    const desc = screenplay.replace(/@\[[^\]]+\]\([^)]+\)/g, m => '@' + m.match(/@\[([^\]]+)\]/)[1]);
+    // Create scene + event
+    const P = S.get();
+    const existing = P.scenes.filter(s => s.episodeId === epId);
+    const order = existing.length ? Math.max(...existing.map(s=>s.order)) + 1 : 1;
+    const scId = U.genId('sc');
+    const evId = U.genId('ev');
+    S.snapshot();
+    P.scenes.push({
+      id: scId, episodeId: epId, order, title: t, location: '', timeOfDay: '',
+      category: cat, characters: ch,
+      content: [{ type: 'action', text: desc }],
+      screenplay: screenplay
+    });
+    P.events.push({
+      id: evId, title: t, description: desc, episodeId: epId, category: cat,
+      characters: ch, sceneId: scId, s: sVal, dur: durVal
+    });
+    S.emit('change', {type:'addEvent'});
+    App.UI.closeModal();
+    App.UI.toast('"' + t + '" eklendi');
+  }
+
+  // ── WARN PANEL ──
+  function renderWarnPanel() {
+    const warns = App.Analysis.getWarnings();
+    const rp = document.getElementById('rPanel');
+    const icons = { overflow:'⏱', dep:'⛓', overlap:'⊘', gap:'◌', charConflict:'👤', orphan:'🔗', cycle:'🔄', empty:'📝', duration:'⏱' };
+    let h = `<div class="rpanel-hdr"><h3>⚠ Uyarılar <span class="badge">${warns.length}</span></h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div><div class="rpanel-body">`;
+    if(!warns.length) h += '<div class="nw">✓ Sorun yok</div>';
+    else warns.forEach((w,i) => {
+      h += `<div class="wi${activeWarnIdx===i?' active':''}" data-widx="${i}" onclick="App.Panels.toggleWarnHL(${i})">
+        <div class="wt">${icons[w.tp]||'⚠'} ${U.escHtml(w.t)}</div><div class="wd">${U.escHtml(w.d)}</div>
+        ${w.fix?`<div class="wf"><button class="btn btn-s" onclick="event.stopPropagation();App.Analysis.getWarnings()[${i}].fix()">Otomatik Düzelt</button></div>`:''}</div>`;
+    });
+    h += '</div>';
+    rp.innerHTML = h;
+  }
+
+  function toggleWarnHL(idx) {
+    if(activeWarnIdx === idx) { activeWarnIdx = -1; App.Timeline.clrHL(); renderPanel(); return; }
+    activeWarnIdx = idx;
+    App.Timeline.clrHL();
+    const w = App.Analysis.getWarnings()[idx];
+    if(!w) return;
+    const ids = []; if(w.id) ids.push(w.id); if(w.id2) ids.push(w.id2);
+    document.querySelectorAll('.evb').forEach(el => {
+      if(ids.includes(el.dataset.id)) el.classList.add('warn-hl'); else el.classList.add('dim');
+    });
+    if(ids.length) App.Timeline.scrollToEvent(ids[0]);
+    renderPanel();
+  }
+
+  // ── ANALYSIS PANEL ──
+  function renderAnalysisPanel() {
+    const rp = document.getElementById('rPanel');
+    let h = `<div class="rpanel-hdr"><h3>◎ Analiz</h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div>`;
+    h += `<div class="rtabs">
+      <button class="rtab${analysisTab==='warn'?' active':''}" onclick="App.Panels.setAnalysisTab('warn')">Uyarılar</button>
+      <button class="rtab${analysisTab==='connections'?' active':''}" onclick="App.Panels.setAnalysisTab('connections')">Bağlantılar</button>
+      <button class="rtab${analysisTab==='tempo'?' active':''}" onclick="App.Panels.setAnalysisTab('tempo')">Tempo</button>
+      <button class="rtab${analysisTab==='chars'?' active':''}" onclick="App.Panels.setAnalysisTab('chars')">Karakterler</button>
+      <button class="rtab${analysisTab==='impact'?' active':''}" onclick="App.Panels.setAnalysisTab('impact')">Etki</button>
+    </div>`;
+    h += '<div class="rpanel-body">';
+    if(analysisTab === 'warn') h += renderWarnContent();
+    else if(analysisTab === 'connections') h += App.Analysis.renderConnections();
+    else if(analysisTab === 'tempo') h += App.Analysis.renderTempo();
+    else if(analysisTab === 'chars') h += App.Analysis.renderCharacters();
+    else if(analysisTab === 'impact') h += App.Analysis.renderImpact();
+    h += '</div>';
+    rp.innerHTML = h;
+  }
+
+  function renderWarnContent() {
+    const warns = App.Analysis.getWarnings();
+    const icons = { overflow:'⏱', dep:'⛓', overlap:'⊘', gap:'◌', charConflict:'👤', orphan:'🔗', cycle:'🔄', empty:'📝', duration:'⏱' };
+    if(!warns.length) return '<div class="nw">✓ Sorun yok</div>';
+    return warns.map((w,i) => `<div class="wi" onclick="App.Panels.toggleWarnHL(${i})">
+      <div class="wt">${icons[w.tp]||'⚠'} ${U.escHtml(w.t)}</div><div class="wd">${U.escHtml(w.d)}</div>
+      ${w.fix?`<div class="wf"><button class="btn btn-s" onclick="event.stopPropagation();App.Analysis.getWarnings()[${i}].fix()">Düzelt</button></div>`:''}</div>`).join('');
+  }
+
+  function setAnalysisTab(tab) { analysisTab = tab; renderPanel(); }
+  function isImpactActive() { return currentPanel === 'analysis' && analysisTab === 'impact'; }
+
+  // ── SETTINGS ──
+  function openSettings() {
+    const P = S.get();
+    let catsHtml = Object.entries(P.categories).map(([k,v]) =>
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <input type="color" value="${v.color}" style="width:28px;height:24px;border:none;background:none;cursor:pointer;" data-catk="${k}" class="cat-color-in">
+        <input value="${v.label}" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" data-catk="${k}" class="cat-label-in">
+        <button class="btn btn-s" style="color:var(--red)" onclick="this.parentNode.remove()">✕</button>
+      </div>`).join('');
+    let charsHtml = P.characters.map(c =>
+      `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-chid="${c.id}">
+        <input value="${c.name}" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" class="char-name-in">
+        <button class="btn btn-s" style="color:var(--red)" onclick="this.parentNode.remove()">✕</button>
+      </div>`).join('');
+
+    App.UI.openModal(`<div class="mh"><span>Proje Ayarları</span><button class="close-btn" onclick="App.UI.closeModal()">✕</button></div>
+      <div class="mb">
+        <div class="fg"><label>Proje Adı</label><input id="sTitle" value="${U.escHtml(P.meta.title)}"></div>
+        <div class="fg"><label>Yazar</label><input id="sAuthor" value="${U.escHtml(P.meta.author||'')}"></div>
+        <div class="fg"><label>Bölüm Süresi (saniye)</label><input type="number" id="sEpDur" value="${P.meta.settings.episodeDuration}" min="300" max="7200"></div>
+        <div class="fg"><label>Kategoriler</label>
+          <div id="sCats">${catsHtml}</div>
+          <button class="btn btn-s" style="margin-top:4px" onclick="document.getElementById('sCats').insertAdjacentHTML('beforeend','<div style=\\'display:flex;align-items:center;gap:6px;margin-bottom:4px;\\'><input type=\\'color\\' value=\\'#888888\\' style=\\'width:28px;height:24px;border:none;background:none;cursor:pointer;\\' class=\\'cat-color-in\\' data-catk=\\'new_'+Date.now()+'\\'><input placeholder=\\'Yeni Kategori\\' style=\\'flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;\\' class=\\'cat-label-in\\' data-catk=\\'new_'+Date.now()+'\\'><button class=\\'btn btn-s\\' style=\\'color:var(--red)\\' onclick=\\'this.parentNode.remove()\\'>✕</button></div>')">+ Kategori</button>
+        </div>
+        <div class="fg"><label>Karakterler</label>
+          <div id="sChars">${charsHtml}</div>
+          <button class="btn btn-s" style="margin-top:4px" onclick="document.getElementById('sChars').insertAdjacentHTML('beforeend','<div style=\\'display:flex;align-items:center;gap:6px;margin-bottom:4px;\\' data-chid=\\'new_'+Date.now()+'\\'><input placeholder=\\'Yeni Karakter\\' style=\\'flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;\\' class=\\'char-name-in\\'><button class=\\'btn btn-s\\' style=\\'color:var(--red)\\' onclick=\\'this.parentNode.remove()\\'>✕</button></div>')">+ Karakter</button>
+        </div>
+      </div>
+      <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Panels.saveSettings()">Kaydet</button></div>`);
+  }
+
+  function saveSettings() {
+    const P = S.get();
+    S.snapshot();
+    P.meta.title = document.getElementById('sTitle').value.trim() || 'Yeni Proje';
+    P.meta.author = document.getElementById('sAuthor').value.trim();
+    P.meta.settings.episodeDuration = Math.max(300, parseInt(document.getElementById('sEpDur').value) || 2700);
+    // Categories
+    const newCats = {};
+    document.querySelectorAll('#sCats > div').forEach(row => {
+      const colorIn = row.querySelector('.cat-color-in');
+      const labelIn = row.querySelector('.cat-label-in');
+      if(colorIn && labelIn && labelIn.value.trim()) {
+        const key = labelIn.value.trim().toLowerCase().replace(/[^a-zçğıöşü0-9]/gi,'_');
+        newCats[key] = { label: labelIn.value.trim(), color: colorIn.value };
+      }
+    });
+    P.categories = newCats;
+    // Characters
+    const newChars = [];
+    document.querySelectorAll('#sChars > div').forEach(row => {
+      const nameIn = row.querySelector('.char-name-in');
+      const existingId = row.dataset.chid;
+      if(nameIn && nameIn.value.trim()) {
+        const id = (existingId && !existingId.startsWith('new_')) ? existingId : U.genId('ch');
+        newChars.push({ id, name: nameIn.value.trim(), color:'', notes:'' });
+      }
+    });
+    P.characters = newChars;
+    S.emit('change', {type:'settings'});
+    App.UI.closeModal();
+    document.getElementById('projTitle').textContent = P.meta.title;
+    App.UI.toast('Ayarlar kaydedildi');
+  }
+
+  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive };
+})();
+
+// ═══ ANALYSIS MODULE ═══
+App.Analysis = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+  let cachedWarnings = null;
+
+  function invalidateCache() { cachedWarnings = null; }
+
+  function getWarnings() {
+    if(cachedWarnings) return cachedWarnings;
+    const P = S.get();
+    const warns = [];
+    const EPDUR = S.getEPDUR();
+
+    // Overflow
+    P.events.forEach(ev => {
+      if(ev.s + ev.dur > EPDUR + 5) {
+        const ep = P.episodes.find(e=>e.id===ev.episodeId);
+        warns.push({ tp:'overflow', id:ev.id, t:'Süre Taşması', d:`"${ev.title}" (${U.epLbl(ep?.number||'?')}) bölüm süresini aşıyor.`,
+          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.emit('change',{type:'fix'}); App.UI.toast('Düzeltildi'); } });
+      }
+    });
+
+    // Dependency errors
+    const epOrder = {};
+    P.episodes.forEach((ep,i) => epOrder[ep.id] = i);
+    P.connections.filter(c=>c.type==='neden').forEach(cn => {
+      const fe = S.getEvent(cn.from), te = S.getEvent(cn.to);
+      if(!fe || !te) return;
+      const fAbs = (epOrder[fe.episodeId]||0) * EPDUR + fe.s + fe.dur;
+      const tAbs = (epOrder[te.episodeId]||0) * EPDUR + te.s;
+      if(fAbs > tAbs + 30)
+        warns.push({ tp:'dep', id:cn.from, id2:cn.to, t:'Bağımlılık Hatası', d:`"${fe.title}" → "${te.title}": Neden, sonuçtan sonra!`,
+          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.emit('change',{type:'fix'}); App.UI.toast('Taşındı'); } });
+    });
+
+    // Overlaps
+    P.episodes.forEach(ep => {
+      const re = P.events.filter(e=>e.episodeId===ep.id).sort((a,b)=>a.s-b.s);
+      for(let i=0;i<re.length;i++) for(let j=i+1;j<re.length;j++) {
+        if(re[i]._lane===re[j]._lane && re[j].s < re[i].s+re[i].dur)
+          warns.push({ tp:'overlap', id:re[i].id, id2:re[j].id, t:'Çakışma', d:`"${re[i].title}" ile "${re[j].title}" çakışıyor.`,
+            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.emit('change',{type:'fix'}); App.UI.toast('Düzeltildi'); } });
+      }
+    });
+
+    // Gaps
+    P.episodes.forEach(ep => {
+      if(ep.number==='fb') return;
+      const re = P.events.filter(e=>e.episodeId===ep.id).sort((a,b)=>a.s-b.s);
+      if(!re.length) return;
+      let cur = 0;
+      re.forEach(ev => {
+        if(ev.s - cur > 600)
+          warns.push({ tp:'gap', id:ev.id, t:'Boşluk', d:`${U.epLbl(ep.number)}: ${U.s2t(cur)}–${U.s2t(ev.s)} arası ${Math.round((ev.s-cur)/60)}dk boş.` });
+        cur = Math.max(cur, ev.s + ev.dur);
+      });
+    });
+
+    // Character conflict (same character in 2 places at same time, same episode)
+    P.episodes.forEach(ep => {
+      const evs = P.events.filter(e=>e.episodeId===ep.id);
+      for(let i=0;i<evs.length;i++) for(let j=i+1;j<evs.length;j++) {
+        if(evs[i].s < evs[j].s+evs[j].dur && evs[i].s+evs[i].dur > evs[j].s) {
+          const shared = (evs[i].characters||[]).filter(c=>(evs[j].characters||[]).includes(c));
+          shared.forEach(cid => {
+            const ch = P.characters.find(c=>c.id===cid);
+            warns.push({ tp:'charConflict', id:evs[i].id, id2:evs[j].id, t:'Karakter Çakışması', d:`${ch?ch.name:cid} aynı anda "${evs[i].title}" ve "${evs[j].title}" sahnelerinde.` });
+          });
+        }
+      }
+    });
+
+    // Orphan events
+    P.events.forEach(ev => {
+      const cns = P.connections.filter(c=>c.from===ev.id||c.to===ev.id);
+      if(cns.length===0 && P.events.length > 5)
+        warns.push({ tp:'orphan', id:ev.id, t:'Yetim Olay', d:`"${ev.title}" hiçbir olaya bağlı değil.` });
+    });
+
+    // Cycle detection
+    const cycles = detectCycles();
+    cycles.forEach(cycle => {
+      warns.push({ tp:'cycle', id:cycle[0], t:'Döngüsel Bağımlılık', d:`Döngü: ${cycle.map(id=>{const e=S.getEvent(id);return e?e.title:id;}).join(' → ')}` });
+    });
+
+    // Empty scenes
+    P.scenes.forEach(sc => {
+      if(!sc.content || sc.content.length === 0 || sc.content.every(b=>!b.text||!b.text.trim()))
+        warns.push({ tp:'empty', id:null, t:'Boş Sahne', d:`"${sc.title}" sahnesinde içerik yok.` });
+    });
+
+    cachedWarnings = warns;
+    return warns;
+  }
+
+  function detectCycles() {
+    const P = S.get();
+    const adj = {};
+    P.connections.filter(c=>c.type==='neden').forEach(c => {
+      if(!adj[c.from]) adj[c.from] = [];
+      adj[c.from].push(c.to);
+    });
+    const visited = new Set(), stack = new Set(), cycles = [];
+    function dfs(node, path) {
+      if(stack.has(node)) { cycles.push([...path.slice(path.indexOf(node)), node]); return; }
+      if(visited.has(node)) return;
+      visited.add(node); stack.add(node); path.push(node);
+      (adj[node]||[]).forEach(n => dfs(n, path));
+      path.pop(); stack.delete(node);
+    }
+    Object.keys(adj).forEach(n => { if(!visited.has(n)) dfs(n, []); });
+    return cycles;
+  }
+
+  // Critical path (longest chain via topo sort + DP)
+  function getCriticalPath() {
+    const P = S.get();
+    const adj = {}, inDeg = {};
+    P.events.forEach(e => { adj[e.id] = []; inDeg[e.id] = 0; });
+    P.connections.filter(c=>c.type==='neden').forEach(c => {
+      if(adj[c.from]) { adj[c.from].push(c.to); inDeg[c.to] = (inDeg[c.to]||0) + 1; }
+    });
+    // Topo sort (Kahn's)
+    const q = Object.keys(inDeg).filter(k=>inDeg[k]===0);
+    const order = [];
+    while(q.length) {
+      const n = q.shift(); order.push(n);
+      (adj[n]||[]).forEach(m => { inDeg[m]--; if(inDeg[m]===0) q.push(m); });
+    }
+    // DP for longest path
+    const dist = {}, prev = {};
+    order.forEach(n => { dist[n] = 0; prev[n] = null; });
+    order.forEach(n => {
+      (adj[n]||[]).forEach(m => {
+        const ev = S.getEvent(n);
+        const w = ev ? ev.dur : 0;
+        if(dist[n] + w > (dist[m]||0)) { dist[m] = dist[n] + w; prev[m] = n; }
+      });
+    });
+    // Find end with max dist
+    let maxNode = null, maxDist = 0;
+    Object.entries(dist).forEach(([k,v]) => { if(v > maxDist) { maxDist = v; maxNode = k; } });
+    // Trace back
+    const path = [];
+    let cur = maxNode;
+    while(cur) { path.unshift(cur); cur = prev[cur]; }
+    return { path, length: maxDist };
+  }
+
+  // BFS impact analysis
+  function getImpact(evId) {
+    const P = S.get();
+    const adj = {};
+    P.connections.filter(c=>c.type==='neden').forEach(c => {
+      if(!adj[c.from]) adj[c.from] = [];
+      adj[c.from].push(c.to);
+    });
+    const depths = {};
+    const q = [evId];
+    depths[evId] = 0;
+    while(q.length) {
+      const cur = q.shift();
+      (adj[cur]||[]).forEach(n => {
+        if(!(n in depths)) { depths[n] = depths[cur] + 1; q.push(n); }
+      });
+    }
+    delete depths[evId];
+    return depths; // id -> depth
+  }
+
+  // Character analysis
+  function getCharacterData() {
+    const P = S.get();
+    const epOrder = {};
+    P.episodes.forEach((ep,i) => epOrder[ep.id] = i);
+    return P.characters.map(ch => {
+      const evs = P.events.filter(e=>(e.characters||[]).includes(ch.id));
+      const perEp = {};
+      evs.forEach(e => { perEp[e.episodeId] = (perEp[e.episodeId]||0) + e.dur; });
+      const totalDur = evs.reduce((s,e)=>s+e.dur,0);
+      // Gap detection
+      const epNums = [...new Set(evs.map(e=>epOrder[e.episodeId]))].sort((a,b)=>a-b);
+      const gaps = [];
+      for(let i=1;i<epNums.length;i++) {
+        if(epNums[i]-epNums[i-1]>1) gaps.push({ from:epNums[i-1]+1, to:epNums[i]-1 });
+      }
+      return { char: ch, events: evs, perEp, totalDur, gaps };
+    });
+  }
+
+  // Tempo analysis (events per minute per episode)
+  function getTempoData() {
+    const P = S.get();
+    return P.episodes.map(ep => {
+      const evs = P.events.filter(e=>e.episodeId===ep.id);
+      const density = evs.length / (S.getEPDUR()/60);
+      const totalDur = evs.reduce((s,e)=>s+e.dur,0);
+      const coverage = totalDur / S.getEPDUR();
+      return { ep, events: evs.length, density, coverage, totalDur };
+    });
+  }
+
+  // Render functions for analysis tabs
+  function renderConnections() {
+    const cp = getCriticalPath();
+    const P = S.get();
+    if(!cp.path.length) return '<div class="nw">Bağlantı yok</div>';
+    let h = '<div style="padding:14px;"><div style="font-size:12px;font-weight:600;margin-bottom:8px;">Kritik Yol (En Uzun Zincir)</div>';
+    h += `<div style="font-size:11px;color:var(--tx3);margin-bottom:10px;">Toplam: ${U.s2t(cp.length)} · ${cp.path.length} olay</div>`;
+    cp.path.forEach((id,i) => {
+      const ev = S.getEvent(id);
+      if(!ev) return;
+      const cat = P.categories[ev.category]||{color:'#888'};
+      h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;cursor:pointer;" onclick="App.Timeline.scrollToEvent('${id}')">
+        <div style="width:8px;height:8px;border-radius:50%;background:${cat.color};flex-shrink:0;"></div>
+        <span style="font-size:11px;">${U.escHtml(ev.title)}</span>
+      </div>`;
+      if(i < cp.path.length-1) h += '<div style="margin-left:3px;border-left:2px solid var(--brd);height:12px;"></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderTempo() {
+    const data = getTempoData();
+    if(!data.length) return '<div class="nw">Bölüm yok</div>';
+    const maxDensity = Math.max(...data.map(d=>d.density), 0.1);
+    let h = '<div style="padding:10px 0;">';
+    data.forEach(d => {
+      const pct = (d.density / maxDensity * 100).toFixed(0);
+      const color = d.density > maxDensity*0.7 ? 'var(--red)' : d.density > maxDensity*0.4 ? 'var(--yellow)' : 'var(--green)';
+      h += `<div class="tempo-row">
+        <span style="min-width:36px;">${U.epLbl(d.ep.number)}</span>
+        <div class="tempo-bar"><div class="tempo-fill" style="width:${pct}%;background:${color};"></div></div>
+        <span style="min-width:50px;text-align:right;color:var(--tx3);">${d.events} olay</span>
+      </div>`;
+    });
+    h += '</div>';
+    return h;
+  }
+
+  function renderCharacters() {
+    const data = getCharacterData();
+    if(!data.length) return '<div class="nw">Karakter yok</div>';
+    const maxDur = Math.max(...data.map(d=>d.totalDur), 1);
+    let h = '';
+    data.sort((a,b)=>b.totalDur-a.totalDur).forEach(d => {
+      const pct = (d.totalDur / maxDur * 100).toFixed(0);
+      h += `<div class="char-row">
+        <div style="font-size:12px;font-weight:500;">${U.escHtml(d.char.name)}</div>
+        <div style="font-size:10px;color:var(--tx3);">${d.events.length} sahne · ${U.s2t(d.totalDur)}</div>
+        <div class="char-bar" style="width:${pct}%;background:var(--blue);"></div>
+        ${d.gaps.length ? `<div style="font-size:10px;color:var(--orange);margin-top:2px;">⚠ ${d.gaps.map(g=>`B${g.from+1}-B${g.to+1}`).join(', ')} bölümlerinde yok</div>` : ''}
+      </div>`;
+    });
+    return h;
+  }
+
+  function renderImpact() {
+    const sel = App.Interaction.getSelection();
+    if(!sel.length) return '<div class="nw" style="line-height:1.6;">Bir olay seçin ve etki analizini görün.<br><br>Timeline\'da bir olaya tıklayın.</div>';
+    const evId = sel[0];
+    const ev = S.getEvent(evId);
+    if(!ev) return '<div class="nw">Olay bulunamadı</div>';
+    const impact = getImpact(evId);
+    const impactCount = Object.keys(impact).length;
+    if(!impactCount) return `<div class="impact-info"><b>${U.escHtml(ev.title)}</b><br><br>Bu olayın başka olaylara etkisi yok (neden-sonuç bağlantısı bulunmuyor).</div>`;
+
+    let h = `<div class="impact-info"><b>${U.escHtml(ev.title)}</b><br>Bu olay değişirse <b>${impactCount} olay</b> etkilenir.</div>`;
+    // Group by depth
+    const byDepth = {};
+    Object.entries(impact).forEach(([id,depth]) => {
+      if(!byDepth[depth]) byDepth[depth] = [];
+      byDepth[depth].push(id);
+    });
+    const depthColors = ['var(--red)','var(--orange)','var(--yellow)','var(--tx3)'];
+    Object.keys(byDepth).sort((a,b)=>a-b).forEach(depth => {
+      const color = depthColors[Math.min(depth-1, depthColors.length-1)];
+      h += `<div style="padding:4px 14px;font-size:10px;color:${color};font-weight:600;margin-top:8px;">${depth}. Derece Etki</div>`;
+      byDepth[depth].forEach(id => {
+        const e = S.getEvent(id);
+        h += `<div style="padding:4px 14px;font-size:11px;cursor:pointer;color:var(--tx2);" onclick="App.Timeline.scrollToEvent('${id}')">${e?U.escHtml(e.title):id}</div>`;
+      });
+    });
+
+    // Highlight on timeline
+    setTimeout(() => {
+      App.Timeline.clrHL();
+      document.querySelectorAll('.evb').forEach(el => {
+        const d = impact[el.dataset.id];
+        if(el.dataset.id === evId) el.classList.add('selected');
+        else if(d === 1) el.classList.add('impact-1');
+        else if(d === 2) el.classList.add('impact-2');
+        else if(d >= 3) el.classList.add('impact-3');
+        else el.classList.add('dim');
+      });
+    }, 50);
+
+    return h;
+  }
+
+  return { getWarnings, invalidateCache, getCriticalPath, getImpact, getCharacterData, getTempoData, renderConnections, renderTempo, renderCharacters, renderImpact, detectCycles };
+})();
+
+// ═══ IO MODULE ═══
+App.IO = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+
+  function exportJSON() {
+    const P = S.get();
+    const data = { ...P, meta: { ...P.meta, exportVersion: '2.0', date: new Date().toISOString() } };
+    const b = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = (P.meta.title||'proje').replace(/\s+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    App.UI.toast('JSON aktarıldı');
+  }
+
+  function importJSON(e) {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        // Check if old format (has .events array with .ep, .t, .d, .c, .ch, .s, .dur)
+        if(d.events && d.events[0] && ('ep' in d.events[0]) && ('t' in d.events[0])) {
+          migrateOldFormat(d);
+        } else if(d.meta && d.episodes) {
+          S.set(d);
+        } else {
+          App.UI.toast('Tanınmayan dosya formatı');
+          return;
+        }
+        App.refresh();
+        App.UI.toast('Proje yüklendi');
+      } catch(err) { App.UI.toast('Geçersiz dosya: ' + err.message); }
+    };
+    r.readAsText(f);
+    e.target.value = '';
+  }
+
+  function migrateOldFormat(d) {
+    // Migrate from v7 flat format to new hierarchical format
+    const oldEvs = d.events || [];
+    const oldCns = d.connections || [];
+    const CATS = {operasyon:{label:'Operasyon',color:'#ef4444'},karakter:{label:'Karakter',color:'#3b82f6'},organizasyon:{label:'Organizasyon',color:'#10b981'},sistem:{label:'Sistem',color:'#f59e0b'},flashback:{label:'Flashback',color:'#a855f7'},ihanet:{label:'İhanet',color:'#f97316'}};
+    // Collect unique episodes
+    const epNums = [...new Set(oldEvs.map(e=>e.ep))].sort((a,b)=>{if(a==='fb')return 1;if(b==='fb')return -1;return a-b;});
+    const episodes = epNums.map((n,i) => ({ id:'ep_'+n, number:n, title:n==='fb'?'Flashback':'', duration:2700, type:'normal', order:i }));
+    const epIdMap = {}; epNums.forEach(n => epIdMap[n] = 'ep_'+n);
+    // Collect characters
+    const charSet = new Set();
+    oldEvs.forEach(e => (e.ch||[]).forEach(c => charSet.add(c)));
+    const characters = [...charSet].map(name => ({ id:'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_'), name, color:'', notes:'' }));
+    const charIdMap = {}; characters.forEach(c => charIdMap[c.name] = c.id);
+    // Migrate events
+    const events = oldEvs.map(e => ({
+      id: e.id, title: e.t, description: e.d, episodeId: epIdMap[e.ep],
+      sceneId: null, category: e.c, characters: (e.ch||[]).map(n=>charIdMap[n]||n),
+      s: e.s, dur: e.dur
+    }));
+    // Migrate connections
+    const connections = oldCns.map(c => ({
+      id: U.genId('cn'), from: c.f, to: c.t, type: c.tp, description:'', strength:1
+    }));
+    const scenes = generateScenesFromEvents(events, episodes);
+    S.set({
+      meta: { title: d.meta?.title || 'İçe Aktarılmış Proje', author:'', settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 } },
+      categories: CATS, characters, episodes, scenes, events, connections
+    });
+    // Set ID counter high enough
+    U.setIdCounter(300);
+  }
+
+  function loadDemo() {
+    if(S.get().events.length > 0) {
+      if(!confirm('Mevcut proje üzerine yazılacak. Devam?')) return;
+    }
+    const demo = getDemoProject();
+    S.set(demo);
+    U.setIdCounter(300);
+    App.refresh();
+    App.UI.toast('SAKAL demo projesi yüklendi');
+  }
+
+  function handleDocx(e) {
+    const f = e.target.files[0]; if(!f) return;
+    App.UI.toast('DOCX ayrıştırılıyor...');
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        parseDocxSimple(data);
+      } catch(err) { App.UI.toast('DOCX hatası: ' + err.message); }
+    };
+    reader.readAsArrayBuffer(f);
+    e.target.value = '';
+  }
+
+  function parseDocxSimple(data) {
+    // Minimal ZIP + XML parser for DOCX
+    const view = new DataView(data.buffer);
+    let eocd = -1;
+    for(let i=data.length-22;i>=0;i--) { if(view.getUint32(i,true)===0x06054b50){eocd=i;break;} }
+    if(eocd<0){App.UI.toast('Geçersiz DOCX');return;}
+    const cdOff=view.getUint32(eocd+16,true), cdCnt=view.getUint16(eocd+10,true);
+    let pos=cdOff;
+    const entries=[];
+    for(let f=0;f<cdCnt;f++){
+      if(view.getUint32(pos,true)!==0x02014b50)break;
+      const method=view.getUint16(pos+10,true),cSize=view.getUint32(pos+20,true),uSize=view.getUint32(pos+24,true);
+      const nLen=view.getUint16(pos+28,true),eLen=view.getUint16(pos+30,true),cLen=view.getUint16(pos+32,true);
+      const lOff=view.getUint32(pos+42,true);
+      const name=new TextDecoder().decode(data.slice(pos+46,pos+46+nLen));
+      entries.push({name,method,cSize,uSize,lOff});
+      pos+=46+nLen+eLen+cLen;
+    }
+    // Find document.xml (stored, not compressed for simplicity)
+    let docEntry = entries.find(e=>e.name.includes('word/document')&&e.name.includes('.xml'));
+    if(!docEntry){App.UI.toast('document.xml bulunamadı');return;}
+    const lhNLen=view.getUint16(docEntry.lOff+26,true), lhELen=view.getUint16(docEntry.lOff+28,true);
+    const dStart=docEntry.lOff+30+lhNLen+lhELen;
+    let xmlData;
+    if(docEntry.method===0) xmlData=data.slice(dStart,dStart+docEntry.uSize);
+    else if(docEntry.method===8 && typeof DecompressionStream!=='undefined') {
+      // Async decompress
+      const compressed=data.slice(dStart,dStart+docEntry.cSize);
+      const ds=new DecompressionStream('deflate-raw');
+      const writer=ds.writable.getWriter();
+      const reader=ds.readable.getReader();
+      writer.write(compressed);writer.close();
+      const chunks=[];
+      (function read(){reader.read().then(r=>{if(r.value)chunks.push(r.value);if(r.done){let t=0;chunks.forEach(c=>t+=c.length);const out=new Uint8Array(t);let o=0;chunks.forEach(c=>{out.set(c,o);o+=c.length;});processDocxXml(out);}else read();});})();
+      return;
+    } else { App.UI.toast('Sıkıştırma desteklenmiyor'); return; }
+    processDocxXml(xmlData);
+  }
+
+  function processDocxXml(xmlData) {
+    const P = S.get();
+    const xmlStr = new TextDecoder('utf-8').decode(xmlData);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlStr, 'application/xml');
+    const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const paras = doc.getElementsByTagNameNS(ns,'p');
+    const lines = [];
+    for(let i=0;i<paras.length;i++){
+      const texts=paras[i].getElementsByTagNameNS(ns,'t');
+      let line='';for(let j=0;j<texts.length;j++)line+=texts[j].textContent;
+      let isBold=paras[i].getElementsByTagNameNS(ns,'b').length>0;
+      const runs=paras[i].getElementsByTagNameNS(ns,'r');
+      for(let r=0;r<runs.length;r++){if(runs[r].getElementsByTagNameNS(ns,'rPr').length>0&&runs[r].querySelector('b'))isBold=true;}
+      let pStyle='';const pPrs=paras[i].getElementsByTagNameNS(ns,'pStyle');
+      if(pPrs.length>0)pStyle=pPrs[0].getAttribute('w:val')||'';
+      if(line.trim())lines.push({text:line.trim(),bold:isBold,style:pStyle});
+    }
+    // Scene detection
+    const scenes=[];let curScene=null;let curEp=P.episodes[0]?.id||null;
+    const charNames=P.characters.map(c=>c.name.toLowerCase());
+    lines.forEach(line=>{
+      const t=line.text, upper=t.toUpperCase();
+      const epMatch=t.match(/(?:BÖLÜM|Bölüm)\s*(\d+)/i);
+      if(epMatch){const n=parseInt(epMatch[1]);const ep=P.episodes.find(e=>e.number===n);if(ep)curEp=ep.id;}
+      let isScene=(upper.match(/^\[?\s*SAHNE\s*\d+/)||(line.bold&&t.length<100&&t.length>2)||line.style?.match(/heading/i));
+      if(isScene){
+        if(curScene&&curScene.content.length)scenes.push(curScene);
+        curScene={id:U.genId('sc'),episodeId:curEp,order:scenes.length+1,title:t.replace(/[\[\]]/g,'').trim().substring(0,60)||'Sahne '+(scenes.length+1),
+          location:'',timeOfDay:'',category:'karakter',characters:[],content:[]};
+      } else if(curScene){
+        const isChar=charNames.some((cn,idx)=>upper===P.characters[idx].name.toUpperCase());
+        if(isChar) curScene.content.push({type:'dialogue',characterId:P.characters[charNames.findIndex(cn=>upper===P.characters[charNames.indexOf(cn)].name.toUpperCase())]?.id||'',text:'',parenthetical:''});
+        else curScene.content.push({type:'action',text:t});
+      }
+    });
+    if(curScene&&curScene.content.length)scenes.push(curScene);
+    if(!scenes.length){App.UI.toast('Sahne bulunamadı');return;}
+    // Add scenes and auto-create events
+    S.snapshot();
+    const perEpTime={};
+    scenes.forEach(sc=>{
+      P.scenes.push(sc);
+      const ep=sc.episodeId;if(!perEpTime[ep])perEpTime[ep]=0;
+      const textLen=sc.content.reduce((s,b)=>s+(b.text||'').length,0);
+      const dur=U.clamp(Math.round(textLen/40)*30,120,600);
+      const s=perEpTime[ep];
+      if(s>=S.getEPDUR())return;
+      const ev={id:U.genId('ev'),title:sc.title,description:'',episodeId:ep,sceneId:sc.id,category:sc.category,characters:sc.characters||[],s:s,dur:Math.min(dur,S.getEPDUR()-s)};
+      P.events.push(ev);
+      perEpTime[ep]=s+dur+10;
+    });
+    S.emit('change',{type:'docx'});
+    App.refresh();
+    App.UI.toast(scenes.length+' sahne ayrıştırıldı');
+  }
+
+  return { exportJSON, importJSON, loadDemo, handleDocx };
+})();
+
+// ═══ SYNC MODULE (Gerçek Zamanlı İşbirliği) ═══
+App.Sync = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+
+  // ── Firebase Config ──
+  // Firebase projenizin ayarlarını buraya girin.
+  // Adımlar:
+  //   1. https://console.firebase.google.com/ → Yeni proje oluşturun
+  //   2. Realtime Database oluşturun (test modunda başlatın)
+  //   3. Authentication → Sign-in method → Anonymous'u etkinleştirin
+  //   4. Proje Ayarları → Genel → Web uygulaması ekle → Config bilgilerini kopyalayın
+  //   5. Aşağıdaki boş alanları doldurun
+  const firebaseConfig = {
+    apiKey: "AIzaSyDwrB0ghEJUZRI6p5AuCGwobdsof9nhESQ",
+    authDomain: "senaryo-7e7fb.firebaseapp.com",
+    databaseURL: "https://senaryo-7e7fb-default-rtdb.firebaseio.com",
+    projectId: "senaryo-7e7fb",
+    storageBucket: "senaryo-7e7fb.firebasestorage.app",
+    messagingSenderId: "1092333524437",
+    appId: "1:1092333524437:web:31cec6e577c127abc5d95c"
+  };
+
+  // ── State ──
+  let _db = null;
+  let _auth = null;
+  let _userId = null;
+  let _userName = '';
+  let _userColor = '';
+  let _roomId = null;
+  let _roomRef = null;
+  let _listeners = [];
+  let _remoteChangeInProgress = 0;
+  let _initialized = false;
+  let _connected = false;
+  let _heartbeatInterval = null;
+  let _presenceUsers = {};
+
+  const PRESENCE_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#f97316'];
+  const COLLECTIONS = ['categories','characters','episodes','scenes','events','connections'];
+
+  // ── Debounce timers ──
+  let _pushTimers = {};
+
+  // ── Helpers ──
+  function genRoomId() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let id = '';
+    for(let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+  }
+
+  function arrayToKeyed(arr) {
+    const obj = {};
+    if(!arr || !Array.isArray(arr)) return obj;
+    arr.forEach(item => { if(item && item.id) obj[item.id] = U.deepClone(item); });
+    return obj;
+  }
+
+  function keyedToArray(obj) {
+    if(!obj || typeof obj !== 'object') return [];
+    return Object.keys(obj).map(key => {
+      const item = obj[key];
+      if(item && typeof item === 'object') { item.id = key; return item; }
+      return null;
+    }).filter(Boolean);
+  }
+
+  function categoriesToKeyed(cats) {
+    if(!cats || typeof cats !== 'object') return {};
+    return U.deepClone(cats);
+  }
+
+  function keyedToCategories(obj) {
+    if(!obj || typeof obj !== 'object') return {};
+    return U.deepClone(obj);
+  }
+
+  function isConfigValid() {
+    return firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId;
+  }
+
+  // ── Init ──
+  function init() {
+    if(_initialized) return Promise.resolve();
+    if(!isConfigValid()) return Promise.resolve();
+    if(typeof firebase === 'undefined') {
+      console.warn('Firebase SDK yüklenemedi');
+      return Promise.resolve();
+    }
+    try {
+      if(!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      _db = firebase.database();
+      _auth = firebase.auth();
+
+      // Listen for connection state
+      _db.ref('.info/connected').on('value', snap => {
+        const wasConnected = _connected;
+        _connected = snap.val() === true;
+        updateSyncUI();
+        // If reconnected while in room, do a full resync
+        if(_connected && !wasConnected && _roomId) {
+          console.log('[Sync] Reconnected, resyncing...');
+        }
+      });
+
+      _initialized = true;
+      return _auth.signInAnonymously().then(cred => {
+        _userId = cred.user.uid;
+        // Restore display name from localStorage
+        _userName = localStorage.getItem('sync_userName') || '';
+        _userColor = localStorage.getItem('sync_userColor') || '';
+        // Check URL hash for auto-join
+        checkHashJoin();
+      }).catch(err => {
+        console.error('[Sync] Auth error:', err);
+        App.UI.toast('Firebase auth hatası: ' + err.message);
+      });
+    } catch(err) {
+      console.error('[Sync] Init error:', err);
+      return Promise.resolve();
+    }
+  }
+
+  function checkHashJoin() {
+    const hash = window.location.hash;
+    const match = hash.match(/room=([A-Z0-9]{6})/i);
+    if(match) {
+      const roomId = match[1].toUpperCase();
+      if(!_userName) {
+        // Need name first — open panel with prefilled room code
+        setTimeout(() => openSyncPanel(roomId), 500);
+      } else {
+        joinRoom(roomId);
+      }
+    }
+  }
+
+  // ── Room Management ──
+  function createRoom() {
+    if(!_initialized) { App.UI.toast('Firebase başlatılamadı'); return; }
+    const roomId = genRoomId();
+    _roomId = roomId;
+    _roomRef = _db.ref('rooms/' + roomId);
+
+    const P = S.get();
+    const data = {
+      meta: U.deepClone(P.meta),
+      categories: categoriesToKeyed(P.categories),
+      characters: arrayToKeyed(P.characters),
+      episodes: arrayToKeyed(P.episodes),
+      scenes: arrayToKeyed(P.scenes),
+      events: arrayToKeyed(P.events),
+      connections: arrayToKeyed(P.connections),
+      _roomMeta: { createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: _userId }
+    };
+
+    _roomRef.set(data).then(() => {
+      setupListeners();
+      setupPresence();
+      updateHash();
+      syncIdCounter();
+      updateSyncUI();
+      App.UI.closeModal();
+      App.UI.toast('Oda oluşturuldu: ' + roomId);
+    }).catch(err => {
+      console.error('[Sync] Create room error:', err);
+      App.UI.toast('Oda oluşturma hatası: ' + err.message);
+      _roomId = null; _roomRef = null;
+    });
+  }
+
+  function joinRoom(roomId) {
+    if(!_initialized) { App.UI.toast('Firebase başlatılamadı'); return; }
+    roomId = roomId.toUpperCase().trim();
+    if(roomId.length !== 6) { App.UI.toast('Geçersiz oda kodu'); return; }
+
+    const ref = _db.ref('rooms/' + roomId);
+    ref.once('value').then(snap => {
+      if(!snap.exists()) { App.UI.toast('Oda bulunamadı: ' + roomId); return; }
+      _roomId = roomId;
+      _roomRef = ref;
+
+      // Download full state
+      const data = snap.val();
+      applyFullState(data);
+      setupListeners();
+      setupPresence();
+      updateHash();
+      syncIdCounter();
+      updateSyncUI();
+      App.UI.closeModal();
+      App.UI.toast('Odaya katıldınız: ' + roomId);
+    }).catch(err => {
+      console.error('[Sync] Join error:', err);
+      App.UI.toast('Katılma hatası: ' + err.message);
+    });
+  }
+
+  function leaveRoom() {
+    if(!_roomId) return;
+    // Remove presence
+    if(_roomRef && _userId) {
+      _roomRef.child('presence/' + _userId).remove();
+    }
+    // Remove listeners
+    _listeners.forEach(l => l.ref.off(l.event, l.fn));
+    _listeners = [];
+    // Clear heartbeat
+    if(_heartbeatInterval) { clearInterval(_heartbeatInterval); _heartbeatInterval = null; }
+    _roomId = null;
+    _roomRef = null;
+    _presenceUsers = {};
+    // Clear hash
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    updateSyncUI();
+    App.UI.toast('Odadan ayrıldınız');
+  }
+
+  function isInRoom() { return !!_roomId; }
+
+  // ── Apply full state from Firebase ──
+  function applyFullState(data) {
+    _remoteChangeInProgress++;
+    try {
+      const P = S.get();
+      if(data.meta) P.meta = U.deepClone(data.meta);
+      P.categories = keyedToCategories(data.categories || {});
+      P.characters = keyedToArray(data.characters || {});
+      P.episodes = keyedToArray(data.episodes || {}).sort((a,b) => a.order - b.order);
+      P.scenes = keyedToArray(data.scenes || {});
+      P.events = keyedToArray(data.events || {});
+      P.connections = keyedToArray(data.connections || {});
+      S.set(P);
+      App.refresh();
+      document.getElementById('projTitle').textContent = P.meta.title;
+    } finally {
+      _remoteChangeInProgress--;
+    }
+  }
+
+  // ── Sync listeners (Firebase → Local) ──
+  function setupListeners() {
+    // Remove any existing listeners
+    _listeners.forEach(l => l.ref.off(l.event, l.fn));
+    _listeners = [];
+
+    // Meta
+    listenCollection('meta', data => {
+      if(!data) return;
+      _remoteChangeInProgress++;
+      try {
+        const P = S.get();
+        P.meta = U.deepClone(data);
+        S.emit('change', {type:'remoteMeta'});
+        document.getElementById('projTitle').textContent = P.meta.title;
+      } finally { _remoteChangeInProgress--; }
+    });
+
+    // Collections with array↔keyed conversion
+    ['characters','episodes','scenes','events','connections'].forEach(col => {
+      listenCollection(col, data => {
+        _remoteChangeInProgress++;
+        try {
+          const P = S.get();
+          P[col] = keyedToArray(data || {});
+          if(col === 'episodes') P.episodes.sort((a,b) => a.order - b.order);
+          S.emit('change', {type:'remote_' + col});
+          App.refresh();
+        } finally { _remoteChangeInProgress--; }
+      });
+    });
+
+    // Categories (object, not array)
+    listenCollection('categories', data => {
+      _remoteChangeInProgress++;
+      try {
+        const P = S.get();
+        P.categories = keyedToCategories(data || {});
+        S.emit('change', {type:'remote_categories'});
+        App.refresh();
+      } finally { _remoteChangeInProgress--; }
+    });
+
+    // Presence
+    listenCollection('presence', data => {
+      _presenceUsers = data || {};
+      renderPresenceBar();
+      updateStatusBarSync();
+    });
+  }
+
+  function listenCollection(path, callback) {
+    const ref = _roomRef.child(path);
+    const fn = ref.on('value', snap => callback(snap.val()));
+    _listeners.push({ ref, event: 'value', fn });
+  }
+
+  // ── Push changes (Local → Firebase) ──
+  function pushChange(col, delay) {
+    if(!_roomId || !_roomRef) return;
+    if(_remoteChangeInProgress > 0) return; // Break sync loop
+
+    delay = delay || 300;
+    if(_pushTimers[col]) clearTimeout(_pushTimers[col]);
+    _pushTimers[col] = setTimeout(() => {
+      _pushTimers[col] = null;
+      doPush(col);
+    }, delay);
+  }
+
+  function doPush(col) {
+    if(!_roomRef || _remoteChangeInProgress > 0) return;
+    const P = S.get();
+    let data;
+    if(col === 'meta') {
+      data = U.deepClone(P.meta);
+    } else if(col === 'categories') {
+      data = categoriesToKeyed(P.categories);
+    } else {
+      data = arrayToKeyed(P[col]);
+    }
+    _roomRef.child(col).set(data).catch(err => {
+      console.error('[Sync] Push error (' + col + '):', err);
+    });
+  }
+
+  function pushAll() {
+    if(!_roomId || _remoteChangeInProgress > 0) return;
+    pushChange('meta', 100);
+    pushChange('categories', 100);
+    COLLECTIONS.filter(c => c !== 'categories').forEach(c => pushChange(c, 100));
+  }
+
+  // ── Store change handler ──
+  function handleStoreChange(data) {
+    if(!_roomId || _remoteChangeInProgress > 0) return;
+    const type = data && data.type;
+    if(!type) { pushAll(); return; }
+
+    // Map change types to collections
+    if(type === 'addEvent' || type === 'updateEvent' || type === 'removeEvent') {
+      pushChange('events'); pushChange('connections');
+    } else if(type === 'addScene' || type === 'updateScene' || type === 'removeScene') {
+      pushChange('scenes'); pushChange('events');
+    } else if(type === 'addEp' || type === 'updateEp' || type === 'removeEp') {
+      pushChange('episodes'); pushChange('scenes'); pushChange('events');
+    } else if(type === 'addCn' || type === 'removeCn') {
+      pushChange('connections');
+    } else if(type === 'addChar' || type === 'removeChar') {
+      pushChange('characters');
+    } else if(type === 'addCat' || type === 'removeCat') {
+      pushChange('categories');
+    } else if(type === 'set' || type === 'undo' || type === 'redo' || type === 'batch' || type === 'docx') {
+      pushAll();
+    } else if(type && type.startsWith('remote')) {
+      // Remote changes — don't push back
+    } else {
+      pushAll();
+    }
+  }
+
+  // ── Presence ──
+  function setupPresence() {
+    if(!_roomRef || !_userId) return;
+    if(!_userColor) {
+      // Assign color based on number of existing users
+      const idx = Object.keys(_presenceUsers).length % PRESENCE_COLORS.length;
+      _userColor = PRESENCE_COLORS[idx];
+      localStorage.setItem('sync_userColor', _userColor);
+    }
+    const presRef = _roomRef.child('presence/' + _userId);
+    presRef.set({
+      name: _userName,
+      color: _userColor,
+      lastSeen: firebase.database.ServerValue.TIMESTAMP
+    });
+    presRef.onDisconnect().remove();
+
+    // Heartbeat
+    if(_heartbeatInterval) clearInterval(_heartbeatInterval);
+    _heartbeatInterval = setInterval(() => {
+      if(_roomRef && _userId) {
+        _roomRef.child('presence/' + _userId + '/lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
+      }
+      // Clean stale entries (5 min)
+      cleanStalePresence();
+    }, 60000);
+  }
+
+  function cleanStalePresence() {
+    const now = Date.now();
+    Object.keys(_presenceUsers).forEach(uid => {
+      const u = _presenceUsers[uid];
+      if(u && u.lastSeen && (now - u.lastSeen > 300000)) {
+        if(_roomRef) _roomRef.child('presence/' + uid).remove();
+      }
+    });
+  }
+
+  function renderPresenceBar() {
+    const bar = document.getElementById('presenceBar');
+    if(!bar) return;
+    let html = '';
+    Object.keys(_presenceUsers).forEach(uid => {
+      const u = _presenceUsers[uid];
+      if(!u || !u.name) return;
+      const initial = u.name.charAt(0).toUpperCase();
+      const isMe = uid === _userId;
+      html += '<div class="presence-avatar" style="background:' + (u.color || '#666') + ';' + (isMe ? 'box-shadow:0 0 0 2px var(--cyan);' : '') + '" title="' + U.escHtml(u.name) + (isMe ? ' (sen)' : '') + '"><span>' + initial + '</span><span class="pa-tip">' + U.escHtml(u.name) + '</span></div>';
+    });
+    bar.innerHTML = html;
+  }
+
+  // ── Sync ID counter ──
+  function syncIdCounter() {
+    const P = S.get();
+    let maxNum = 0;
+    const extractNum = id => {
+      const m = (id || '').match(/(\d+)$/);
+      return m ? parseInt(m[1]) : 0;
+    };
+    P.events.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
+    P.scenes.forEach(s => { maxNum = Math.max(maxNum, extractNum(s.id)); });
+    P.episodes.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
+    P.characters.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
+    P.connections.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
+    U.setIdCounter(maxNum + 1);
+  }
+
+  // ── UI ──
+  function updateHash() {
+    if(_roomId) {
+      history.replaceState(null, '', window.location.pathname + window.location.search + '#room=' + _roomId);
+    }
+  }
+
+  function updateSyncUI() {
+    const bar = document.getElementById('syncBar');
+    const dot = document.getElementById('syncDot');
+    const statusText = document.getElementById('syncStatusText');
+    const roomLabel = document.getElementById('roomCodeLabel');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const syncBtn = document.getElementById('syncBtn');
+
+    if(_roomId) {
+      bar.classList.add('active');
+      roomLabel.style.display = '';
+      roomLabel.textContent = _roomId;
+      leaveBtn.style.display = '';
+      if(syncBtn) syncBtn.style.display = 'none';
+      if(_connected) {
+        dot.className = 'sync-dot connected';
+        statusText.textContent = 'Bağlı';
+      } else {
+        dot.className = 'sync-dot connecting';
+        statusText.textContent = 'Bağlanıyor...';
+      }
+    } else {
+      bar.classList.remove('active');
+      roomLabel.style.display = 'none';
+      leaveBtn.style.display = 'none';
+      if(syncBtn) syncBtn.style.display = '';
+      dot.className = 'sync-dot disconnected';
+      statusText.textContent = 'Bağlantı yok';
+    }
+    updateStatusBarSync();
+  }
+
+  function updateStatusBarSync() {
+    const el = document.getElementById('stSync');
+    if(!el) return;
+    if(_roomId) {
+      const count = Object.keys(_presenceUsers).length;
+      el.textContent = '👥 ' + count + ' kullanıcı';
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  function copyRoomLink() {
+    if(!_roomId) return;
+    const url = window.location.origin + window.location.pathname + '#room=' + _roomId;
+    navigator.clipboard.writeText(url).then(() => {
+      App.UI.toast('Oda linki panoya kopyalandı');
+    }).catch(() => {
+      // Fallback
+      prompt('Oda linkini kopyalayın:', url);
+    });
+  }
+
+  function openSyncPanel(prefillCode) {
+    if(!isConfigValid()) {
+      App.UI.openModal(`
+        <div style="padding:24px;max-width:480px;">
+          <h2 style="margin-bottom:12px;">Firebase Yapılandırması Gerekli</h2>
+          <p style="color:var(--tx2);font-size:13px;line-height:1.6;margin-bottom:16px;">
+            Gerçek zamanlı işbirliği için Firebase Realtime Database gereklidir.<br><br>
+            <strong>Kurulum adımları:</strong><br>
+            1. <code>console.firebase.google.com</code> → Yeni proje oluşturun<br>
+            2. Realtime Database oluşturun (test modunda)<br>
+            3. Authentication → Anonymous sign-in etkinleştirin<br>
+            4. Proje ayarlarından config bilgilerini kopyalayın<br>
+            5. HTML dosyasındaki <code>firebaseConfig</code> nesnesine yapıştırın
+          </p>
+          <button class="btn" onclick="App.UI.closeModal()">Tamam</button>
+        </div>
+      `);
+      return;
+    }
+
+    // If already in a room, show room info
+    if(_roomId) {
+      openRoomInfoPanel();
+      return;
+    }
+
+    const savedName = localStorage.getItem('sync_userName') || '';
+    App.UI.openModal(`
+      <div style="padding:24px;max-width:560px;">
+        <h2 style="margin-bottom:4px;">Gerçek Zamanlı İşbirliği</h2>
+        <p style="color:var(--tx3);font-size:11px;margin-bottom:16px;">Aynı projeyi birden fazla kişiyle düzenleyin</p>
+        <div class="sync-name-row">
+          <label>Görünen Adınız</label>
+          <input type="text" id="syncNameInput" value="${U.escHtml(savedName)}" placeholder="Adınızı girin..." maxlength="20" />
+        </div>
+        <div class="sync-modal-body">
+          <div class="sync-modal-col">
+            <h3>Yeni Oda Oluştur</h3>
+            <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut projeyi paylaşılabilir bir odaya taşıyın. Diğer kullanıcılar oda kodu ile katılabilir.</p>
+            <button class="btn btn-p" onclick="App.Sync._doCreate()">Oda Oluştur</button>
+          </div>
+          <div class="sync-modal-col">
+            <h3>Odaya Katıl</h3>
+            <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut bir odanın 6 haneli kodunu girerek katılın.</p>
+            <input type="text" id="syncRoomCodeInput" placeholder="ABC123" maxlength="6" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px;font-weight:600;" value="${prefillCode ? U.escHtml(prefillCode) : ''}" />
+            <button class="btn btn-p" onclick="App.Sync._doJoin()">Katıl</button>
+          </div>
+        </div>
+        <div class="sync-info">
+          <strong>Not:</strong> Tüm katılımcılar aynı Firebase projesini kullanmalıdır. Veriler Firebase Realtime Database üzerinden senkronize edilir.
+        </div>
+      </div>
+    `);
+    // Focus name input if empty
+    setTimeout(() => {
+      const nameIn = document.getElementById('syncNameInput');
+      if(nameIn && !nameIn.value) nameIn.focus();
+      else {
+        const codeIn = document.getElementById('syncRoomCodeInput');
+        if(codeIn && prefillCode) codeIn.focus();
+      }
+    }, 100);
+  }
+
+  function openRoomInfoPanel() {
+    const userCount = Object.keys(_presenceUsers).length;
+    let usersHtml = '';
+    Object.keys(_presenceUsers).forEach(uid => {
+      const u = _presenceUsers[uid];
+      if(!u) return;
+      const isMe = uid === _userId;
+      usersHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><div class="presence-avatar" style="background:' + (u.color || '#666') + ';width:24px;height:24px;font-size:10px;">' + (u.name || '?').charAt(0).toUpperCase() + '</div><span style="font-size:12px;color:var(--tx);">' + U.escHtml(u.name || 'Anonim') + (isMe ? ' (sen)' : '') + '</span></div>';
+    });
+
+    App.UI.openModal(`
+      <div style="padding:24px;max-width:420px;">
+        <h2 style="margin-bottom:12px;">Oda Bilgileri</h2>
+        <div class="sync-room-info">
+          <div style="text-align:center;">
+            <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">Oda Kodu</div>
+            <span class="room-code" onclick="App.Sync.copyRoomLink()" style="cursor:pointer;">${_roomId}</span>
+          </div>
+          <div style="font-size:11px;color:var(--tx3);">Bağlı: ${_connected ? '<span style="color:var(--green);">Evet</span>' : '<span style="color:var(--red);">Hayır</span>'}</div>
+        </div>
+        <div style="margin-top:16px;">
+          <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Kullanıcılar (${userCount})</div>
+          ${usersHtml}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="btn" onclick="App.Sync.copyRoomLink();App.UI.closeModal();" style="flex:1;">Linki Kopyala</button>
+          <button class="btn btn-d" onclick="App.Sync.leaveRoom();App.UI.closeModal();" style="flex:1;">Odadan Ayrıl</button>
+        </div>
+      </div>
+    `);
+  }
+
+  // ── Internal create/join (called from modal) ──
+  function _doCreate() {
+    const nameIn = document.getElementById('syncNameInput');
+    const name = (nameIn ? nameIn.value.trim() : '') || 'Anonim';
+    _userName = name;
+    localStorage.setItem('sync_userName', name);
+
+    init().then(() => {
+      createRoom();
+    });
+  }
+
+  function _doJoin() {
+    const nameIn = document.getElementById('syncNameInput');
+    const codeIn = document.getElementById('syncRoomCodeInput');
+    const name = (nameIn ? nameIn.value.trim() : '') || 'Anonim';
+    const code = (codeIn ? codeIn.value.trim().toUpperCase() : '');
+    if(!code || code.length !== 6) { App.UI.toast('Lütfen 6 haneli oda kodunu girin'); return; }
+    _userName = name;
+    localStorage.setItem('sync_userName', name);
+
+    init().then(() => {
+      joinRoom(code);
+    });
+  }
+
+  return {
+    init, createRoom, joinRoom, leaveRoom, isInRoom,
+    openSyncPanel, copyRoomLink, renderPresenceBar,
+    pushChange, pushAll, handleStoreChange,
+    _doCreate, _doJoin
+  };
+})();
+
+// ═══ DEMO PROJECT DATA (SAKAL) ═══
+function getDemoProject() {
+  const U = App.Utils;
+  const CHARS = ['Sakal','Akın','Ayça','Hatice','Çağatay','Ayaz','Begüm','Mehmet','Aren','Tomris/Lakas','Asaf','Menderes','Doğan Albay','Tutak','Sangal','Tekin','Oktay Anar'];
+  const characters = CHARS.map(name => ({id:'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_'), name, color:'', notes:''}));
+  const charId = name => 'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_');
+  const episodes = [
+    {id:'ep1',number:1,title:'Uyanma',duration:2700,type:'normal',order:1},
+    {id:'ep2',number:2,title:'Masal',duration:2700,type:'normal',order:2},
+    {id:'ep3',number:3,title:'Sistemin Yüzü',duration:2700,type:'normal',order:3},
+    {id:'ep4',number:4,title:'İlk Darbe',duration:2700,type:'normal',order:4},
+    {id:'ep5',number:5,title:'Sangal Operasyonu',duration:2700,type:'normal',order:5},
+    {id:'ep6',number:6,title:'Tekin Holding',duration:2700,type:'normal',order:6},
+    {id:'ep7',number:7,title:'Sınav ve Çatlaklar',duration:2700,type:'normal',order:7},
+    {id:'ep8',number:8,title:'Kayıp',duration:2700,type:'normal',order:8},
+    {id:'ep9',number:9,title:'Yeniden Doğuş',duration:2700,type:'normal',order:9},
+    {id:'ep10',number:10,title:'Lakas (Final)',duration:2700,type:'normal',order:10},
+    {id:'epfb',number:'fb',title:'Flashback',duration:2700,type:'flashback',order:11}
+  ];
+  const epMap = {1:'ep1',2:'ep2',3:'ep3',4:'ep4',5:'ep5',6:'ep6',7:'ep7',8:'ep8',9:'ep9',10:'ep10','fb':'epfb'};
+  const raw = [
+    {id:'e1',t:'Flashforward: İzbe Bina',d:'Kaos, silah sesleri, patlama.',ep:1,c:'sistem',ch:[],s:0,dur:120},
+    {id:'e2',t:'Akın: Sabah Rutini',d:'Alarm, tıraş, modern kölelik teması.',ep:1,c:'karakter',ch:['Akın'],s:120,dur:150},
+    {id:'e3',t:'Akın: Trafik ve Plaza',d:'Trafikte sıkışma, plazaya giriş.',ep:1,c:'karakter',ch:['Akın'],s:270,dur:90},
+    {id:'e4',t:'Kafede Begüm ile Tanışma',d:'Masada Demir Ökçe kitabı.',ep:1,c:'karakter',ch:['Akın','Begüm','Ayaz'],s:360,dur:120},
+    {id:'e5',t:'Akın: Counter Strike → Müdür',d:'Ofiste oyun, müdürle gerilim.',ep:1,c:'karakter',ch:['Akın'],s:480,dur:120},
+    {id:'e6',t:'Koridor Operasyonu',d:'Ayaz gece baskını, USB verileri.',ep:1,c:'operasyon',ch:['Ayaz','Sakal'],s:600,dur:180},
+    {id:'e7',t:'Çağatay: GTA → Pizza',d:'GTA 5, Mehmet kurye gelir.',ep:1,c:'karakter',ch:['Çağatay','Mehmet'],s:780,dur:120},
+    {id:'e8',t:'Ayça: Otel Sahnesi',d:'Barda Küçük Prens bırakma.',ep:1,c:'karakter',ch:['Ayça','Ayaz'],s:900,dur:150},
+    {id:'e9',t:'Hatice: Acil Servis + Taciz',d:'Vardiya bitişi, Mehmet kurtarma.',ep:1,c:'karakter',ch:['Hatice','Mehmet'],s:1050,dur:120},
+    {id:'e10',t:'Hatice: Gecekondu Evi',d:'Kitaplık, Meryem fotoğrafı.',ep:1,c:'karakter',ch:['Hatice'],s:1170,dur:60},
+    {id:'e11',t:'Sahaf Tanıtımı + Zihgir',d:'FSM tablosu ve hikayesi.',ep:1,c:'organizasyon',ch:['Sakal','Mehmet','Ayaz'],s:1230,dur:120},
+    {id:'e12',t:'Hatice–Ayça Hastane Süreci',d:'Bakım, anne boşluğu.',ep:1,c:'karakter',ch:['Hatice','Ayça','Sakal'],s:1350,dur:90},
+    {id:'e13',t:'Sakal: Aren\'i TV\'den İzleme',d:'Randevu teyidi.',ep:1,c:'karakter',ch:['Sakal','Aren'],s:1440,dur:60},
+    {id:'e14',t:'Sakal–Aren Terapi Seansı',d:'Kum saati hediyesi.',ep:1,c:'karakter',ch:['Sakal','Aren'],s:1500,dur:120},
+    {id:'e15',t:'Parti: Odalar ve Yüzleşme',d:'Numaralı bileklikler.',ep:1,c:'organizasyon',ch:['Sakal','Akın','Ayça','Hatice','Çağatay','Begüm','Ayaz','Mehmet'],s:1620,dur:240},
+    {id:'e16',t:'Parti: Sakal Tanışma + Damga',d:'Fotoğraf, damga.',ep:1,c:'organizasyon',ch:['Sakal','Akın','Ayça','Hatice','Çağatay'],s:1860,dur:120},
+    {id:'e17',t:'Parti Sonrası: Gece Sahneleri',d:'Herkes kendi evinde.',ep:1,c:'karakter',ch:['Ayaz','Ayça','Çağatay','Akın','Hatice'],s:1980,dur:120},
+    {id:'e18',t:'Hatice–Ayça: Damga Keşfi',d:'Sahaf adresini bulma.',ep:1,c:'organizasyon',ch:['Hatice','Ayça'],s:2100,dur:90},
+    {id:'e19',t:'Masal: Masalcı Kız (Begüm)',d:'Begüm sesiyle masal başlar.',ep:2,c:'organizasyon',ch:['Begüm'],s:0,dur:120},
+    {id:'e20',t:'Begüm Yolda + Metro',d:'Yılmaz Holding reklamları.',ep:2,c:'karakter',ch:['Begüm'],s:120,dur:90},
+    {id:'e21',t:'Masal: Tüccar (Tutak)',d:'Masalda Tüccar.',ep:2,c:'organizasyon',ch:['Tutak'],s:210,dur:90},
+    {id:'e22',t:'Tutak: Günlük Hayat',d:'Lüks malikane ama yalnız.',ep:2,c:'sistem',ch:['Tutak'],s:300,dur:180},
+    {id:'e23',t:'Begüm–Akın Kafede',d:'Parti konuşması.',ep:2,c:'karakter',ch:['Begüm','Akın'],s:480,dur:150},
+    {id:'e24',t:'Masal: Saat (Akın)',d:'Altın gövde, çelik mekanizma.',ep:2,c:'organizasyon',ch:['Akın'],s:630,dur:60},
+    {id:'e25',t:'Akın Ofiste: Tekin Holding',d:'Kurumsal baskı.',ep:2,c:'karakter',ch:['Akın','Tekin'],s:690,dur:120},
+    {id:'e26',t:'Masal: Örümcek (Çağatay)',d:'Karanlık köşede ağ.',ep:2,c:'organizasyon',ch:['Çağatay'],s:810,dur:60},
+    {id:'e27',t:'Sakal Çağatay Evine Gelir',d:'Burada harcanıyorsun.',ep:2,c:'organizasyon',ch:['Sakal','Çağatay'],s:870,dur:150},
+    {id:'e28',t:'Hatice: Meryem Fotoğrafı',d:'Derin sessizlik.',ep:2,c:'karakter',ch:['Hatice'],s:1020,dur:60},
+    {id:'e29',t:'Masal: Ateş Kuşu (Ayça)',d:'Masalda Ayça.',ep:2,c:'organizasyon',ch:['Ayça'],s:1080,dur:60},
+    {id:'e30',t:'Masal Finali: Kelebek Etkisi',d:'Kaos teorisi metaforu.',ep:2,c:'organizasyon',ch:['Begüm'],s:1140,dur:120},
+    {id:'e31',t:'e-Demokrasi: Oylama',d:'Algı operasyonu.',ep:3,c:'sistem',ch:['Akın'],s:0,dur:180},
+    {id:'e32',t:'Asaf: Hastane Açılışı',d:'Hayırsever imajı.',ep:3,c:'sistem',ch:['Asaf'],s:180,dur:180},
+    {id:'e33',t:'Sakal–Tekin Holding Ziyareti',d:'Akın Sakal\'ı görür.',ep:3,c:'organizasyon',ch:['Sakal','Akın','Tekin'],s:360,dur:150},
+    {id:'e34',t:'Begüm–Sakal–Akın: Starbucks',d:'Yılmaz\'ı mı öldüreceksin?',ep:3,c:'organizasyon',ch:['Sakal','Akın','Begüm'],s:510,dur:120},
+    {id:'e35',t:'Sahafta İlk Toplantı',d:'Görev dağılımı.',ep:3,c:'organizasyon',ch:['Sakal','Akın','Ayça','Hatice','Ayaz','Begüm','Mehmet'],s:630,dur:240},
+    {id:'e36',t:'Şirket Kurma Teklifi',d:'Platform geliştirme görevi.',ep:3,c:'organizasyon',ch:['Sakal','Çağatay'],s:870,dur:150},
+    {id:'e37',t:'Menderes: Balistik Rapor',d:'Mermi kovanları.',ep:3,c:'sistem',ch:['Menderes'],s:1020,dur:120},
+    {id:'e38',t:'Asaf: Sağlık Altyapısı',d:'Stratejik değer.',ep:3,c:'sistem',ch:['Asaf'],s:1140,dur:120},
+    {id:'e39',t:'Tutak Baskını: Gece Op.',d:'Mermi kovanlarına isim yazma.',ep:4,c:'operasyon',ch:['Ayaz','Sakal','Tutak'],s:0,dur:240},
+    {id:'e40',t:'Tutak\'ın Ölümü',d:'İlk oligark düşer.',ep:4,c:'operasyon',ch:['Ayaz','Tutak'],s:240,dur:90},
+    {id:'e41',t:'Sangal: Medya İmparatorluğu',d:'Gazete patronu.',ep:4,c:'sistem',ch:['Sangal'],s:330,dur:180},
+    {id:'e42',t:'Ayça–Hatice Dostluk',d:'Veranda sohbetleri.',ep:4,c:'karakter',ch:['Ayça','Hatice'],s:510,dur:120},
+    {id:'e43',t:'Ayça: Annesiyle Telefon',d:'Soğuk cevaplar.',ep:4,c:'karakter',ch:['Ayça'],s:630,dur:90},
+    {id:'e44',t:'Çağatay: Uygulama Beta',d:'Gizli işlev.',ep:4,c:'ihanet',ch:['Çağatay','Sakal'],s:720,dur:150},
+    {id:'e45',t:'Hatice: İş Yerinde Aşağılanma',d:'Sessiz öfke.',ep:4,c:'karakter',ch:['Hatice'],s:870,dur:90},
+    {id:'e46',t:'Asaf: İş Zirvesi',d:'İstikrar konuşması.',ep:4,c:'sistem',ch:['Asaf'],s:960,dur:120},
+    {id:'e47',t:'e-Demokrasi: Algı Op.',d:'Sangal gazetesi yönlendirmesi.',ep:4,c:'sistem',ch:['Sangal'],s:1080,dur:120},
+    {id:'e48',t:'Ayça: Sahte Kimlik',d:'Gazeteci Ayşe Duran.',ep:5,c:'operasyon',ch:['Ayça'],s:0,dur:120},
+    {id:'e49',t:'Sangal Operasyonu: Otel',d:'Ustura, Sakal\'ın selamı.',ep:5,c:'operasyon',ch:['Ayça','Sangal'],s:120,dur:210},
+    {id:'e50',t:'Hatice: Koridorda Bakışma',d:'Sessiz dayanışma.',ep:5,c:'operasyon',ch:['Hatice','Ayça'],s:330,dur:60},
+    {id:'e51',t:'Sangal Ölümü: Kalp Krizi',d:'Doğal gösterilir.',ep:5,c:'operasyon',ch:['Hatice','Sangal'],s:390,dur:90},
+    {id:'e52',t:'Akın–Begüm Pub\'da',d:'Haberlerde cinayetler.',ep:5,c:'karakter',ch:['Akın','Begüm'],s:480,dur:120},
+    {id:'e53',t:'Uygulama Yayında',d:'Kullanıcı artışı.',ep:5,c:'ihanet',ch:['Çağatay'],s:600,dur:150},
+    {id:'e54',t:'Halkta Kıpırtı',d:'Anonim paylaşımlar.',ep:5,c:'sistem',ch:[],s:750,dur:150},
+    {id:'e55',t:'Akın: Turntable + Gözaltı',d:'Özel harekat baskını.',ep:5,c:'operasyon',ch:['Akın'],s:900,dur:180},
+    {id:'e56',t:'Gece Sahneleri',d:'Herkes evde.',ep:5,c:'karakter',ch:['Hatice','Çağatay','Sakal'],s:1080,dur:120},
+    {id:'e57',t:'Tekin Holding Hack: Plan',d:'Görev dağılımı.',ep:6,c:'operasyon',ch:['Sakal','Akın','Çağatay','Ayaz','Begüm','Mehmet'],s:0,dur:180},
+    {id:'e58',t:'Tekin Holding Hack: İcra',d:'Hesaplar boşaltılır.',ep:6,c:'operasyon',ch:['Akın','Çağatay','Ayaz','Tekin'],s:180,dur:240},
+    {id:'e59',t:'Asaf: Yardım Organizasyonu',d:'Sahada halkla iç içe.',ep:6,c:'sistem',ch:['Asaf'],s:420,dur:120},
+    {id:'e60',t:'Organize Şube: Emniyet Müdürü',d:'Gazeteci nasıl öğrendi?',ep:6,c:'sistem',ch:['Menderes'],s:540,dur:150},
+    {id:'e61',t:'Menderes: Araştırma',d:'İpuçları birleşiyor.',ep:6,c:'sistem',ch:['Menderes'],s:690,dur:120},
+    {id:'e62',t:'Çağatay: Ego Kıpırtısı',d:'Teknik başarı, tatmin.',ep:6,c:'ihanet',ch:['Çağatay'],s:810,dur:120},
+    {id:'e63',t:'Begüm: Tekin Bağlantısı',d:'Aile meselesi.',ep:6,c:'karakter',ch:['Begüm','Tekin'],s:930,dur:120},
+    {id:'e64',t:'Akın Sınavı: Sahte Sorgu',d:'Maskeli adam — Ayaz.',ep:7,c:'karakter',ch:['Akın','Sakal','Ayaz','Begüm'],s:0,dur:210},
+    {id:'e65',t:'Sakal–Akın: ADALET Vizyonu',d:'Gerçek plan.',ep:7,c:'organizasyon',ch:['Sakal','Akın'],s:210,dur:180},
+    {id:'e66',t:'Aren vs Oktay: TV Tartışması',d:'Canlı yayın.',ep:7,c:'sistem',ch:['Aren','Oktay Anar'],s:390,dur:180},
+    {id:'e67',t:'Asaf: Adalet+İstikrar',d:'Basın açıklaması.',ep:7,c:'sistem',ch:['Asaf'],s:570,dur:90},
+    {id:'e68',t:'Çağatay: Medya İlgisi',d:'Ego şişiyor.',ep:7,c:'ihanet',ch:['Çağatay'],s:660,dur:150},
+    {id:'e69',t:'12 İsim Serbest',d:'Halkta öfke.',ep:7,c:'sistem',ch:['Tekin','Asaf'],s:810,dur:150},
+    {id:'e70',t:'Menderes: Kumanda Fırlatma',d:'Neleri örttüğümüzü bilsen.',ep:7,c:'karakter',ch:['Menderes'],s:960,dur:120},
+    {id:'e71',t:'Sahaf Baskını: Hazırlık',d:'İmha saati 4dk.',ep:8,c:'operasyon',ch:['Ayaz','Sakal','Begüm','Hatice','Mehmet'],s:0,dur:180},
+    {id:'e72',t:'Sahaf Baskını: Polis',d:'Mermiler kitapları deliyor.',ep:8,c:'operasyon',ch:['Ayaz','Menderes'],s:180,dur:180},
+    {id:'e73',t:'Ayaz\'ın Son Savaşı',d:'Bıçakla son direniş.',ep:8,c:'operasyon',ch:['Ayaz'],s:360,dur:180},
+    {id:'e74',t:'Ayaz\'ın Hayali: Oba',d:'Yemyeşil oba, aile.',ep:8,c:'karakter',ch:['Ayaz'],s:540,dur:120},
+    {id:'e75',t:'Ayaz\'ın Ölümü + Patlama',d:'Sahaf yerle bir.',ep:8,c:'operasyon',ch:['Ayaz'],s:660,dur:120},
+    {id:'e76',t:'Kaçış: Araba Sahnesi',d:'Zihgir savaş pozisyonu.',ep:8,c:'organizasyon',ch:['Sakal','Mehmet','Begüm','Hatice'],s:780,dur:120},
+    {id:'e77',t:'Çağatay: Gizli İşlev Keşfi',d:'Öfke ve güvensizlik.',ep:8,c:'ihanet',ch:['Çağatay'],s:900,dur:120},
+    {id:'e78',t:'Çağatay: İhanet Kararı',d:'Devletle temas kararı.',ep:8,c:'ihanet',ch:['Çağatay'],s:1020,dur:120},
+    {id:'e79',t:'Emniyet Basın Açıklaması',d:'Örgüt lideri ölü.',ep:9,c:'sistem',ch:['Menderes'],s:0,dur:150},
+    {id:'e80',t:'Sokakta Kaynayan Öfke',d:'Engeller, mırıldanmalar.',ep:9,c:'sistem',ch:[],s:150,dur:90},
+    {id:'e81',t:'Ekip Dağılmış',d:'Patladık / Duramayız.',ep:9,c:'karakter',ch:['Akın','Ayça','Hatice','Begüm'],s:240,dur:150},
+    {id:'e82',t:'Aren: Kulis + Kum Saati',d:'Sakal logosu.',ep:9,c:'karakter',ch:['Aren','Sakal'],s:390,dur:90},
+    {id:'e83',t:'Aren: Canlı Yayın',d:'Devletin yanlışları.',ep:9,c:'karakter',ch:['Aren'],s:480,dur:150},
+    {id:'e84',t:'Aren: Gözaltı',d:'Gökyüzüne bakış, gülümseme.',ep:9,c:'sistem',ch:['Aren'],s:630,dur:120},
+    {id:'e85',t:'Asaf: Kriz Yönetimi',d:'Diyalog, bastırma değil.',ep:9,c:'sistem',ch:['Asaf'],s:750,dur:120},
+    {id:'e86',t:'Hatice ve Meryem: Parkta',d:'Göz göze ama dokunmaz.',ep:9,c:'karakter',ch:['Hatice','Sakal','Ayça'],s:870,dur:180},
+    {id:'e87',t:'Çağatay: TEDx Hazırlık',d:'Bu işin beyni benim.',ep:9,c:'ihanet',ch:['Çağatay'],s:1050,dur:120},
+    {id:'e88',t:'Çağatay: Devletle Temas',d:'Dokunulmazlık talebi.',ep:9,c:'ihanet',ch:['Çağatay'],s:1170,dur:120},
+    {id:'e89',t:'e-Demokrasi Kırılma',d:'Sonuçlar değişiyor.',ep:10,c:'sistem',ch:[],s:0,dur:120},
+    {id:'e90',t:'Sakal: Pub\'da Kaybolma',d:'Chopper kulübü.',ep:10,c:'organizasyon',ch:['Sakal','Menderes'],s:120,dur:150},
+    {id:'e91',t:'Sakal: Sahaf Enkazı',d:'Dorian Gray alır.',ep:10,c:'organizasyon',ch:['Sakal'],s:270,dur:90},
+    {id:'e92',t:'Çağatay: TEDx Konuşması',d:'Ego zirvesi.',ep:10,c:'ihanet',ch:['Çağatay'],s:360,dur:180},
+    {id:'e93',t:'Sakal–Akın Buluşması',d:'Teknokrasi vizyonu.',ep:10,c:'organizasyon',ch:['Sakal','Akın'],s:540,dur:120},
+    {id:'e94',t:'Depoda Çatışma: Mehmet',d:'Mehmet vurulur.',ep:10,c:'operasyon',ch:['Sakal','Mehmet','Menderes'],s:660,dur:180},
+    {id:'e95',t:'Aren: Randevu Teyidi',d:'Kum saatine bakış.',ep:10,c:'karakter',ch:['Aren'],s:840,dur:60},
+    {id:'e96',t:'Asaf: İki Telefon',d:'Mutlak hesap.',ep:10,c:'sistem',ch:['Asaf'],s:900,dur:150},
+    {id:'e97',t:'Lakas Kafesi: Çağatay–Tomris',d:'TOMA\'lar, Dorian Gray.',ep:10,c:'organizasyon',ch:['Çağatay','Tomris/Lakas'],s:1050,dur:150},
+    {id:'e98',t:'Garson Sakal: Büyük İfşa',d:'Tıraş olmuş, önlüklü.',ep:10,c:'organizasyon',ch:['Sakal','Çağatay','Tomris/Lakas'],s:1200,dur:120},
+    {id:'e99',t:'Çağatay\'ın Sonu: Zehirlenme',d:'Köpüklerle masaya yığılır.',ep:10,c:'ihanet',ch:['Çağatay','Sakal','Hatice','Begüm'],s:1320,dur:150},
+    {id:'e100',t:'Sakal: Gizli Karargah',d:'Devasa kitaplık.',ep:10,c:'organizasyon',ch:['Sakal','Begüm'],s:1470,dur:120},
+    {id:'e101',t:'Son Yazı: Lakas İfşası',d:'Tomris Hanım.',ep:10,c:'organizasyon',ch:['Sakal','Tomris/Lakas'],s:1590,dur:120},
+    {id:'e102',t:'Jenerik Sonrası: Mektup',d:'Diğer bölgelerdeki olaylar.',ep:10,c:'organizasyon',ch:['Tomris/Lakas','Doğan Albay'],s:1710,dur:120},
+    {id:'e103',t:'FB: 1974 Filipinler Kafesi',d:'Doğan ve Tomris tanışma.',ep:'fb',c:'flashback',ch:['Doğan Albay','Tomris/Lakas'],s:0,dur:180},
+    {id:'e104',t:'FB: 2008 Ayaz — Patlama',d:'Patlamış araba.',ep:'fb',c:'flashback',ch:['Ayaz'],s:180,dur:180},
+    {id:'e105',t:'FB: 2008 Ayaz — Valiye Saldırı',d:'Kafa atma.',ep:'fb',c:'flashback',ch:['Ayaz'],s:360,dur:150},
+    {id:'e106',t:'FB: 2011 Doğan — Kozmik Oda',d:'Belgeler, tutuklanma.',ep:'fb',c:'flashback',ch:['Doğan Albay'],s:510,dur:180},
+    {id:'e107',t:'FB: Hatice — Kocasını Öldürmesi',d:'Sessiz karar anı.',ep:'fb',c:'flashback',ch:['Hatice'],s:690,dur:180},
+    {id:'e108',t:'FB: 2016 Doğan — Cezaevi',d:'Mektup, intihar.',ep:'fb',c:'flashback',ch:['Doğan Albay','Ayaz'],s:870,dur:210}
+  ];
+  const events = raw.map(r => ({
+    id:r.id, title:r.t, description:r.d, episodeId:epMap[r.ep], sceneId:null,
+    category:r.c, characters:r.ch.map(charId), s:r.s, dur:r.dur
+  }));
+  const rawCns = [
+    {f:'e6',t:'e58',tp:'neden'},{f:'e36',t:'e44',tp:'neden'},{f:'e44',t:'e53',tp:'neden'},
+    {f:'e53',t:'e62',tp:'neden'},{f:'e62',t:'e68',tp:'neden'},{f:'e68',t:'e77',tp:'neden'},
+    {f:'e77',t:'e78',tp:'neden'},{f:'e78',t:'e88',tp:'neden'},{f:'e88',t:'e99',tp:'neden'},
+    {f:'e39',t:'e60',tp:'neden'},{f:'e60',t:'e72',tp:'neden'},{f:'e75',t:'e79',tp:'neden'},
+    {f:'e41',t:'e49',tp:'neden'},{f:'e69',t:'e54',tp:'neden'},{f:'e14',t:'e83',tp:'neden'},
+    {f:'e72',t:'e73',tp:'neden'},{f:'e73',t:'e75',tp:'neden'},
+    {f:'e97',t:'e99',tp:'neden'},{f:'e99',t:'e101',tp:'neden'},
+    {f:'e103',t:'e101',tp:'neden'},{f:'e108',t:'e101',tp:'neden'},
+    {f:'e42',t:'e36',tp:'karakter'},{f:'e105',t:'e73',tp:'karakter'},{f:'e107',t:'e86',tp:'karakter'},
+    {f:'e32',t:'e96',tp:'karakter'},{f:'e108',t:'e73',tp:'karakter'},
+    {f:'e15',t:'e35',tp:'kronoloji'},{f:'e35',t:'e39',tp:'kronoloji'},{f:'e39',t:'e48',tp:'kronoloji'},
+    {f:'e48',t:'e57',tp:'kronoloji'},{f:'e57',t:'e71',tp:'kronoloji'},{f:'e71',t:'e94',tp:'kronoloji'},
+    {f:'e94',t:'e97',tp:'kronoloji'}
+  ];
+  const connections = rawCns.map((c,i) => ({id:'cn'+i, from:c.f, to:c.t, type:c.tp, description:'', strength:1}));
+  return {
+    meta: { title:'SAKAL', author:'', settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 } },
+    categories: {operasyon:{label:'Operasyon',color:'#ef4444'},karakter:{label:'Karakter',color:'#3b82f6'},organizasyon:{label:'Organizasyon',color:'#10b981'},sistem:{label:'Sistem',color:'#f59e0b'},flashback:{label:'Flashback',color:'#a855f7'},ihanet:{label:'İhanet',color:'#f97316'}},
+    characters, episodes, scenes: generateScenesFromEvents(events, episodes), events, connections
+  };
+}
+
+function generateScenesFromEvents(events, episodes) {
+  const scenes = [];
+  const epGroups = {};
+  events.forEach(ev => {
+    if(!epGroups[ev.episodeId]) epGroups[ev.episodeId] = [];
+    epGroups[ev.episodeId].push(ev);
+  });
+  Object.keys(epGroups).forEach(epId => {
+    const evs = epGroups[epId].sort((a,b) => a.s - b.s);
+    evs.forEach((ev, idx) => {
+      const sc = {
+        id: 'sc_' + ev.id,
+        episodeId: epId,
+        order: idx + 1,
+        title: ev.title,
+        location: '',
+        timeOfDay: '',
+        category: ev.category || 'karakter',
+        characters: ev.characters || [],
+        content: [{ type: 'action', text: ev.description || '' }]
+      };
+      ev.sceneId = sc.id;
+      scenes.push(sc);
+    });
+  });
+  return scenes;
+}
+
+// ═══ VIEW MODE ═══
+App.isMobile = function() { return window.innerWidth <= 768; };
+App.setViewMode = function(mode) {
+  const sp = document.getElementById('spPanel');
+  const tl = document.getElementById('tlA');
+  document.querySelectorAll('.view-mode').forEach(b => b.classList.toggle('active', b.dataset.vm === mode));
+  if(mode === 'screenplay') {
+    sp.classList.add('open'); sp.style.display = ''; tl.style.display = 'none';
+  } else if(mode === 'timeline') {
+    sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
+  } else { // split
+    sp.classList.add('open'); sp.style.display = ''; tl.style.display = '';
+  }
+  // On mobile, adjust sp-panel max-height for split
+  if(App.isMobile() && mode === 'split') {
+    sp.style.maxHeight = '50vh';
+  } else {
+    sp.style.maxHeight = '';
+  }
+};
+
+// ═══ REFRESH ═══
+App.refresh = function() {
+  App.Analysis.invalidateCache();
+  App.Timeline.initFilter();
+  App.Timeline.buildToolbar();
+  App.Timeline.render();
+  App.Screenplay.render();
+  App.UI.updateStatusBar();
+  document.getElementById('projTitle').textContent = App.Store.get().meta.title;
+  if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
+};
+
+// ═══ INIT ═══
+(function(){
+  try {
+    App.Store.on('change', (data) => {
+      App.Analysis.invalidateCache();
+      App.Timeline.render();
+      App.Screenplay.render();
+      App.UI.updateStatusBar();
+      if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
+      // Re-render right panel if open (for warnings/analysis updates after fix)
+      if(document.getElementById('rPanel').classList.contains('open')) {
+        App.Panels.renderPanel();
+      }
+      // Push to Firebase if in a room
+      if(App.Sync) App.Sync.handleStoreChange(data);
+    });
+    App.Timeline.initFilter();
+    App.Timeline.buildToolbar();
+    App.Timeline.render();
+    App.Screenplay.render();
+    App.Interaction.setup();
+    App.UI.updateStatusBar();
+    App.setViewMode('split');
+    // Initialize Firebase Sync (if configured)
+    if(App.Sync) App.Sync.init();
+    // Hide loading, show app
+    const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
+    const ar = document.getElementById('appRoot'); if(ar) ar.style.display = 'flex';
+  } catch(e) {
+    const d = document.createElement('div');
+    d.style.cssText = 'color:#ef4444;background:#1a1a2e;padding:24px;margin:20px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-family:monospace;white-space:pre-wrap;z-index:99999;position:relative;';
+    d.textContent = 'HATA: ' + e.message + '\nStack: ' + (e.stack||'yok');
+    document.body.insertBefore(d, document.body.firstChild);
+  }
+})();
+
+</script>
+</body>
+</html>
