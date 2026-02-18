@@ -1976,17 +1976,17 @@ App.Panels = (function(){
       <div class="rpanel-body" style="padding:14px;">
         <div class="fg"><label>Başlık</label><input id="dT" value="${U.escHtml(ev.title)}"></div>
         <div class="fg"><label>Özet</label><textarea id="dD">${U.escHtml(ev.description||'')}</textarea></div>
-        <div class="fg"><label>Bölüm</label><select id="dEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ev.episodeId===ep.id?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
-        <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${v.label}</option>`).join('')}</select></div>
-        <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
-        <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
-        <div class="fg"><label>Karakterler</label><div class="chw">${P.characters.map(c=>`<label class="chcb"><input type="checkbox" value="${c.id}"${(ev.characters||[]).includes(c.id)?' checked':''}>${c.name}</label>`).join('')}</div></div>
         <div class="fg"><label>Senaryo Metni <span style="color:var(--tx4);text-transform:none;font-weight:400">— karakter için <b style="color:var(--cyan)">@</b></span></label>
           <div class="scene-screenplay-wrap">
             <div class="scene-screenplay" id="dScreenplay" contenteditable="true" data-placeholder="Sahne metnini yazın..." style="min-height:120px;max-height:250px;"></div>
             <div class="mention-popup" id="dMentionPopup"></div>
           </div>
         </div>
+        <div class="fg"><label>Bölüm</label><select id="dEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ev.episodeId===ep.id?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${v.label}</option>`).join('')}</select></div>
+        <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
+        <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
+        <div class="fg"><label>Karakterler</label><div class="chw">${P.characters.map(c=>`<label class="chcb"><input type="checkbox" value="${c.id}"${(ev.characters||[]).includes(c.id)?' checked':''}>${c.name}</label>`).join('')}</div></div>
         <div class="epc"><label style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500">Bağlantılar (${cns.length})</label>
           ${cns.map(c=>{const o=c.from===editId?S.getEvent(c.to):S.getEvent(c.from);return `<div class="eci"><span>${c.from===editId?'→':'←'} ${o?U.escHtml(o.title):'?'} (${tl[c.type]||c.type})</span><button class="btn btn-s" style="color:var(--red)" onclick="App.Panels.rmCn('${c.from}','${c.to}','${c.type}')">✕</button></div>`;}).join('')}
           <button class="btn btn-s" style="margin-top:6px" onclick="App.Panels.openAddConnection('${editId}')">+ Bağlantı</button>
