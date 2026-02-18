@@ -1589,7 +1589,7 @@ App.Screenplay = (function(){
   // Init mention listeners on DOM ready
   setTimeout(initMentionListeners, 100);
 
-  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline };
+  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline, formatScreenplayHTML };
 })();
 
 // ═══ INTERACTION MODULE ═══
@@ -1981,6 +1981,12 @@ App.Panels = (function(){
         <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
         <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
         <div class="fg"><label>Karakterler</label><div class="chw">${P.characters.map(c=>`<label class="chcb"><input type="checkbox" value="${c.id}"${(ev.characters||[]).includes(c.id)?' checked':''}>${c.name}</label>`).join('')}</div></div>
+        <div class="fg"><label>Senaryo Metni <span style="color:var(--tx4);text-transform:none;font-weight:400">— karakter için <b style="color:var(--cyan)">@</b></span></label>
+          <div class="scene-screenplay-wrap">
+            <div class="scene-screenplay" id="dScreenplay" contenteditable="true" data-placeholder="Sahne metnini yazın..." style="min-height:120px;max-height:250px;"></div>
+            <div class="mention-popup" id="dMentionPopup"></div>
+          </div>
+        </div>
         <div class="epc"><label style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500">Bağlantılar (${cns.length})</label>
           ${cns.map(c=>{const o=c.from===editId?S.getEvent(c.to):S.getEvent(c.from);return `<div class="eci"><span>${c.from===editId?'→':'←'} ${o?U.escHtml(o.title):'?'} (${tl[c.type]||c.type})</span><button class="btn btn-s" style="color:var(--red)" onclick="App.Panels.rmCn('${c.from}','${c.to}','${c.type}')">✕</button></div>`;}).join('')}
           <button class="btn btn-s" style="margin-top:6px" onclick="App.Panels.openAddConnection('${editId}')">+ Bağlantı</button>
@@ -1992,6 +1998,19 @@ App.Panels = (function(){
         <button class="btn" onclick="App.Panels.closeAll()">İptal</button>
         <button class="btn btn-p" onclick="App.Panels.saveEvent('${editId}')">Kaydet</button>
       </div>`;
+    setTimeout(() => {
+      const el = document.getElementById('dScreenplay');
+      if(!el) return;
+      // Load existing screenplay if event has a scene
+      if(ev.sceneId) {
+        const sc = S.getScene(ev.sceneId);
+        if(sc && sc.screenplay) {
+          el.innerHTML = App.Screenplay.formatScreenplayHTML(ev.sceneId, sc.screenplay);
+        }
+      }
+      el.addEventListener('input', editMentionInput);
+      el.addEventListener('keydown', editMentionKeydown);
+    }, 50);
   }
 
   function saveEvent(id) {
@@ -2005,6 +2024,26 @@ App.Panels = (function(){
     ev.dur = Math.max(60, parseInt(document.getElementById('dDur').value) || 120);
     ev.characters = [];
     document.querySelectorAll('#rPanel .chcb input:checked').forEach(cb => ev.characters.push(cb.value));
+    // Save screenplay text
+    const { text: screenplay, chars: mentionChars } = getEditScreenplayText();
+    mentionChars.forEach(cid => { if(!ev.characters.includes(cid)) ev.characters.push(cid); });
+    if(ev.sceneId) {
+      const sc = S.getScene(ev.sceneId);
+      if(sc) sc.screenplay = screenplay;
+    } else if(screenplay.trim()) {
+      // Create new scene for this event
+      const P = S.get();
+      const existing = P.scenes.filter(s => s.episodeId === ev.episodeId);
+      const order = existing.length ? Math.max(...existing.map(s=>s.order)) + 1 : 1;
+      const scId = U.genId('sc');
+      P.scenes.push({
+        id: scId, episodeId: ev.episodeId, order, title: ev.title, location: '', timeOfDay: '',
+        category: ev.category, characters: ev.characters,
+        content: [{ type: 'action', text: screenplay.replace(/@\[[^\]]+\]\([^)]+\)/g, m => '@' + m.match(/@\[([^\]]+)\]/)[1]) }],
+        screenplay: screenplay
+      });
+      ev.sceneId = scId;
+    }
     S.emit('change', {type:'updateEvent'});
     closeAll();
     App.UI.toast('"' + ev.title + '" güncellendi');
@@ -2207,6 +2246,137 @@ App.Panels = (function(){
     return { text, chars };
   }
 
+  // ── EDIT PANEL MENTION SUPPORT ──
+  let editMention = null;
+
+  function editMentionInput() {
+    const el = document.getElementById('dScreenplay');
+    if(!el) return;
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if(range.startContainer.nodeType !== Node.TEXT_NODE) { closeEditMention(); return; }
+    const textBefore = range.startContainer.textContent.substring(0, range.startOffset);
+    const atIdx = textBefore.lastIndexOf('@');
+    if(atIdx === -1) { closeEditMention(); return; }
+    const query = textBefore.substring(atIdx + 1);
+    if(query.includes(' ') && query.trim().includes(' ')) { closeEditMention(); return; }
+
+    const P = S.get();
+    const q = query.toLowerCase();
+    const matches = P.characters.filter(c => c.name.toLowerCase().includes(q));
+    const popup = document.getElementById('dMentionPopup');
+    if(!popup) return;
+
+    if(!matches.length) {
+      popup.innerHTML = '<div class="mp-empty">Karakter bulunamadı</div>';
+      popup.classList.add('open');
+      editMention = { query, textNode: range.startContainer, atIdx, popupEl: popup, matches: [], activeIdx: 0 };
+      positionModalPopup(popup, range);
+      return;
+    }
+    let html = '';
+    matches.forEach((c, i) => {
+      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Panels.insertEditMention('${c.id}')"><span class="mp-dot" style="background:${U.sanitizeColor(c.color)||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
+    });
+    popup.innerHTML = html;
+    popup.classList.add('open');
+    editMention = { query, textNode: range.startContainer, atIdx, popupEl: popup, matches, activeIdx: 0 };
+    positionModalPopup(popup, range);
+  }
+
+  function closeEditMention() {
+    if(editMention && editMention.popupEl) editMention.popupEl.classList.remove('open');
+    editMention = null;
+  }
+
+  function editMentionKeydown(e) {
+    if(!editMention || !editMention.matches.length) {
+      if(editMention && e.key === 'Escape') { closeEditMention(); e.preventDefault(); }
+      return;
+    }
+    const items = editMention.popupEl.querySelectorAll('.mp-item');
+    if(e.key === 'ArrowDown') {
+      e.preventDefault();
+      editMention.activeIdx = Math.min(editMention.activeIdx + 1, items.length - 1);
+      items.forEach((it, i) => it.classList.toggle('active', i === editMention.activeIdx));
+      items[editMention.activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'ArrowUp') {
+      e.preventDefault();
+      editMention.activeIdx = Math.max(editMention.activeIdx - 1, 0);
+      items.forEach((it, i) => it.classList.toggle('active', i === editMention.activeIdx));
+      items[editMention.activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const active = items[editMention.activeIdx];
+      if(active) insertEditMention(active.dataset.cid);
+    } else if(e.key === 'Escape') {
+      e.preventDefault(); closeEditMention();
+    }
+  }
+
+  function insertEditMention(charId) {
+    if(!editMention) return;
+    const P = S.get();
+    const c = P.characters.find(x => x.id === charId);
+    if(!c) return;
+    const { textNode, atIdx } = editMention;
+    const beforeAt = textNode.textContent.substring(0, atIdx);
+    const afterQuery = textNode.textContent.substring(atIdx + 1 + editMention.query.length);
+
+    const mention = document.createElement('span');
+    mention.className = 'mention';
+    mention.contentEditable = 'false';
+    mention.dataset.charId = charId;
+    mention.style.borderBottom = '2px solid ' + (U.sanitizeColor(c.color) || 'var(--cyan)');
+    mention.textContent = '@' + c.name;
+
+    const parent = textNode.parentNode;
+    const beforeNode = document.createTextNode(beforeAt);
+    const afterNode = document.createTextNode('\u00A0' + afterQuery);
+    parent.insertBefore(beforeNode, textNode);
+    parent.insertBefore(mention, textNode);
+    parent.insertBefore(afterNode, textNode);
+    parent.removeChild(textNode);
+
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.setStart(afterNode, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+
+    closeEditMention();
+    // Auto-check the character checkbox in edit panel
+    const cb = document.querySelector('#rPanel .chcb input[value="' + charId + '"]');
+    if(cb) cb.checked = true;
+  }
+
+  function getEditScreenplayText() {
+    const el = document.getElementById('dScreenplay');
+    if(!el) return { text: '', chars: [] };
+    let text = '';
+    const chars = [];
+    el.childNodes.forEach(node => {
+      if(node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent;
+      } else if(node.classList && node.classList.contains('mention')) {
+        const cid = node.dataset.charId;
+        const name = node.textContent.replace(/^@/, '');
+        text += `@[${name}](${cid})`;
+        if(cid && !chars.includes(cid)) chars.push(cid);
+      } else if(node.tagName === 'BR') {
+        text += '\n';
+      } else if(node.tagName === 'DIV' || node.tagName === 'P') {
+        if(text && !text.endsWith('\n')) text += '\n';
+        text += node.textContent || '';
+      } else {
+        text += node.textContent || '';
+      }
+    });
+    return { text, chars };
+  }
+
   function doAddEvent() {
     let t = document.getElementById('nT').value.trim();
     if(!t) { App.UI.toast('Başlık gerekli!'); return; }
@@ -2374,7 +2544,7 @@ App.Panels = (function(){
     App.UI.toast('Ayarlar kaydedildi');
   }
 
-  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive };
+  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, insertEditMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive };
 })();
 
 // ═══ ANALYSIS MODULE ═══
