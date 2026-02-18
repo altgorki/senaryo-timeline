@@ -542,11 +542,35 @@ App.Utils = (function(){
   const setIdCounter = (n) => { _nid = n; };
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
   const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const _safeColorNames = new Set(['red','blue','green','yellow','orange','purple','pink','cyan','white','black','gray','grey','brown','navy','teal','lime','aqua','maroon','olive','silver','fuchsia','transparent','inherit','currentColor']);
+  const sanitizeColor = c => {
+    if(!c || typeof c !== 'string') return '#888';
+    c = c.trim();
+    if(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(c)) return c;
+    if(/^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/.test(c)) return c;
+    if(/^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/.test(c)) return c;
+    if(/^hsl\(\s*\d{1,3}\s*,\s*\d{1,3}%?\s*,\s*\d{1,3}%?\s*\)$/.test(c)) return c;
+    if(/^var\(--[a-zA-Z0-9_-]+\)$/.test(c)) return c;
+    if(_safeColorNames.has(c.toLowerCase())) return c;
+    return '#888';
+  };
   const debounce = (fn,ms) => { let t; return (...a) => { clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
   const snap = (val, grid) => grid > 0 ? Math.round(val/grid)*grid : val;
   const epLbl = e => e==='fb'?'FB':'B'+e;
   const deepClone = o => JSON.parse(JSON.stringify(o));
-  return { s2t, s2px, px2s, genId, setIdCounter, clamp, escHtml, debounce, snap, epLbl, deepClone };
+  // ── Input Validation ──
+  const LIMITS = { title:200, description:5000, screenplay:50000, characterName:50, color:20 };
+  function validateText(str, field) {
+    if(!str || typeof str !== 'string') return str;
+    const max = LIMITS[field];
+    if(!max) return str;
+    if(str.length > max) {
+      App.UI.toast(field + ' alanı ' + max + ' karakterle sınırlı — kırpıldı');
+      return str.substring(0, max);
+    }
+    return str;
+  }
+  return { s2t, s2px, px2s, genId, setIdCounter, clamp, escHtml, sanitizeColor, debounce, snap, epLbl, deepClone, LIMITS, validateText };
 })();
 
 // ═══ STORE MODULE ═══
@@ -768,7 +792,7 @@ App.Timeline = (function(){
       const p = document.createElement('div');
       p.className = 'pill' + (flt.cats.has(k)?'':' off');
       p.dataset.cat = k;
-      p.style.borderColor = v.color; p.style.color = v.color;
+      p.style.borderColor = U.sanitizeColor(v.color); p.style.color = U.sanitizeColor(v.color);
       p.textContent = v.label;
       p.onclick = () => { p.classList.toggle('off'); if(flt.cats.has(k)) flt.cats.delete(k); else flt.cats.add(k); doFilter(); };
       cp.appendChild(p);
@@ -859,7 +883,8 @@ App.Timeline = (function(){
         bl.style.height = LH + 'px';
         // Dynamic category colors
         const c = cat.color;
-        bl.style.background = c + '1a'; bl.style.borderColor = c + '4d'; bl.style.color = c;
+        const sc_ = U.sanitizeColor(c);
+        bl.style.background = sc_ + '1a'; bl.style.borderColor = sc_ + '4d'; bl.style.color = sc_;
         const hasScene = ev.sceneId ? '<span class="scene-link">📝</span>' : '';
         bl.innerHTML = `<div class="rh l"></div><span class="etxt">${U.escHtml(ev.title)}</span>${hasScene}<div class="rh r"></div>`;
 
@@ -983,7 +1008,7 @@ App.Screenplay = (function(){
             <div class="scene-card-badges">
               ${sc.location?'<span class="scene-card-badge">'+U.escHtml(sc.location)+'</span>':''}
               ${sc.timeOfDay?'<span class="scene-card-badge">'+U.escHtml(sc.timeOfDay)+'</span>':''}
-              <span class="scene-card-badge" style="color:${catObj.color}">${catObj.label}</span>
+              <span class="scene-card-badge" style="color:${U.sanitizeColor(catObj.color)}">${catObj.label}</span>
             </div>
           </div>
           <div class="scene-card-chars" onclick="App.Screenplay.selectScene('${sc.id}')">${charNames.map(n=>'<div class="scene-card-char">'+n+'</div>').join('')}</div>
@@ -1040,7 +1065,7 @@ App.Screenplay = (function(){
     if(scChars.length) {
       h += '<div class="scene-chars-row">';
       scChars.forEach(c => {
-        h += `<span class="scene-char-tag"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${sc.id}','${c.id}')">✕</span></span>`;
+        h += `<span class="scene-char-tag"><span class="mp-dot" style="background:${U.sanitizeColor(c.color)||'var(--tx3)'}"></span>${U.escHtml(c.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${sc.id}','${c.id}')">✕</span></span>`;
       });
       h += '</div>';
     }
@@ -1186,6 +1211,7 @@ App.Screenplay = (function(){
   function saveSceneMeta(scId, field, value) {
     const sc = S.getScene(scId);
     if(!sc) return;
+    if(field === 'title') value = U.validateText(value, 'title');
     if(sc[field] === value) return;
     S.snapshot();
     sc[field] = value;
@@ -1206,7 +1232,7 @@ App.Screenplay = (function(){
       const catObj = P.categories[sc.category]||{color:'#888',label:'?'};
       const badges = card.querySelector('.scene-card-badges');
       if(badges) {
-        badges.innerHTML = `${sc.location?'<span class="scene-card-badge">'+U.escHtml(sc.location)+'</span>':''}${sc.timeOfDay?'<span class="scene-card-badge">'+U.escHtml(sc.timeOfDay)+'</span>':''}<span class="scene-card-badge" style="color:${catObj.color}">${catObj.label}</span>`;
+        badges.innerHTML = `${sc.location?'<span class="scene-card-badge">'+U.escHtml(sc.location)+'</span>':''}${sc.timeOfDay?'<span class="scene-card-badge">'+U.escHtml(sc.timeOfDay)+'</span>':''}<span class="scene-card-badge" style="color:${U.sanitizeColor(catObj.color)}">${catObj.label}</span>`;
       }
       if(field === 'title') {
         const titleEl = card.querySelector('.scene-card-title');
@@ -1228,7 +1254,7 @@ App.Screenplay = (function(){
     // Replace @CharName with mention spans
     return text.replace(/@\[([^\]]+)\]\(([^)]+)\)/g, (m, name, id) => {
       const c = P.characters.find(x => x.id === id);
-      const color = c ? c.color : 'var(--cyan)';
+      const color = c ? U.sanitizeColor(c.color) : 'var(--cyan)';
       return `<span class="mention" contenteditable="false" data-char-id="${id}" style="border-bottom:2px solid ${color}">@${U.escHtml(name)}</span>`;
     });
   }
@@ -1258,7 +1284,8 @@ App.Screenplay = (function(){
   function saveScreenplay(scId, el) {
     const sc = S.getScene(scId);
     if(!sc) return;
-    const newText = getScreenplayText(el);
+    let newText = getScreenplayText(el);
+    newText = U.validateText(newText, 'screenplay');
     if(sc.screenplay === newText) return;
     S.snapshot();
     sc.screenplay = newText;
@@ -1285,7 +1312,7 @@ App.Screenplay = (function(){
       if(card) {
         const charRow = card.querySelector('.scene-chars-row');
         const scChars = (sc.characters||[]).map(cid => P.characters.find(c=>c.id===cid)).filter(Boolean);
-        const html = scChars.map(c => `<span class="scene-char-tag"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${scId}','${c.id}')">✕</span></span>`).join('');
+        const html = scChars.map(c => `<span class="scene-char-tag"><span class="mp-dot" style="background:${U.sanitizeColor(c.color)||'var(--tx3)'}"></span>${U.escHtml(c.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${scId}','${c.id}')">✕</span></span>`).join('');
         if(charRow) { charRow.innerHTML = html; }
         else {
           const editor = card.querySelector('.scene-editor');
@@ -1348,7 +1375,7 @@ App.Screenplay = (function(){
 
     let html = '';
     matches.forEach((c, i) => {
-      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Screenplay.insertMention('${scId}','${c.id}')"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
+      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Screenplay.insertMention('${scId}','${c.id}')"><span class="mp-dot" style="background:${U.sanitizeColor(c.color)||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
     });
     popup.innerHTML = html;
     popup.classList.add('open');
@@ -1410,7 +1437,7 @@ App.Screenplay = (function(){
     mention.className = 'mention';
     mention.contentEditable = 'false';
     mention.dataset.charId = charId;
-    mention.style.borderBottom = '2px solid ' + (c.color || 'var(--cyan)');
+    mention.style.borderBottom = '2px solid ' + (U.sanitizeColor(c.color) || 'var(--cyan)');
     mention.textContent = '@' + c.name;
 
     // Split text node and insert mention
@@ -1446,7 +1473,7 @@ App.Screenplay = (function(){
         const card = document.querySelector(`.scene-card[data-sid="${scId}"]`);
         if(card) {
           const scChars = sc.characters.map(cid => P.characters.find(cc=>cc.id===cid)).filter(Boolean);
-          const html = scChars.map(cc => `<span class="scene-char-tag"><span class="mp-dot" style="background:${cc.color||'var(--tx3)'}"></span>${U.escHtml(cc.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${scId}','${cc.id}')">✕</span></span>`).join('');
+          const html = scChars.map(cc => `<span class="scene-char-tag"><span class="mp-dot" style="background:${U.sanitizeColor(cc.color)||'var(--tx3)'}"></span>${U.escHtml(cc.name)}<span class="remove-char" onclick="event.stopPropagation();App.Screenplay.removeSceneChar('${scId}','${cc.id}')">✕</span></span>`).join('');
           let charRow = card.querySelector('.scene-chars-row');
           if(!charRow) {
             charRow = document.createElement('div');
@@ -1966,8 +1993,8 @@ App.Panels = (function(){
   function saveEvent(id) {
     const ev = S.getEvent(id); if(!ev) return;
     S.snapshot();
-    ev.title = document.getElementById('dT').value.trim() || ev.title;
-    ev.description = document.getElementById('dD').value.trim();
+    ev.title = U.validateText(document.getElementById('dT').value.trim(), 'title') || ev.title;
+    ev.description = U.validateText(document.getElementById('dD').value.trim(), 'description');
     ev.episodeId = document.getElementById('dEp').value;
     ev.category = document.getElementById('dC').value;
     ev.s = Math.max(0, parseInt(document.getElementById('dS').value) || 0);
@@ -2068,7 +2095,7 @@ App.Panels = (function(){
     }
     let html = '';
     matches.forEach((c, i) => {
-      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Panels.insertModalMention('${c.id}')"><span class="mp-dot" style="background:${c.color||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
+      html += `<div class="mp-item${i===0?' active':''}" data-cid="${c.id}" data-name="${U.escHtml(c.name)}" onmousedown="event.preventDefault();App.Panels.insertModalMention('${c.id}')"><span class="mp-dot" style="background:${U.sanitizeColor(c.color)||'var(--tx3)'}"></span>${U.escHtml(c.name)}</div>`;
     });
     popup.innerHTML = html;
     popup.classList.add('open');
@@ -2126,7 +2153,7 @@ App.Panels = (function(){
     mention.className = 'mention';
     mention.contentEditable = 'false';
     mention.dataset.charId = charId;
-    mention.style.borderBottom = '2px solid ' + (c.color || 'var(--cyan)');
+    mention.style.borderBottom = '2px solid ' + (U.sanitizeColor(c.color) || 'var(--cyan)');
     mention.textContent = '@' + c.name;
 
     const parent = textNode.parentNode;
@@ -2176,8 +2203,9 @@ App.Panels = (function(){
   }
 
   function doAddEvent() {
-    const t = document.getElementById('nT').value.trim();
+    let t = document.getElementById('nT').value.trim();
     if(!t) { App.UI.toast('Başlık gerekli!'); return; }
+    t = U.validateText(t, 'title');
     const { text: screenplay, chars: mentionChars } = getModalScreenplayText();
     const ch = [];
     document.querySelectorAll('#mbg .chcb input:checked').forEach(cb => ch.push(cb.value));
@@ -2558,7 +2586,7 @@ App.Analysis = (function(){
       if(!ev) return;
       const cat = P.categories[ev.category]||{color:'#888'};
       h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;cursor:pointer;" onclick="App.Timeline.scrollToEvent('${id}')">
-        <div style="width:8px;height:8px;border-radius:50%;background:${cat.color};flex-shrink:0;"></div>
+        <div style="width:8px;height:8px;border-radius:50%;background:${U.sanitizeColor(cat.color)};flex-shrink:0;"></div>
         <span style="font-size:11px;">${U.escHtml(ev.title)}</span>
       </div>`;
       if(i < cp.path.length-1) h += '<div style="margin-left:3px;border-left:2px solid var(--brd);height:12px;"></div>';
@@ -2867,6 +2895,47 @@ App.Sync = (function(){
     appId: "1:1092333524437:web:31cec6e577c127abc5d95c"
   };
 
+  /*
+   * ═══ FIREBASE SECURITY RULES ═══
+   * Deploy these rules in Firebase Console → Realtime Database → Rules
+   * AFTER deploying the client code with password/lock/presence-first flow.
+   *
+   * {
+   *   "rules": {
+   *     "rooms": {
+   *       "$roomId": {
+   *         ".read": "auth != null && (data.child('presence').child(auth.uid).exists() || data.child('_roomMeta/createdBy').val() === auth.uid)",
+   *         "_roomMeta": {
+   *           ".read": "auth != null",
+   *           ".write": "auth != null && (!data.exists() || data.child('createdBy').val() === auth.uid)",
+   *           "createdBy": { ".validate": "!data.exists() || newData.val() === data.val()" },
+   *           "passwordHash": { ".validate": "newData.isString() && newData.val().length <= 128" },
+   *           "locked": { ".validate": "newData.isBoolean()" }
+   *         },
+   *         "presence": {
+   *           "$uid": {
+   *             ".write": "auth != null && ($uid === auth.uid || data.parent().parent().child('_roomMeta/createdBy').val() === auth.uid)",
+   *             ".validate": "newData.hasChildren(['name', 'lastSeen']) || !newData.exists()",
+   *             "name": { ".validate": "newData.isString() && newData.val().length <= 30" },
+   *             "color": { ".validate": "newData.isString() && newData.val().length <= 20" },
+   *             "lastSeen": { ".validate": "newData.isNumber()" }
+   *           }
+   *         },
+   *         "meta": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
+   *         "categories": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
+   *         "characters": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
+   *         "episodes": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
+   *         "scenes": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
+   *         "events": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
+   *         "connections": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" }
+   *       }
+   *     },
+   *     ".read": false,
+   *     ".write": false
+   *   }
+   * }
+   */
+
   // ── State ──
   let _db = null;
   let _auth = null;
@@ -2882,8 +2951,45 @@ App.Sync = (function(){
   let _heartbeatInterval = null;
   let _presenceUsers = {};
 
+  let _isAdmin = false;
+
   const PRESENCE_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#f97316'];
   const COLLECTIONS = ['categories','characters','episodes','scenes','events','connections'];
+
+  // ── Rate Limiting ──
+  let _joinAttempts = []; // timestamps
+  let _createAttempts = []; // timestamps
+
+  function checkRateLimit(type) {
+    const now = Date.now();
+    if(type === 'join') {
+      _joinAttempts = _joinAttempts.filter(t => now - t < 60000);
+      if(_joinAttempts.length >= 5) {
+        const wait = Math.ceil((60000 - (now - _joinAttempts[0])) / 1000);
+        App.UI.toast('Çok fazla katılma denemesi. ' + wait + ' saniye bekleyin.');
+        return false;
+      }
+      _joinAttempts.push(now);
+      return true;
+    } else if(type === 'create') {
+      _createAttempts = _createAttempts.filter(t => now - t < 300000);
+      if(_createAttempts.length >= 3) {
+        const wait = Math.ceil((300000 - (now - _createAttempts[0])) / 1000);
+        App.UI.toast('Çok fazla oda oluşturma denemesi. ' + wait + ' saniye bekleyin.');
+        return false;
+      }
+      _createAttempts.push(now);
+      return true;
+    }
+    return true;
+  }
+
+  // ── Password Hashing (Web Crypto API — SHA-256) ──
+  async function hashPassword(pw) {
+    const enc = new TextEncoder().encode(pw);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
 
   // ── Debounce timers ──
   let _pushTimers = {};
@@ -2892,7 +2998,7 @@ App.Sync = (function(){
   function genRoomId() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let id = '';
-    for(let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    for(let i = 0; i < 10; i++) id += chars[Math.floor(Math.random() * chars.length)];
     return id;
   }
 
@@ -2972,7 +3078,7 @@ App.Sync = (function(){
 
   function checkHashJoin() {
     const hash = window.location.hash;
-    const match = hash.match(/room=([A-Z0-9]{6})/i);
+    const match = hash.match(/room=([A-Z0-9]{6,10})/i);
     if(match) {
       const roomId = match[1].toUpperCase();
       if(!_userName) {
@@ -2985,13 +3091,18 @@ App.Sync = (function(){
   }
 
   // ── Room Management ──
-  function createRoom() {
+  async function createRoom(passwordPlain) {
     if(!_initialized) { App.UI.toast('Firebase başlatılamadı'); return; }
+    if(!checkRateLimit('create')) return;
     const roomId = genRoomId();
     _roomId = roomId;
     _roomRef = _db.ref('rooms/' + roomId);
 
     const P = S.get();
+    const roomMeta = { createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: _userId, locked: false };
+    if(passwordPlain) {
+      roomMeta.passwordHash = await hashPassword(passwordPlain);
+    }
     const data = {
       meta: U.deepClone(P.meta),
       categories: categoriesToKeyed(P.categories),
@@ -3000,10 +3111,11 @@ App.Sync = (function(){
       scenes: arrayToKeyed(P.scenes),
       events: arrayToKeyed(P.events),
       connections: arrayToKeyed(P.connections),
-      _roomMeta: { createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: _userId }
+      _roomMeta: roomMeta
     };
 
     _roomRef.set(data).then(() => {
+      _isAdmin = true;
       setupListeners();
       setupPresence();
       updateHash();
@@ -3018,31 +3130,88 @@ App.Sync = (function(){
     });
   }
 
-  function joinRoom(roomId) {
+  async function joinRoom(roomId, passwordPlain) {
     if(!_initialized) { App.UI.toast('Firebase başlatılamadı'); return; }
+    if(!checkRateLimit('join')) return;
     roomId = roomId.toUpperCase().trim();
-    if(roomId.length !== 6) { App.UI.toast('Geçersiz oda kodu'); return; }
+    if(roomId.length < 6 || roomId.length > 10) { App.UI.toast('Geçersiz oda kodu'); return; }
 
     const ref = _db.ref('rooms/' + roomId);
-    ref.once('value').then(snap => {
-      if(!snap.exists()) { App.UI.toast('Oda bulunamadı: ' + roomId); return; }
+    try {
+      // Step 1: Read _roomMeta first
+      const metaSnap = await ref.child('_roomMeta').once('value');
+      if(!metaSnap.exists()) { App.UI.toast('Oda bulunamadı: ' + roomId); return; }
+      const roomMeta = metaSnap.val();
+
+      // Step 2: Lock check
+      if(roomMeta.locked && roomMeta.createdBy !== _userId) {
+        App.UI.toast('Bu oda kilitli — yeni katılımlar engellendi');
+        return;
+      }
+
+      // Step 3: Password check
+      if(roomMeta.passwordHash) {
+        if(!passwordPlain) {
+          // Prompt for password via modal
+          _pendingJoinRoomId = roomId;
+          App.UI.openModal(`
+            <div class="mh"><span>Oda Parolası Gerekli</span><button class="close-btn" onclick="App.UI.closeModal()">✕</button></div>
+            <div class="mb">
+              <div class="fg"><label>Parola</label><input type="password" id="joinPwInput" placeholder="Oda parolasını girin..." onkeydown="if(event.key==='Enter')App.Sync._doJoinWithPassword()"></div>
+            </div>
+            <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Sync._doJoinWithPassword()">Katıl</button></div>
+          `);
+          setTimeout(() => { const el = document.getElementById('joinPwInput'); if(el) el.focus(); }, 100);
+          return;
+        }
+        const inputHash = await hashPassword(passwordPlain);
+        if(inputHash !== roomMeta.passwordHash) {
+          App.UI.toast('Yanlış parola');
+          return;
+        }
+      }
+
+      // Step 4: Write presence
       _roomId = roomId;
       _roomRef = ref;
+      _isAdmin = (roomMeta.createdBy === _userId);
+      setupPresence();
 
-      // Download full state
+      // Step 5: Read full room data
+      const snap = await ref.once('value');
+      if(!snap.exists()) {
+        // Cleanup presence on failure
+        ref.child('presence/' + _userId).remove();
+        _roomId = null; _roomRef = null;
+        App.UI.toast('Oda verisi okunamadı');
+        return;
+      }
       const data = snap.val();
       applyFullState(data);
       setupListeners();
-      setupPresence();
       updateHash();
       syncIdCounter();
       updateSyncUI();
       App.UI.closeModal();
       App.UI.toast('Odaya katıldınız: ' + roomId);
-    }).catch(err => {
+    } catch(err) {
+      // Cleanup presence on error
+      if(_roomId) ref.child('presence/' + _userId).remove();
+      _roomId = null; _roomRef = null;
       console.error('[Sync] Join error:', err);
       App.UI.toast('Katılma hatası: ' + err.message);
-    });
+    }
+  }
+
+  let _pendingJoinRoomId = null;
+  function _doJoinWithPassword() {
+    const pwIn = document.getElementById('joinPwInput');
+    const pw = pwIn ? pwIn.value : '';
+    if(!pw) { App.UI.toast('Parola gerekli'); return; }
+    if(!_pendingJoinRoomId) return;
+    const rid = _pendingJoinRoomId;
+    _pendingJoinRoomId = null;
+    joinRoom(rid, pw);
   }
 
   function leaveRoom() {
@@ -3168,6 +3337,13 @@ App.Sync = (function(){
     } else {
       data = arrayToKeyed(P[col]);
     }
+    // Size check: 1MB limit per collection
+    const json = JSON.stringify(data);
+    if(json.length > 1048576) {
+      App.UI.toast('Veri boyutu çok büyük (' + col + ': ' + Math.round(json.length/1024) + 'KB) — senkronizasyon engellendi');
+      console.warn('[Sync] Collection too large:', col, json.length);
+      return;
+    }
     _roomRef.child(col).set(data).catch(err => {
       console.error('[Sync] Push error (' + col + '):', err);
     });
@@ -3255,7 +3431,7 @@ App.Sync = (function(){
       if(!u || !u.name) return;
       const initial = u.name.charAt(0).toUpperCase();
       const isMe = uid === _userId;
-      html += '<div class="presence-avatar" style="background:' + (u.color || '#666') + ';' + (isMe ? 'box-shadow:0 0 0 2px var(--cyan);' : '') + '" title="' + U.escHtml(u.name) + (isMe ? ' (sen)' : '') + '"><span>' + initial + '</span><span class="pa-tip">' + U.escHtml(u.name) + '</span></div>';
+      html += '<div class="presence-avatar" style="background:' + U.sanitizeColor(u.color || '#666') + ';' + (isMe ? 'box-shadow:0 0 0 2px var(--cyan);' : '') + '" title="' + U.escHtml(u.name) + (isMe ? ' (sen)' : '') + '"><span>' + initial + '</span><span class="pa-tip">' + U.escHtml(u.name) + '</span></div>';
     });
     bar.innerHTML = html;
   }
@@ -3377,12 +3553,14 @@ App.Sync = (function(){
           <div class="sync-modal-col">
             <h3>Yeni Oda Oluştur</h3>
             <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut projeyi paylaşılabilir bir odaya taşıyın. Diğer kullanıcılar oda kodu ile katılabilir.</p>
+            <input type="password" id="syncCreatePwInput" placeholder="Parola (opsiyonel)" maxlength="64" style="font-size:12px;" />
             <button class="btn btn-p" onclick="App.Sync._doCreate()">Oda Oluştur</button>
           </div>
           <div class="sync-modal-col">
             <h3>Odaya Katıl</h3>
-            <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut bir odanın 6 haneli kodunu girerek katılın.</p>
-            <input type="text" id="syncRoomCodeInput" placeholder="ABC123" maxlength="6" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px;font-weight:600;" value="${prefillCode ? U.escHtml(prefillCode) : ''}" />
+            <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut bir odanın 10 haneli kodunu girerek katılın.</p>
+            <input type="text" id="syncRoomCodeInput" placeholder="ABCD123456" maxlength="10" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px;font-weight:600;" value="${prefillCode ? U.escHtml(prefillCode) : ''}" />
+            <input type="password" id="syncJoinPwInput" placeholder="Parola (varsa)" maxlength="64" style="font-size:12px;" />
             <button class="btn btn-p" onclick="App.Sync._doJoin()">Katıl</button>
           </div>
         </div>
@@ -3409,12 +3587,23 @@ App.Sync = (function(){
       const u = _presenceUsers[uid];
       if(!u) return;
       const isMe = uid === _userId;
-      usersHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><div class="presence-avatar" style="background:' + (u.color || '#666') + ';width:24px;height:24px;font-size:10px;">' + (u.name || '?').charAt(0).toUpperCase() + '</div><span style="font-size:12px;color:var(--tx);">' + U.escHtml(u.name || 'Anonim') + (isMe ? ' (sen)' : '') + '</span></div>';
+      const kickBtn = (_isAdmin && !isMe) ? ' <button class="btn btn-s" style="color:var(--red);margin-left:auto;" onclick="App.Sync.kickUser(\'' + uid + '\')">At</button>' : '';
+      usersHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><div class="presence-avatar" style="background:' + U.sanitizeColor(u.color || '#666') + ';width:24px;height:24px;font-size:10px;">' + (u.name || '?').charAt(0).toUpperCase() + '</div><span style="font-size:12px;color:var(--tx);">' + U.escHtml(u.name || 'Anonim') + (isMe ? ' (sen)' : '') + '</span>' + kickBtn + '</div>';
     });
+
+    // Check lock state
+    let adminHtml = '';
+    if(_isAdmin) {
+      adminHtml = `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--brd);">
+          <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Yönetici Kontrolleri</div>
+          <button class="btn" onclick="App.Sync.toggleRoomLock()" style="width:100%;">Odayı Kilitle / Kilidi Aç</button>
+        </div>`;
+    }
 
     App.UI.openModal(`
       <div style="padding:24px;max-width:420px;">
-        <h2 style="margin-bottom:12px;">Oda Bilgileri</h2>
+        <h2 style="margin-bottom:12px;">Oda Bilgileri ${_isAdmin ? '<span style="font-size:11px;color:var(--cyan);font-weight:400;">(Yönetici)</span>' : ''}</h2>
         <div class="sync-room-info">
           <div style="text-align:center;">
             <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">Oda Kodu</div>
@@ -3426,6 +3615,7 @@ App.Sync = (function(){
           <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Kullanıcılar (${userCount})</div>
           ${usersHtml}
         </div>
+        ${adminHtml}
         <div style="display:flex;gap:8px;margin-top:16px;">
           <button class="btn" onclick="App.Sync.copyRoomLink();App.UI.closeModal();" style="flex:1;">Linki Kopyala</button>
           <button class="btn btn-d" onclick="App.Sync.leaveRoom();App.UI.closeModal();" style="flex:1;">Odadan Ayrıl</button>
@@ -3434,29 +3624,55 @@ App.Sync = (function(){
     `);
   }
 
+  // ── Admin Controls ──
+  function kickUser(uid) {
+    if(!_isAdmin || !_roomRef) { App.UI.toast('Yetkiniz yok'); return; }
+    if(uid === _userId) { App.UI.toast('Kendinizi atamazsınız'); return; }
+    _roomRef.child('presence/' + uid).remove().then(() => {
+      App.UI.toast('Kullanıcı atıldı');
+    }).catch(err => {
+      App.UI.toast('Atma hatası: ' + err.message);
+    });
+  }
+
+  function toggleRoomLock() {
+    if(!_isAdmin || !_roomRef) { App.UI.toast('Yetkiniz yok'); return; }
+    _roomRef.child('_roomMeta/locked').once('value').then(snap => {
+      const current = snap.val() === true;
+      _roomRef.child('_roomMeta/locked').set(!current).then(() => {
+        App.UI.toast(current ? 'Oda kilidi açıldı' : 'Oda kilitlendi');
+        openRoomInfoPanel(); // Refresh panel
+      });
+    });
+  }
+
   // ── Internal create/join (called from modal) ──
   function _doCreate() {
     const nameIn = document.getElementById('syncNameInput');
+    const pwIn = document.getElementById('syncCreatePwInput');
     const name = (nameIn ? nameIn.value.trim() : '') || 'Anonim';
+    const pw = pwIn ? pwIn.value : '';
     _userName = name;
     localStorage.setItem('sync_userName', name);
 
     init().then(() => {
-      createRoom();
+      createRoom(pw || null);
     });
   }
 
   function _doJoin() {
     const nameIn = document.getElementById('syncNameInput');
     const codeIn = document.getElementById('syncRoomCodeInput');
+    const pwIn = document.getElementById('syncJoinPwInput');
     const name = (nameIn ? nameIn.value.trim() : '') || 'Anonim';
     const code = (codeIn ? codeIn.value.trim().toUpperCase() : '');
-    if(!code || code.length !== 6) { App.UI.toast('Lütfen 6 haneli oda kodunu girin'); return; }
+    const pw = pwIn ? pwIn.value : '';
+    if(!code || code.length < 6 || code.length > 10) { App.UI.toast('Lütfen 10 haneli oda kodunu girin'); return; }
     _userName = name;
     localStorage.setItem('sync_userName', name);
 
     init().then(() => {
-      joinRoom(code);
+      joinRoom(code, pw || null);
     });
   }
 
@@ -3464,7 +3680,8 @@ App.Sync = (function(){
     init, createRoom, joinRoom, leaveRoom, isInRoom,
     openSyncPanel, copyRoomLink, renderPresenceBar,
     pushChange, pushAll, handleStoreChange,
-    _doCreate, _doJoin
+    _doCreate, _doJoin, _doJoinWithPassword,
+    kickUser, toggleRoomLock, isAdmin: () => _isAdmin
   };
 })();
 
