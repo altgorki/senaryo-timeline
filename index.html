@@ -1971,7 +1971,7 @@ App.Panels = (function(){
     rp.innerHTML = `<div class="rpanel-hdr"><h3>Olay Düzenle</h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div>
       <div class="rpanel-body" style="padding:14px;">
         <div class="fg"><label>Başlık</label><input id="dT" value="${U.escHtml(ev.title)}"></div>
-        <div class="fg"><label>Açıklama</label><textarea id="dD">${U.escHtml(ev.description||'')}</textarea></div>
+        <div class="fg"><label>Özet</label><textarea id="dD">${U.escHtml(ev.description||'')}</textarea></div>
         <div class="fg"><label>Bölüm</label><select id="dEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ev.episodeId===ep.id?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
         <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${v.label}</option>`).join('')}</select></div>
         <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
@@ -2050,6 +2050,7 @@ App.Panels = (function(){
         <div class="fg"><label>Kategori</label><select id="nC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}</select></div>
         <div style="display:flex;gap:8px"><div class="fg" style="flex:1"><label>Başlangıç (dk)</label><input type="number" id="nS" value="0" min="0" max="${Math.floor(S.getEPDUR()/60)}"></div>
         <div class="fg" style="flex:1"><label>Süre (dk)</label><input type="number" id="nDur" value="3" min="1" max="${Math.floor(S.getEPDUR()/60)}"></div></div>
+        <div class="fg"><label>Özet</label><textarea id="nDesc" placeholder="Kısa açıklama..." rows="2" style="resize:vertical"></textarea></div>
         <div class="fg"><label>Senaryo Metni <span style="color:var(--tx4);text-transform:none;font-weight:400">— karakter eklemek için <b style="color:var(--cyan)">@</b> yazın</span></label>
           <div class="scene-screenplay-wrap">
             <div class="scene-screenplay" id="nScreenplay" contenteditable="true" data-placeholder="Sahne metnini yazın... Karakter için @ kullanın." style="min-height:150px;max-height:300px;"></div>
@@ -2211,6 +2212,7 @@ App.Panels = (function(){
     document.querySelectorAll('#mbg .chcb input:checked').forEach(cb => ch.push(cb.value));
     // Merge mention chars
     mentionChars.forEach(cid => { if(!ch.includes(cid)) ch.push(cid); });
+    const ozet = U.validateText((document.getElementById('nDesc').value || '').trim(), 'description');
     const epId = document.getElementById('nEp').value;
     const cat = document.getElementById('nC').value;
     const sVal = (parseInt(document.getElementById('nS').value) || 0) * 60;
@@ -2231,7 +2233,7 @@ App.Panels = (function(){
       screenplay: screenplay
     });
     P.events.push({
-      id: evId, title: t, description: desc, episodeId: epId, category: cat,
+      id: evId, title: t, description: ozet, episodeId: epId, category: cat,
       characters: ch, sceneId: scId, s: sVal, dur: durVal
     });
     S.emit('change', {type:'addEvent'});
