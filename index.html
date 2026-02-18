@@ -133,37 +133,37 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 /* ── TIMELINE ── */
 .tl-area{flex:1;overflow:auto;position:relative;cursor:grab;}
 .tl-area.panning{cursor:grabbing;}
-.tl-container{position:relative;transform-origin:0 0;}
+.tl-container{position:relative;transform-origin:0 0;display:flex;flex-direction:row;align-items:flex-start;}
 
 /* Ruler */
-.ruler{position:sticky;top:0;z-index:20;height:32px;background:var(--bg2);border-bottom:1px solid var(--brd);margin-left:100px;}
-.rtick{position:absolute;bottom:0;font-family:'Courier New',Consolas,monospace;font-size:9px;color:var(--tx4);padding-bottom:4px;}
-.rtick.minor{border-left:1px solid var(--brd);}
-.rtick.major{border-left:1px solid var(--tx4);color:var(--tx3);}
+.ruler{position:sticky;left:0;z-index:20;width:60px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--brd);}
+.rtick{position:absolute;left:0;right:0;font-family:'Courier New',Consolas,monospace;font-size:9px;color:var(--tx4);padding-left:4px;}
+.rtick.minor{border-top:1px solid var(--brd);}
+.rtick.major{border-top:1px solid var(--tx4);color:var(--tx3);}
 
 /* Snap guide */
-.snap-guide{position:absolute;top:0;bottom:0;width:1px;background:var(--cyan);z-index:25;pointer-events:none;opacity:0;transition:opacity .1s;}
+.snap-guide{position:absolute;left:0;right:0;height:1px;background:var(--cyan);z-index:25;pointer-events:none;opacity:0;transition:opacity .1s;}
 .snap-guide.show{opacity:.6;}
 
 /* Rows */
-.ep-row{display:flex;border-bottom:1px solid var(--brd);min-height:60px;position:relative;}
+.ep-row{display:flex;flex-direction:column;border-right:1px solid var(--brd);min-width:180px;position:relative;}
 .ep-row:nth-child(even){background:rgba(255,255,255,.008);}
-.ep-hdr{width:100px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);border-right:1px solid var(--brd);position:sticky;left:0;z-index:10;gap:2px;}
+.ep-hdr{height:60px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);border-bottom:1px solid var(--brd);position:sticky;top:0;z-index:10;gap:2px;width:100%;}
 .ep-hdr .num{font-size:22px;font-weight:700;}
 .ep-hdr .sub{font-size:9px;color:var(--tx3);font-weight:500;}
 .ep-hdr .dur{font-family:'Courier New',monospace;font-size:9px;color:var(--tx4);margin-top:2px;}
 .ep-body{position:relative;flex-shrink:0;}
 
 /* Gridlines */
-.gl{position:absolute;top:0;bottom:0;width:1px;pointer-events:none;}
+.gl{position:absolute;left:0;right:0;height:1px;pointer-events:none;}
 .gl.mi{background:rgba(255,255,255,.025);}
 .gl.ma{background:rgba(255,255,255,.07);}
 
 /* Heatmap overlay */
-.heatmap-bar{position:absolute;bottom:0;height:3px;pointer-events:none;border-radius:1px;opacity:.6;}
+.heatmap-bar{position:absolute;right:0;width:3px;pointer-events:none;border-radius:1px;opacity:.6;}
 
 /* ── EVENT BLOCKS ── */
-.evb{position:absolute;height:42px;border-radius:var(--radius);z-index:5;display:flex;align-items:center;padding:0 10px;overflow:hidden;cursor:grab;user-select:none;border:1px solid;transition:box-shadow .15s,transform .1s;font-size:12px;font-weight:500;}
+.evb{position:absolute;border-radius:var(--radius);z-index:5;display:flex;flex-direction:column;align-items:flex-start;padding:6px 8px;overflow:hidden;cursor:grab;user-select:none;border:1px solid;transition:box-shadow .15s,transform .1s;font-size:12px;font-weight:500;}
 .evb:hover{z-index:15;box-shadow:0 4px 20px rgba(0,0,0,.5);transform:scale(1.02);}
 .evb.selected{box-shadow:0 0 0 2px var(--cyan)!important;z-index:16;}
 .evb.drag{opacity:.85;z-index:50;box-shadow:0 8px 32px rgba(0,0,0,.7);cursor:grabbing;transform:scale(1.04);}
@@ -175,12 +175,12 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .evb.impact-1{box-shadow:0 0 0 2px var(--red),0 0 12px rgba(239,68,68,.4)!important;z-index:17;}
 .evb.impact-2{box-shadow:0 0 0 2px var(--orange),0 0 12px rgba(249,115,22,.3)!important;z-index:17;}
 .evb.impact-3{box-shadow:0 0 0 2px var(--yellow),0 0 12px rgba(245,158,11,.2)!important;z-index:17;}
-.evb .etxt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;flex:1;}
+.evb .etxt{white-space:normal;word-break:break-word;line-height:1.3;overflow:hidden;pointer-events:none;flex:1;}
 .evb .scene-link{font-size:10px;opacity:.5;margin-left:4px;pointer-events:none;}
-.evb .rh{position:absolute;top:0;width:7px;height:100%;cursor:ew-resize;z-index:6;}
+.evb .rh{position:absolute;left:0;height:7px;width:100%;cursor:ns-resize;z-index:6;}
 .evb .rh:hover{background:rgba(255,255,255,.15);}
-.evb .rh.l{left:0;border-radius:var(--radius) 0 0 var(--radius);}
-.evb .rh.r{right:0;border-radius:0 var(--radius) var(--radius) 0;}
+.evb .rh.l{top:0;border-radius:var(--radius) var(--radius) 0 0;}
+.evb .rh.r{bottom:0;border-radius:0 0 var(--radius) var(--radius);}
 
 /* Drop zone */
 .ep-body.drop-target{background:rgba(59,130,246,.06)!important;outline:2px dashed var(--blue);outline-offset:-2px;}
@@ -347,14 +347,14 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
   .rpanel.open{width:100%!important;}
 
   /* Event blocks — larger touch targets */
-  .evb{height:36px;font-size:11px;min-width:40px;}
-  .evb .rh{width:12px;} /* Wider resize handles for touch */
+  .evb{font-size:11px;min-height:40px;}
+  .evb .rh{height:12px;} /* Wider resize handles for touch */
 
   /* Episode headers */
-  .ep-hdr{width:60px;}
+  .ep-hdr{height:50px;}
   .ep-hdr .num{font-size:18px;}
   .ep-hdr .sub{font-size:8px;} .ep-hdr .dur{font-size:8px;}
-  .ruler{margin-left:60px;}
+  .ruler{width:44px;}
 
   /* Scene cards */
   .scene-card{padding:8px 10px;}
@@ -394,11 +394,11 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
   .tba .btn{padding:5px 6px;font-size:10px;}
   .view-mode{padding:4px 8px;font-size:10px;}
   .sp-panel.open{max-height:45vh;}
-  .ep-hdr{width:44px;}
+  .ep-hdr{height:40px;}
   .ep-hdr .num{font-size:15px;}
   .ep-hdr .sub,.ep-hdr .dur{display:none;}
-  .ruler{margin-left:44px;}
-  .evb{height:32px;font-size:10px;padding:0 6px;}
+  .ruler{width:36px;}
+  .evb{font-size:10px;padding:4px 6px;}
 }
 
 /* ── PRINT ── */
@@ -699,8 +699,8 @@ App.UI = (function(){
     const tt = document.getElementById('ttp');
     tt.innerHTML = html;
     const r = anchorEl.getBoundingClientRect();
-    tt.style.left = Math.min(r.left, window.innerWidth - 310) + 'px';
-    tt.style.top = (r.bottom + 8) + 'px';
+    tt.style.left = Math.min(r.right + 8, window.innerWidth - 310) + 'px';
+    tt.style.top = Math.min(r.top, window.innerHeight - 200) + 'px';
     tt.classList.add('show');
   }
   function hideTooltip() { document.getElementById('ttp').classList.remove('show'); }
@@ -806,7 +806,7 @@ App.Timeline = (function(){
     const PPS = S.getPPS();
     const EPDUR = S.getEPDUR();
     const EPPX = S.getEPPX();
-    const LH = 46, HDRW = 100, RH = 32;
+    const LW = 180, HDRH = 60, RW = 60;
 
     if(!P.episodes.length) {
       cont.innerHTML = '<div style="padding:40px;text-align:center;color:var(--tx3);">Timeline boş. Senaryo panelinden bölüm ekleyin veya Demo Proje yükleyin.</div>';
@@ -828,15 +828,19 @@ App.Timeline = (function(){
       rowEvs.forEach(ev => ev._laneCount = Math.max(lanes.length, 1));
     });
 
-    // Ruler
+    // Ruler (vertical, left column)
     const maxMin = Math.ceil(EPDUR / 60);
     const ruler = document.createElement('div');
-    ruler.className = 'ruler'; ruler.style.width = EPPX + 'px';
+    ruler.className = 'ruler'; ruler.style.height = (EPPX + HDRH) + 'px';
+    // Spacer to align with episode headers
+    const spacer = document.createElement('div');
+    spacer.style.height = HDRH + 'px'; spacer.style.flexShrink = '0';
+    ruler.appendChild(spacer);
     for(let m = 0; m <= maxMin; m++) {
       const tk = document.createElement('div');
       tk.className = 'rtick' + (m%5===0?' major':' minor');
-      tk.style.left = U.s2px(m*60, PPS) + 'px';
-      if(m%5===0) tk.innerHTML = `<span style="position:absolute;bottom:3px;left:4px">${m}dk</span>`;
+      tk.style.top = (HDRH + U.s2px(m*60, PPS)) + 'px';
+      if(m%5===0) tk.innerHTML = `<span style="position:absolute;top:2px;right:4px">${m}dk</span>`;
       ruler.appendChild(tk);
     }
     // Snap guide
@@ -845,42 +849,42 @@ App.Timeline = (function(){
     ruler.appendChild(sg);
     cont.appendChild(ruler);
 
-    // Rows
-    let cumY = RH;
+    // Columns (episodes as vertical columns)
+    let cumX = RW;
     P.episodes.forEach(ep => {
-      const rowEvs = P.events.filter(e => e.episodeId === ep.id);
-      const laneCount = rowEvs.length > 0 ? Math.max(...rowEvs.map(e => (e._lane||0))) + 1 : 1;
-      const rowH = Math.max(laneCount * (LH + 6) + 16, 64);
+      const colEvs = P.events.filter(e => e.episodeId === ep.id);
+      const laneCount = colEvs.length > 0 ? Math.max(...colEvs.map(e => (e._lane||0))) + 1 : 1;
+      const colW = Math.max(laneCount * (LW + 6) + 16, LW + 16);
 
-      const row = document.createElement('div');
-      row.className = 'ep-row'; row.style.height = rowH + 'px';
+      const col = document.createElement('div');
+      col.className = 'ep-row'; col.style.width = colW + 'px';
 
       const hdr = document.createElement('div');
-      hdr.className = 'ep-hdr'; hdr.style.height = rowH + 'px';
-      const epDurTotal = rowEvs.reduce((s,e) => Math.max(s, e.s+e.dur), 0);
+      hdr.className = 'ep-hdr'; hdr.style.width = colW + 'px';
+      const epDurTotal = colEvs.reduce((s,e) => Math.max(s, e.s+e.dur), 0);
       hdr.innerHTML = `<div class="num">${ep.number==='fb'?'FB':ep.number}</div><div class="sub">${ep.title||((ep.number==='fb')?'Flashback':'Bölüm')}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
-      row.appendChild(hdr);
+      col.appendChild(hdr);
 
       const body = document.createElement('div');
-      body.className = 'ep-body'; body.dataset.ep = ep.id; body.style.height = rowH + 'px'; body.style.width = EPPX + 'px';
+      body.className = 'ep-body'; body.dataset.ep = ep.id; body.style.width = colW + 'px'; body.style.height = EPPX + 'px';
 
-      // Gridlines
+      // Gridlines (horizontal)
       for(let m = 0; m <= maxMin; m++) {
         const gl = document.createElement('div');
         gl.className = 'gl' + (m%5===0?' ma':' mi');
-        gl.style.left = U.s2px(m*60, PPS) + 'px';
+        gl.style.top = U.s2px(m*60, PPS) + 'px';
         body.appendChild(gl);
       }
 
       // Event blocks
-      rowEvs.forEach(ev => {
+      colEvs.forEach(ev => {
         const cat = P.categories[ev.category] || {color:'#888'};
         const bl = document.createElement('div');
         bl.className = 'evb'; bl.dataset.id = ev.id; bl.dataset.c = ev.category;
-        bl.style.left = U.s2px(ev.s, PPS) + 'px';
-        bl.style.width = Math.max(U.s2px(ev.dur, PPS), 20) + 'px';
-        bl.style.top = (8 + (ev._lane||0) * (LH + 6)) + 'px';
-        bl.style.height = LH + 'px';
+        bl.style.top = U.s2px(ev.s, PPS) + 'px';
+        bl.style.height = Math.max(U.s2px(ev.dur, PPS), 20) + 'px';
+        bl.style.left = (8 + (ev._lane||0) * (LW + 6)) + 'px';
+        bl.style.width = LW + 'px';
         // Dynamic category colors
         const c = cat.color;
         const sc_ = U.sanitizeColor(c);
@@ -905,13 +909,13 @@ App.Timeline = (function(){
         body.appendChild(bl);
       });
 
-      row.appendChild(body);
-      cont.appendChild(row);
-      cumY += rowH;
+      col.appendChild(body);
+      cont.appendChild(col);
+      cumX += colW;
     });
 
-    cont.style.height = cumY + 'px';
-    cont.style.width = (HDRW + EPPX + 40) + 'px';
+    cont.style.width = cumX + 'px';
+    cont.style.height = (HDRH + EPPX + 40) + 'px';
     applyZoom();
     doFilter();
   }
@@ -1633,10 +1637,10 @@ App.Interaction = (function(){
         }
 
         S.snapshot();
-        const origTop = parseInt(bl.style.top) || 0;
+        const origLeft = parseInt(bl.style.left) || 0;
         const parentBody = bl.closest('.ep-body');
         const parentRect = parentBody ? parentBody.getBoundingClientRect() : null;
-        drag = { id:ev.id, mode, sx:clientX, sy:clientY, os:ev.s, od:ev.dur, el:bl, origEp:ev.episodeId, origTop, parentBody, parentRect, isTouch };
+        drag = { id:ev.id, mode, sx:clientX, sy:clientY, os:ev.s, od:ev.dur, el:bl, origEp:ev.episodeId, origLeft, parentBody, parentRect, isTouch };
         App.UI.hideTooltip();
         return true;
       }
@@ -1717,7 +1721,7 @@ App.Interaction = (function(){
       const zoom = App.Timeline.getZoom();
       const ev = S.getEvent(drag.id);
       if(!ev) return;
-      const dpx = (clientX - drag.sx) / zoom;
+      const dpx = (clientY - drag.sy) / zoom;
       const ds = U.px2s(dpx, S.getPPS());
       const EPDUR = S.getEPDUR();
 
@@ -1729,18 +1733,18 @@ App.Interaction = (function(){
 
         const sg = document.getElementById('snapGuide');
         if(sg && snapGrid > 0) {
-          sg.style.left = U.s2px(newS, S.getPPS()) + 'px';
+          sg.style.top = U.s2px(newS, S.getPPS()) + 'px';
           sg.classList.add('show');
         }
 
         if(!drag.isTouch) {
-          const dropBody = findDropEp(clientY);
+          const dropBody = findDropEp(clientX);
           document.querySelectorAll('.ep-body').forEach(b => b.classList.remove('drop-target'));
           if(dropBody && dropBody.dataset.ep !== drag.origEp) {
             dropBody.classList.add('drop-target');
-            if(drag.el.parentNode !== dropBody) { dropBody.appendChild(drag.el); drag.el.style.top = '8px'; }
+            if(drag.el.parentNode !== dropBody) { dropBody.appendChild(drag.el); drag.el.style.left = '8px'; }
           } else if(dropBody && dropBody.dataset.ep === drag.origEp && drag.parentBody) {
-            if(drag.el.parentNode !== drag.parentBody) { drag.parentBody.appendChild(drag.el); drag.el.style.top = drag.origTop + 'px'; }
+            if(drag.el.parentNode !== drag.parentBody) { drag.parentBody.appendChild(drag.el); drag.el.style.left = drag.origLeft + 'px'; }
           }
         }
 
@@ -1760,8 +1764,8 @@ App.Interaction = (function(){
         const newDur = drag.od - diff;
         if(newDur >= 60 && newS >= 0) { ev.s = newS; ev.dur = newDur; }
       }
-      drag.el.style.left = U.s2px(ev.s, S.getPPS()) + 'px';
-      drag.el.style.width = Math.max(U.s2px(ev.dur, S.getPPS()), 20) + 'px';
+      drag.el.style.top = U.s2px(ev.s, S.getPPS()) + 'px';
+      drag.el.style.height = Math.max(U.s2px(ev.dur, S.getPPS()), 20) + 'px';
     }
 
     function handlePointerUp(clientX, clientY, shiftKey) {
@@ -1769,7 +1773,7 @@ App.Interaction = (function(){
       const ev = S.getEvent(drag.id);
       const didMove = Math.abs(clientX - drag.sx) > 3 || Math.abs(clientY - drag.sy) > 3;
       if(ev && drag.mode === 'move' && !drag.isTouch) {
-        const dropBody = findDropEp(clientY);
+        const dropBody = findDropEp(clientX);
         if(dropBody && dropBody.dataset.ep !== drag.origEp) {
           ev.episodeId = dropBody.dataset.ep;
           const sc = ev.sceneId ? S.getScene(ev.sceneId) : null;
@@ -1867,12 +1871,12 @@ App.Interaction = (function(){
     });
   }
 
-  function findDropEp(clientY) {
+  function findDropEp(clientX) {
     let best = null, bestDist = 999999;
     document.querySelectorAll('.ep-body').forEach(b => {
       const r = b.getBoundingClientRect();
-      if(clientY >= r.top && clientY <= r.bottom) { best = b; bestDist = 0; }
-      else { const d = Math.abs(clientY - (r.top+r.height/2)); if(d < bestDist) { bestDist = d; best = b; } }
+      if(clientX >= r.left && clientX <= r.right) { best = b; bestDist = 0; }
+      else { const d = Math.abs(clientX - (r.left+r.width/2)); if(d < bestDist) { bestDist = d; best = b; } }
     });
     return best;
   }
