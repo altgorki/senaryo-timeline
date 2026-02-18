@@ -23,12 +23,12 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 ::selection{background:var(--blue);color:#fff;}
 
 /* ── TOPBAR ── */
-.topbar{height:48px;background:var(--bg2);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0;z-index:50;}
+.topbar{min-height:48px;background:var(--bg2);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:6px 16px;flex-shrink:0;z-index:50;flex-wrap:wrap;gap:6px;}
 .logo{display:flex;align-items:center;gap:10px;}
 .logo h1{font-size:15px;font-weight:700;letter-spacing:.5px;cursor:pointer;}
 .logo h1:hover{color:var(--blue);}
 .logo span{font-size:10px;color:var(--tx3);letter-spacing:.5px;}
-.tba{display:flex;gap:6px;align-items:center;}
+.tba{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .btn{padding:7px 13px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx2);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:1;}
 .btn:hover{background:var(--bg4);color:var(--tx);border-color:var(--brd2);}
 .btn:active{transform:scale(.97);}
@@ -306,6 +306,22 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .sync-room-info{background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius);padding:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px;}
 .sync-room-info .room-code{font-size:16px;text-align:center;display:block;padding:8px;letter-spacing:2px;}
 
+/* ── PROJECTS SCREEN ── */
+#projectsScreen{position:fixed;inset:0;background:var(--bg);z-index:500;overflow-y:auto;}
+.ps-inner{max-width:720px;margin:0 auto;padding:48px 24px;}
+.ps-header{text-align:center;margin-bottom:32px;}
+.ps-header h1{font-size:24px;font-weight:700;}
+.ps-header p{font-size:13px;color:var(--tx3);margin-top:6px;}
+.ps-actions{display:flex;gap:8px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;}
+.ps-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ps-card{background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:16px;cursor:pointer;transition:all .15s;}
+.ps-card:hover{border-color:var(--blue);background:var(--bg3);}
+.ps-card-title{font-size:15px;font-weight:600;margin-bottom:6px;}
+.ps-card-stats{font-size:11px;color:var(--tx2);margin-bottom:4px;}
+.ps-card-date{font-size:10px;color:var(--tx3);}
+.ps-card-actions{display:flex;gap:6px;margin-top:10px;}
+.ps-empty{text-align:center;color:var(--tx3);padding:40px 0;font-size:13px;grid-column:1/-1;}
+
 /* ── CHANGELOG ── */
 .cl-entry{padding:8px 14px;border-bottom:1px solid var(--brd);}
 .cl-entry:hover{background:var(--bg3);}
@@ -327,8 +343,24 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .note-actions{display:flex;gap:4px;}
 .note-text{font-size:12px;color:var(--tx2);white-space:pre-wrap;word-break:break-word;}
 
+/* ── MEDIUM SCREENS (tablets, small laptops, Windows 125% scaling) ── */
+@media(max-width:1200px){
+  .topbar{padding:6px 10px;}
+  .logo span{display:none;}
+  .tba .sep{display:none;}
+  .btn{padding:6px 10px;font-size:11px;}
+  .btn-icon{padding:5px 7px;font-size:13px;}
+  .view-mode{padding:4px 10px;font-size:10px;}
+  #zLvl{display:none;}
+  .toolbar{padding:4px 10px;gap:6px;}
+  .pill{padding:2px 8px;font-size:10px;}
+}
+
 /* ── MOBILE ── */
 @media(max-width:768px){
+  /* Projects screen mobile */
+  .ps-list{grid-template-columns:1fr;}
+  .ps-inner{padding:24px 16px;}
   /* Sync mobile */
   .sync-bar{gap:4px;margin-right:4px;}
   .sync-status-text{display:none;}
@@ -336,7 +368,7 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
   .room-code{font-size:10px;padding:2px 6px;}
   .sync-modal-body{flex-direction:column;}
   /* Topbar */
-  .topbar{height:auto;flex-wrap:wrap;padding:8px 10px;gap:6px;}
+  .topbar{min-height:auto;padding:8px 10px;gap:6px;}
   .logo{width:100%;justify-content:space-between;}
   .logo h1{font-size:14px;} .logo span{display:none;}
   .view-modes{order:1;}
@@ -444,11 +476,28 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 <noscript><div style="color:var(--red);background:var(--bg2);padding:24px;margin:20px;font-size:16px;border:2px solid var(--red);border-radius:8px;">JavaScript devre dışı. Lütfen tarayıcı ayarlarından JavaScript'i etkinleştirin.</div></noscript>
 <div id="loadMsg" style="color:var(--tx2);padding:20px;font-size:14px;">Yükleniyor...</div>
 
+<div id="projectsScreen" style="display:none;">
+  <div class="ps-inner">
+    <div class="ps-header">
+      <h1>Senaryo Timeline Editörü</h1>
+      <p>Projelerinizi yönetin</p>
+    </div>
+    <div class="ps-actions">
+      <button class="btn btn-p" onclick="App.Projects.create()">+ Yeni Proje</button>
+      <button class="btn" onclick="App.Projects.loadDemoAsProject()">Demo Proje</button>
+      <button class="btn" onclick="document.getElementById('psFIn').click()">↑ JSON Yükle</button>
+      <input type="file" id="psFIn" accept=".json" style="display:none" onchange="App.Projects.handleImport(event)">
+    </div>
+    <div class="ps-list" id="psList"></div>
+  </div>
+</div>
+
 <div class="app" id="appRoot" style="display:none;">
   <div class="topbar">
     <div class="logo">
       <h1 id="projTitle" onclick="App.Panels.openSettings()">Yeni Proje</h1>
       <span id="projSub">Senaryo Timeline Editörü</span>
+      <button class="btn" onclick="App.Projects.goBack()" title="Proje listesine dön">📂 Projeler</button>
     </div>
     <div class="view-modes">
       <button class="view-mode" data-vm="screenplay" onclick="App.setViewMode('screenplay')">Senaryo</button>
@@ -463,6 +512,7 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
       <button class="btn btn-leave" id="leaveBtn" style="display:none" onclick="App.Sync.leaveRoom()">Ayrıl</button>
     </div>
     <div class="tba">
+      <button class="btn" onclick="App.Projects.save()" title="Projeyi Kaydet (Ctrl+S)">💾 Kaydet</button>
       <button class="btn" id="syncBtn" onclick="App.Sync.openSyncPanel()" title="Gerçek Zamanlı İşbirliği">👥 İşbirliği</button>
       <div class="sep"></div>
       <button class="btn btn-icon" onclick="App.Store.undo()" title="Geri Al (Ctrl+Z)">↩</button>
@@ -474,7 +524,6 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
       <button class="btn" onclick="App.Timeline.zoomReset()">Sığdır</button>
       <div class="sep"></div>
       <button class="btn" onclick="document.getElementById('fIn').click()">↑ Yükle</button>
-      <button class="btn" onclick="App.IO.loadDemo()">Demo Proje</button>
       <button class="btn" onclick="App.Panels.openSettings()">⚙</button>
       <button class="btn btn-p" onclick="App.Panels.openAddEvent()">+ Olay</button>
       <input type="file" id="fIn" accept=".json" style="display:none" onchange="App.IO.importJSON(event)">
@@ -782,11 +831,15 @@ App.UI = (function(){
 // ═══ AUTOSAVE MODULE ═══
 App.AutoSave = (function(){
   const S = App.Store;
-  const KEY_DATA = 'scenario_autosave';
-  const KEY_META = 'scenario_autosave_meta';
   const MAX_BYTES = 4 * 1024 * 1024; // 4MB
   let _timer = null;
   let _quotaWarned = false;
+
+  function _getKeys() {
+    const id = App.Projects && App.Projects.getCurrentId();
+    if(id) return { data: 'ste_proj_' + id, meta: 'ste_proj_' + id + '_meta' };
+    return { data: 'scenario_autosave', meta: 'scenario_autosave_meta' };
+  }
 
   function save() {
     if(_timer) clearTimeout(_timer);
@@ -795,6 +848,8 @@ App.AutoSave = (function(){
 
   function _doSave() {
     _timer = null;
+    const keys = _getKeys();
+    const id = App.Projects && App.Projects.getCurrentId();
     try {
       const P = S.get();
       const json = JSON.stringify(P);
@@ -802,13 +857,27 @@ App.AutoSave = (function(){
         if(!_quotaWarned) { _quotaWarned = true; App.UI.toast('Proje çok büyük, otomatik kayıt atlandı'); }
         return;
       }
-      localStorage.setItem(KEY_DATA, json);
-      localStorage.setItem(KEY_META, JSON.stringify({
+      localStorage.setItem(keys.data, json);
+      localStorage.setItem(keys.meta, JSON.stringify({
         savedAt: new Date().toISOString(),
         title: P.meta.title,
         episodes: P.episodes.length,
         events: P.events.length
       }));
+      // Also update index updatedAt if in a project
+      if(id && App.Projects) {
+        try {
+          const idx = JSON.parse(localStorage.getItem('ste_projects_index') || '[]');
+          const entry = idx.find(e => e.id === id);
+          if(entry) {
+            entry.updatedAt = new Date().toISOString();
+            entry.episodeCount = (P.episodes || []).length;
+            entry.eventCount = (P.events || []).length;
+            entry.sceneCount = (P.scenes || []).length;
+            localStorage.setItem('ste_projects_index', JSON.stringify(idx));
+          }
+        } catch(e) {}
+      }
     } catch(e) {
       if(e.name === 'QuotaExceededError' && !_quotaWarned) {
         _quotaWarned = true;
@@ -817,32 +886,246 @@ App.AutoSave = (function(){
     }
   }
 
-  function restore() {
-    // Don't restore if we're joining a room
-    if(window.location.hash && window.location.hash.includes('room=')) return;
+  function clear() {
+    const keys = _getKeys();
+    localStorage.removeItem(keys.data);
+    localStorage.removeItem(keys.meta);
+  }
+
+  return { save, clear };
+})();
+
+// ═══ PROJECTS MODULE ═══
+App.Projects = (function(){
+  const S = App.Store;
+  const U = App.Utils;
+  const IDX_KEY = 'ste_projects_index';
+  let _currentId = null;
+
+  function _getIndex() {
+    try { return JSON.parse(localStorage.getItem(IDX_KEY) || '[]'); }
+    catch(e) { return []; }
+  }
+  function _setIndex(idx) {
+    localStorage.setItem(IDX_KEY, JSON.stringify(idx));
+  }
+  function _projKey(id) { return 'ste_proj_' + id; }
+
+  function list() { return _getIndex(); }
+  function getCurrentId() { return _currentId; }
+
+  function open(id) {
     try {
-      const raw = localStorage.getItem(KEY_DATA);
-      if(!raw) return;
-      const meta = JSON.parse(localStorage.getItem(KEY_META) || '{}');
-      const label = meta.title ? '"' + meta.title + '"' : 'Kaydedilmiş proje';
-      const info = meta.savedAt ? ' (' + new Date(meta.savedAt).toLocaleString('tr-TR') + ')' : '';
-      if(confirm(label + info + ' geri yüklensin mi?')) {
-        const data = JSON.parse(raw);
-        S.set(data);
-        App.refresh();
-        App.UI.toast('Proje geri yüklendi');
-      }
+      const raw = localStorage.getItem(_projKey(id));
+      if(!raw) { App.UI.toast('Proje verisi bulunamadı'); return; }
+      const data = JSON.parse(raw);
+      _currentId = id;
+      S.set(data);
+      _initEditor();
+      showEditor();
+      App.UI.toast('Proje açıldı');
     } catch(e) {
-      console.warn('[AutoSave] Restore error:', e);
+      App.UI.toast('Proje yüklenirken hata: ' + e.message);
     }
   }
 
-  function clear() {
-    localStorage.removeItem(KEY_DATA);
-    localStorage.removeItem(KEY_META);
+  function _initEditor() {
+    App.Timeline.initFilter();
+    App.Timeline.buildToolbar();
+    App.Timeline.render();
+    App.Screenplay.render();
+    App.UI.updateStatusBar();
+    App.setViewMode('split');
+    document.getElementById('projTitle').textContent = S.get().meta.title;
   }
 
-  return { save, restore, clear };
+  function save() {
+    if(!_currentId) return;
+    try {
+      const P = S.get();
+      const json = JSON.stringify(P);
+      localStorage.setItem(_projKey(_currentId), json);
+      // Update index
+      const idx = _getIndex();
+      const entry = idx.find(e => e.id === _currentId);
+      if(entry) {
+        entry.title = P.meta.title || 'İsimsiz Proje';
+        entry.author = P.meta.author || '';
+        entry.updatedAt = new Date().toISOString();
+        entry.episodeCount = (P.episodes || []).length;
+        entry.eventCount = (P.events || []).length;
+        entry.sceneCount = (P.scenes || []).length;
+      }
+      _setIndex(idx);
+      App.UI.toast('Proje kaydedildi');
+    } catch(e) {
+      App.UI.toast('Kaydetme hatası: ' + e.message);
+    }
+  }
+
+  function create() {
+    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const now = new Date().toISOString();
+    // Reset store to empty project
+    const emptyProject = {
+      meta: { title: 'Yeni Proje', author: '', settings: { episodeDuration: 2700, pixelsPerSecond: 0.5, snapGrid: 10 } },
+      categories: {
+        operasyon:{label:'Operasyon',color:'#ef4444'},
+        karakter:{label:'Karakter',color:'#3b82f6'},
+        organizasyon:{label:'Organizasyon',color:'#10b981'},
+        sistem:{label:'Sistem',color:'#f59e0b'},
+        flashback:{label:'Flashback',color:'#a855f7'},
+        ihanet:{label:'İhanet',color:'#f97316'}
+      },
+      characters: [], episodes: [], scenes: [], events: [], connections: []
+    };
+    // Save project data
+    localStorage.setItem(_projKey(id), JSON.stringify(emptyProject));
+    // Add to index
+    const idx = _getIndex();
+    idx.push({ id, title: 'Yeni Proje', author: '', createdAt: now, updatedAt: now, episodeCount: 0, eventCount: 0, sceneCount: 0 });
+    _setIndex(idx);
+    // Open it
+    _currentId = id;
+    S.set(emptyProject);
+    _initEditor();
+    showEditor();
+    App.UI.toast('Yeni proje oluşturuldu');
+  }
+
+  function deleteProject(id) {
+    if(!confirm('Bu proje kalıcı olarak silinecek. Devam?')) return;
+    localStorage.removeItem(_projKey(id));
+    const idx = _getIndex().filter(e => e.id !== id);
+    _setIndex(idx);
+    if(_currentId === id) _currentId = null;
+    renderList();
+    App.UI.toast('Proje silindi');
+  }
+
+  function importToProject(data) {
+    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const now = new Date().toISOString();
+    localStorage.setItem(_projKey(id), JSON.stringify(data));
+    const idx = _getIndex();
+    idx.push({
+      id,
+      title: (data.meta && data.meta.title) || 'İçe Aktarılmış Proje',
+      author: (data.meta && data.meta.author) || '',
+      createdAt: now, updatedAt: now,
+      episodeCount: (data.episodes || []).length,
+      eventCount: (data.events || []).length,
+      sceneCount: (data.scenes || []).length
+    });
+    _setIndex(idx);
+    _currentId = id;
+    S.set(data);
+    _initEditor();
+    showEditor();
+    App.UI.toast('Proje içe aktarıldı');
+  }
+
+  function loadDemoAsProject() {
+    const demo = getDemoProject();
+    U.setIdCounter(300);
+    importToProject(demo);
+  }
+
+  function handleImport(e) {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if(d.meta && d.episodes) {
+          importToProject(d);
+        } else if(d.events && d.events[0] && ('ep' in d.events[0]) && ('t' in d.events[0])) {
+          // Old format — migrate via IO, then wrap as project
+          App.IO.migrateOldFormat(d);
+          importToProject(S.get());
+        } else {
+          App.UI.toast('Tanınmayan dosya formatı');
+        }
+      } catch(err) { App.UI.toast('Geçersiz dosya: ' + err.message); }
+    };
+    r.readAsText(f);
+    e.target.value = '';
+  }
+
+  function showProjectsScreen() {
+    document.getElementById('appRoot').style.display = 'none';
+    document.getElementById('projectsScreen').style.display = 'block';
+    const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
+    renderList();
+  }
+
+  function showEditor() {
+    document.getElementById('projectsScreen').style.display = 'none';
+    document.getElementById('appRoot').style.display = 'flex';
+  }
+
+  function goBack() {
+    if(_currentId) save();
+    showProjectsScreen();
+  }
+
+  function renderList() {
+    const el = document.getElementById('psList');
+    const idx = _getIndex();
+    if(!idx.length) {
+      el.innerHTML = '<div class="ps-empty">Henüz proje yok. Yeni proje oluşturun veya demo projeyi yükleyin.</div>';
+      return;
+    }
+    // Sort by updatedAt descending
+    idx.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+    el.innerHTML = idx.map(p => {
+      const date = p.updatedAt ? new Date(p.updatedAt).toLocaleString('tr-TR', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      return '<div class="ps-card" ondblclick="App.Projects.open(\'' + p.id + '\')">' +
+        '<div class="ps-card-title">' + _esc(p.title || 'İsimsiz Proje') + '</div>' +
+        '<div class="ps-card-stats">' + (p.episodeCount||0) + ' bölüm · ' + (p.eventCount||0) + ' olay · ' + (p.sceneCount||0) + ' sahne</div>' +
+        '<div class="ps-card-date">Son kayıt: ' + date + '</div>' +
+        '<div class="ps-card-actions">' +
+          '<button class="btn btn-s btn-p" onclick="event.stopPropagation();App.Projects.open(\'' + p.id + '\')">Aç</button>' +
+          '<button class="btn btn-s btn-d" onclick="event.stopPropagation();App.Projects.deleteProject(\'' + p.id + '\')">Sil</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function _esc(s) {
+    const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+  }
+
+  function migrateV1() {
+    // If old autosave exists and no projects index yet
+    if(localStorage.getItem(IDX_KEY)) return; // already migrated
+    const raw = localStorage.getItem('scenario_autosave');
+    if(!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      const id = 'p_migrated_' + Date.now();
+      const now = new Date().toISOString();
+      const meta = JSON.parse(localStorage.getItem('scenario_autosave_meta') || '{}');
+      localStorage.setItem(_projKey(id), raw);
+      _setIndex([{
+        id,
+        title: (data.meta && data.meta.title) || (meta.title) || 'Taşınmış Proje',
+        author: (data.meta && data.meta.author) || '',
+        createdAt: meta.savedAt || now,
+        updatedAt: meta.savedAt || now,
+        episodeCount: (data.episodes || []).length,
+        eventCount: (data.events || []).length,
+        sceneCount: (data.scenes || []).length
+      }]);
+      // Clean up old keys
+      localStorage.removeItem('scenario_autosave');
+      localStorage.removeItem('scenario_autosave_meta');
+    } catch(e) {
+      console.warn('[Projects] Migration error:', e);
+    }
+  }
+
+  return { list, getCurrentId, open, save, create, deleteProject, importToProject, loadDemoAsProject, handleImport, showProjectsScreen, showEditor, goBack, renderList, migrateV1 };
 })();
 
 // ═══ TIMELINE MODULE ═══
@@ -1937,7 +2220,7 @@ App.Interaction = (function(){
       }
       if((e.ctrlKey||e.metaKey) && e.key === 'z') { e.preventDefault(); S.undo(); }
       if((e.ctrlKey||e.metaKey) && e.key === 'y') { e.preventDefault(); S.redo(); }
-      if((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); App.IO.exportJSON(); }
+      if((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); App.Projects.save(); }
       if((e.ctrlKey||e.metaKey) && e.key === 'n') { e.preventDefault(); App.Panels.openAddEvent(); }
     });
 
@@ -3249,17 +3532,15 @@ App.IO = (function(){
     r.onload = ev => {
       try {
         const d = JSON.parse(ev.target.result);
-        // Check if old format (has .events array with .ep, .t, .d, .c, .ch, .s, .dur)
         if(d.events && d.events[0] && ('ep' in d.events[0]) && ('t' in d.events[0])) {
           migrateOldFormat(d);
+          App.Projects.importToProject(S.get());
         } else if(d.meta && d.episodes) {
-          S.set(d);
+          App.Projects.importToProject(d);
         } else {
           App.UI.toast('Tanınmayan dosya formatı');
           return;
         }
-        App.refresh();
-        App.UI.toast('Proje yüklendi');
       } catch(err) { App.UI.toast('Geçersiz dosya: ' + err.message); }
     };
     r.readAsText(f);
@@ -3300,14 +3581,7 @@ App.IO = (function(){
   }
 
   function loadDemo() {
-    if(S.get().events.length > 0) {
-      if(!confirm('Mevcut proje üzerine yazılacak. Devam?')) return;
-    }
-    const demo = getDemoProject();
-    S.set(demo);
-    U.setIdCounter(300);
-    App.refresh();
-    App.UI.toast('SAKAL demo projesi yüklendi');
+    App.Projects.loadDemoAsProject();
   }
 
   function handleDocx(e) {
@@ -3420,7 +3694,7 @@ App.IO = (function(){
     App.UI.toast(scenes.length+' sahne ayrıştırıldı');
   }
 
-  return { exportJSON, importJSON, loadDemo, handleDocx };
+  return { exportJSON, importJSON, loadDemo, handleDocx, migrateOldFormat };
 })();
 
 // ═══ SYNC MODULE (Gerçek Zamanlı İşbirliği) ═══
@@ -4510,23 +4784,29 @@ App.refresh = function() {
       if(App.AutoSave) App.AutoSave.save();
       if(App.Changelog) App.Changelog.addEntry(data);
     });
-    App.Timeline.initFilter();
-    App.Timeline.buildToolbar();
-    App.Timeline.render();
-    App.Screenplay.render();
+    // Setup interaction handlers (keyboard, mouse, etc.)
     App.Interaction.setup();
-    App.UI.updateStatusBar();
-    App.setViewMode('split');
     // Initialize Firebase Sync (if configured)
     if(App.Sync) App.Sync.init();
     // Initialize Changelog & Notes
     if(App.Changelog) App.Changelog.init();
     if(App.Notes) App.Notes.init();
-    // Restore autosaved project
-    if(App.AutoSave) App.AutoSave.restore();
-    // Hide loading, show app
-    const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
-    const ar = document.getElementById('appRoot'); if(ar) ar.style.display = 'flex';
+    // Migrate old autosave data to projects system
+    App.Projects.migrateV1();
+    // Check URL for room hash — skip projects screen and join room directly
+    if(window.location.hash && window.location.hash.includes('room=')) {
+      App.Timeline.initFilter();
+      App.Timeline.buildToolbar();
+      App.Timeline.render();
+      App.Screenplay.render();
+      App.UI.updateStatusBar();
+      App.setViewMode('split');
+      const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
+      const ar = document.getElementById('appRoot'); if(ar) ar.style.display = 'flex';
+    } else {
+      // Show projects screen
+      App.Projects.showProjectsScreen();
+    }
   } catch(e) {
     const d = document.createElement('div');
     d.style.cssText = 'color:#ef4444;background:#1a1a2e;padding:24px;margin:20px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-family:monospace;white-space:pre-wrap;z-index:99999;position:relative;';
