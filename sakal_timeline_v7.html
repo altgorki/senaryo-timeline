@@ -3103,31 +3103,53 @@ App.Sync = (function(){
     if(passwordPlain) {
       roomMeta.passwordHash = await hashPassword(passwordPlain);
     }
-    const data = {
-      meta: U.deepClone(P.meta),
-      categories: categoriesToKeyed(P.categories),
-      characters: arrayToKeyed(P.characters),
-      episodes: arrayToKeyed(P.episodes),
-      scenes: arrayToKeyed(P.scenes),
-      events: arrayToKeyed(P.events),
-      connections: arrayToKeyed(P.connections),
-      _roomMeta: roomMeta
-    };
 
-    _roomRef.set(data).then(() => {
+    try {
+      // Step 1: Write _roomMeta first (has its own write rule for !data.exists())
+      await _roomRef.child('_roomMeta').set(roomMeta);
+
+      // Step 2: Write presence (has own write rule for $uid === auth.uid)
+      if(!_userColor) {
+        const idx = Object.keys(_presenceUsers).length % PRESENCE_COLORS.length;
+        _userColor = PRESENCE_COLORS[idx];
+        localStorage.setItem('sync_userColor', _userColor);
+      }
+      await _roomRef.child('presence/' + _userId).set({
+        name: _userName,
+        color: _userColor,
+        lastSeen: firebase.database.ServerValue.TIMESTAMP
+      });
+      _roomRef.child('presence/' + _userId).onDisconnect().remove();
+
+      // Step 3: Write data collections (require presence to exist)
+      await _roomRef.child('meta').set(U.deepClone(P.meta));
+      await _roomRef.child('categories').set(categoriesToKeyed(P.categories));
+      await _roomRef.child('characters').set(arrayToKeyed(P.characters));
+      await _roomRef.child('episodes').set(arrayToKeyed(P.episodes));
+      await _roomRef.child('scenes').set(arrayToKeyed(P.scenes));
+      await _roomRef.child('events').set(arrayToKeyed(P.events));
+      await _roomRef.child('connections').set(arrayToKeyed(P.connections));
+
       _isAdmin = true;
       setupListeners();
-      setupPresence();
+      // Heartbeat for presence (don't re-setup, already written above)
+      if(_heartbeatInterval) clearInterval(_heartbeatInterval);
+      _heartbeatInterval = setInterval(() => {
+        if(_roomRef && _userId) {
+          _roomRef.child('presence/' + _userId + '/lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
+        }
+        cleanStalePresence();
+      }, 60000);
       updateHash();
       syncIdCounter();
       updateSyncUI();
       App.UI.closeModal();
       App.UI.toast('Oda oluşturuldu: ' + roomId);
-    }).catch(err => {
+    } catch(err) {
       console.error('[Sync] Create room error:', err);
       App.UI.toast('Oda oluşturma hatası: ' + err.message);
       _roomId = null; _roomRef = null;
-    });
+    }
   }
 
   async function joinRoom(roomId, passwordPlain) {
@@ -3139,7 +3161,14 @@ App.Sync = (function(){
     const ref = _db.ref('rooms/' + roomId);
     try {
       // Step 1: Read _roomMeta first
-      const metaSnap = await ref.child('_roomMeta').once('value');
+      let metaSnap;
+      try {
+        metaSnap = await ref.child('_roomMeta').once('value');
+      } catch(metaErr) {
+        // permission_denied means room doesn't exist or rules block it
+        App.UI.toast('Oda bulunamadı: ' + roomId);
+        return;
+      }
       if(!metaSnap.exists()) { App.UI.toast('Oda bulunamadı: ' + roomId); return; }
       const roomMeta = metaSnap.val();
 
