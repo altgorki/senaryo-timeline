@@ -306,6 +306,27 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .sync-room-info{background:var(--bg);border:1px solid var(--brd);border-radius:var(--radius);padding:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px;}
 .sync-room-info .room-code{font-size:16px;text-align:center;display:block;padding:8px;letter-spacing:2px;}
 
+/* ── CHANGELOG ── */
+.cl-entry{padding:8px 14px;border-bottom:1px solid var(--brd);}
+.cl-entry:hover{background:var(--bg3);}
+.cl-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.cl-user{font-size:11px;font-weight:600;}
+.cl-time{font-size:10px;color:var(--tx3);}
+.cl-desc{font-size:11px;color:var(--tx2);}
+
+/* ── NOTES ── */
+.notes-compose{padding:10px 14px;border-bottom:1px solid var(--brd);background:var(--bg3);}
+.notes-compose textarea{width:100%;min-height:60px;padding:8px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg);color:var(--tx);font-family:inherit;font-size:12px;resize:vertical;outline:none;}
+.notes-compose textarea:focus{border-color:var(--blue);}
+.notes-compose .notes-compose-bar{display:flex;justify-content:flex-end;margin-top:6px;}
+.note-item{padding:10px 14px;border-bottom:1px solid var(--brd);}
+.note-item:hover{background:var(--bg3);}
+.note-hdr{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.note-author{font-size:11px;font-weight:600;}
+.note-time{font-size:10px;color:var(--tx3);flex:1;}
+.note-actions{display:flex;gap:4px;}
+.note-text{font-size:12px;color:var(--tx2);white-space:pre-wrap;word-break:break-word;}
+
 /* ── MOBILE ── */
 @media(max-width:768px){
   /* Sync mobile */
@@ -452,9 +473,6 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
       <button class="btn" onclick="App.Timeline.zoomIn()">+</button>
       <button class="btn" onclick="App.Timeline.zoomReset()">Sığdır</button>
       <div class="sep"></div>
-      <button class="btn" id="wBtn" onclick="App.Panels.togglePanel('warn')">⚠ Uyarılar <span class="badge" id="wBdg" style="display:none">0</span></button>
-      <button class="btn" onclick="App.Panels.togglePanel('analysis')">◎ Analiz</button>
-      <button class="btn" onclick="App.IO.exportJSON()">↓ JSON</button>
       <button class="btn" onclick="document.getElementById('fIn').click()">↑ Yükle</button>
       <button class="btn" onclick="App.IO.loadDemo()">Demo Proje</button>
       <button class="btn" onclick="App.Panels.openSettings()">⚙</button>
@@ -480,6 +498,11 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
     </select>
     <div class="sep"></div>
     <div id="catP" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    <div class="sep"></div>
+    <button class="btn btn-s" id="wBtn" onclick="App.Panels.togglePanel('warn')">⚠ Uyarılar <span class="badge" id="wBdg" style="display:none">0</span></button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('analysis')">◎ Analiz</button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('changelog')">📋 Günlük</button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('notes')">📌 Notlar</button>
   </div>
 
   <div class="main-wrap">
@@ -633,23 +656,23 @@ App.Store = (function(){
   // Episode helpers
   function getEpisodeIds() { return project.episodes.map(e=>e.id); }
   function getEpisode(id) { return project.episodes.find(e=>e.id===id); }
-  function addEpisode(ep) { snapshot(); project.episodes.push(ep); project.episodes.sort((a,b)=>a.order-b.order); emit('change',{type:'addEp'}); }
-  function updateEpisode(id, data) { snapshot(); const ep=getEpisode(id); if(ep) Object.assign(ep,data); emit('change',{type:'updateEp'}); }
-  function removeEpisode(id) { snapshot(); project.episodes=project.episodes.filter(e=>e.id!==id); project.scenes=project.scenes.filter(s=>s.episodeId!==id); project.events=project.events.filter(e=>e.episodeId!==id); emit('change',{type:'removeEp'}); }
+  function addEpisode(ep) { snapshot(); project.episodes.push(ep); project.episodes.sort((a,b)=>a.order-b.order); emit('change',{type:'addEp',targetId:ep.id,targetName:ep.title||''}); }
+  function updateEpisode(id, data) { snapshot(); const ep=getEpisode(id); if(ep) Object.assign(ep,data); emit('change',{type:'updateEp',targetId:id,targetName:(ep&&ep.title)||''}); }
+  function removeEpisode(id) { snapshot(); const _n=(getEpisode(id)||{}).title||''; project.episodes=project.episodes.filter(e=>e.id!==id); project.scenes=project.scenes.filter(s=>s.episodeId!==id); project.events=project.events.filter(e=>e.episodeId!==id); emit('change',{type:'removeEp',targetId:id,targetName:_n}); }
 
   // Scene helpers
   function getScenes(epId) { return project.scenes.filter(s=>s.episodeId===epId).sort((a,b)=>a.order-b.order); }
   function getScene(id) { return project.scenes.find(s=>s.id===id); }
-  function addScene(sc) { snapshot(); project.scenes.push(sc); emit('change',{type:'addScene'}); }
-  function updateScene(id, data) { snapshot(); const sc=getScene(id); if(sc) Object.assign(sc,data); emit('change',{type:'updateScene'}); }
-  function removeScene(id) { snapshot(); project.scenes=project.scenes.filter(s=>s.id!==id); project.events=project.events.filter(e=>e.sceneId!==id); emit('change',{type:'removeScene'}); }
+  function addScene(sc) { snapshot(); project.scenes.push(sc); emit('change',{type:'addScene',targetId:sc.id,targetName:sc.title||''}); }
+  function updateScene(id, data) { snapshot(); const sc=getScene(id); if(sc) Object.assign(sc,data); emit('change',{type:'updateScene',targetId:id,targetName:(sc&&sc.title)||''}); }
+  function removeScene(id) { snapshot(); const _n=(getScene(id)||{}).title||''; project.scenes=project.scenes.filter(s=>s.id!==id); project.events=project.events.filter(e=>e.sceneId!==id); emit('change',{type:'removeScene',targetId:id,targetName:_n}); }
 
   // Event helpers
   function getEvents(epId) { return epId ? project.events.filter(e=>e.episodeId===epId) : project.events; }
   function getEvent(id) { return project.events.find(e=>e.id===id); }
-  function addEvent(ev) { snapshot(); project.events.push(ev); emit('change',{type:'addEvent'}); }
-  function updateEvent(id, data) { snapshot(); const ev=getEvent(id); if(ev) Object.assign(ev,data); emit('change',{type:'updateEvent'}); }
-  function removeEvent(id) { snapshot(); project.events=project.events.filter(e=>e.id!==id); project.connections=project.connections.filter(c=>c.from!==id&&c.to!==id); emit('change',{type:'removeEvent'}); }
+  function addEvent(ev) { snapshot(); project.events.push(ev); emit('change',{type:'addEvent',targetId:ev.id,targetName:ev.title||''}); }
+  function updateEvent(id, data) { snapshot(); const ev=getEvent(id); if(ev) Object.assign(ev,data); emit('change',{type:'updateEvent',targetId:id,targetName:(ev&&ev.title)||''}); }
+  function removeEvent(id) { snapshot(); const _n=(getEvent(id)||{}).title||''; project.events=project.events.filter(e=>e.id!==id); project.connections=project.connections.filter(c=>c.from!==id&&c.to!==id); emit('change',{type:'removeEvent',targetId:id,targetName:_n}); }
 
   // Connection helpers
   function getConnections(evId) { return evId ? project.connections.filter(c=>c.from===evId||c.to===evId) : project.connections; }
@@ -658,13 +681,13 @@ App.Store = (function(){
 
   // Character helpers
   function getCharacters() { return project.characters; }
-  function addCharacter(ch) { snapshot(); project.characters.push(ch); emit('change',{type:'addChar'}); }
-  function removeCharacter(id) { snapshot(); project.characters=project.characters.filter(c=>c.id!==id); emit('change',{type:'removeChar'}); }
+  function addCharacter(ch) { snapshot(); project.characters.push(ch); emit('change',{type:'addChar',targetName:ch.name||''}); }
+  function removeCharacter(id) { snapshot(); const _n=(project.characters.find(c=>c.id===id)||{}).name||''; project.characters=project.characters.filter(c=>c.id!==id); emit('change',{type:'removeChar',targetName:_n}); }
 
   // Category helpers
   function getCategories() { return project.categories; }
-  function addCategory(key, data) { snapshot(); project.categories[key]=data; emit('change',{type:'addCat'}); }
-  function removeCategory(key) { snapshot(); delete project.categories[key]; emit('change',{type:'removeCat'}); }
+  function addCategory(key, data) { snapshot(); project.categories[key]=data; emit('change',{type:'addCat',targetName:key}); }
+  function removeCategory(key) { snapshot(); delete project.categories[key]; emit('change',{type:'removeCat',targetName:key}); }
 
   // Batch update without multiple snapshots
   function batch(fn) { snapshot(); fn(); emit('change',{type:'batch'}); }
@@ -754,6 +777,72 @@ App.UI = (function(){
   }
 
   return { toast, openModal, closeModal, showTooltip, hideTooltip, showContextMenu, hideContextMenu, updateStatusBar };
+})();
+
+// ═══ AUTOSAVE MODULE ═══
+App.AutoSave = (function(){
+  const S = App.Store;
+  const KEY_DATA = 'scenario_autosave';
+  const KEY_META = 'scenario_autosave_meta';
+  const MAX_BYTES = 4 * 1024 * 1024; // 4MB
+  let _timer = null;
+  let _quotaWarned = false;
+
+  function save() {
+    if(_timer) clearTimeout(_timer);
+    _timer = setTimeout(_doSave, 2000);
+  }
+
+  function _doSave() {
+    _timer = null;
+    try {
+      const P = S.get();
+      const json = JSON.stringify(P);
+      if(json.length > MAX_BYTES) {
+        if(!_quotaWarned) { _quotaWarned = true; App.UI.toast('Proje çok büyük, otomatik kayıt atlandı'); }
+        return;
+      }
+      localStorage.setItem(KEY_DATA, json);
+      localStorage.setItem(KEY_META, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        title: P.meta.title,
+        episodes: P.episodes.length,
+        events: P.events.length
+      }));
+    } catch(e) {
+      if(e.name === 'QuotaExceededError' && !_quotaWarned) {
+        _quotaWarned = true;
+        App.UI.toast('localStorage dolu, otomatik kayıt başarısız');
+      }
+    }
+  }
+
+  function restore() {
+    // Don't restore if we're joining a room
+    if(window.location.hash && window.location.hash.includes('room=')) return;
+    try {
+      const raw = localStorage.getItem(KEY_DATA);
+      if(!raw) return;
+      const meta = JSON.parse(localStorage.getItem(KEY_META) || '{}');
+      const label = meta.title ? '"' + meta.title + '"' : 'Kaydedilmiş proje';
+      const info = meta.savedAt ? ' (' + new Date(meta.savedAt).toLocaleString('tr-TR') + ')' : '';
+      if(confirm(label + info + ' geri yüklensin mi?')) {
+        const data = JSON.parse(raw);
+        S.set(data);
+        App.refresh();
+        App.UI.toast('Proje geri yüklendi');
+      }
+    } catch(e) {
+      console.warn('[AutoSave] Restore error:', e);
+    }
+  }
+
+  function clear() {
+    localStorage.removeItem(KEY_DATA);
+    localStorage.removeItem(KEY_META);
+  }
+
+  return { save, restore, clear };
 })();
 
 // ═══ TIMELINE MODULE ═══
@@ -1156,7 +1245,7 @@ App.Screenplay = (function(){
       sceneId: sc.id, category: sc.category, characters: sc.characters||[],
       s: Math.max(0, s), dur: dur
     });
-    S.emit('change', {type:'addScene'});
+    S.emit('change', {type:'addScene',targetId:sc.id,targetName:sc.title||''});
     // Focus the first editable block after render
     setTimeout(() => {
       const el = document.querySelector(`[data-sid="${sc.id}"][contenteditable]`);
@@ -1182,7 +1271,7 @@ App.Screenplay = (function(){
     sc.content.push(block);
     const bi = sc.content.length - 1;
     updateTimelineDuration(sc);
-    S.emit('change', {type:'updateScene'});
+    S.emit('change', {type:'updateScene',targetId:scId,targetName:sc.title||''});
     // Focus the new block after render
     setTimeout(() => {
       const blocks = document.querySelectorAll(`[data-sid="${scId}"][contenteditable]`);
@@ -1341,7 +1430,7 @@ App.Screenplay = (function(){
     const P = S.get();
     const ev = P.events.find(e => e.sceneId === scId);
     if(ev) ev.characters = sc.characters.slice();
-    S.emit('change', {type:'updateScene'});
+    S.emit('change', {type:'updateScene',targetId:scId,targetName:sc.title||''});
   }
 
   function handleMentionInput(e) {
@@ -1946,6 +2035,7 @@ App.Panels = (function(){
 
   function closeAll() {
     currentPanel = null; editId = null; activeWarnIdx = -1;
+    if(App.Notes) App.Notes.setPanelOpen(false);
     document.getElementById('rPanel').classList.remove('open');
     App.Timeline.clrHL();
   }
@@ -1956,6 +2046,8 @@ App.Panels = (function(){
     if(currentPanel === 'edit') renderEditPanel();
     else if(currentPanel === 'warn') renderWarnPanel();
     else if(currentPanel === 'analysis') renderAnalysisPanel();
+    else if(currentPanel === 'changelog') App.Changelog.renderPanel();
+    else if(currentPanel === 'notes') { App.Notes.setPanelOpen(true); App.Notes.renderPanel(); }
     else { rp.classList.remove('open'); }
   }
 
@@ -2044,7 +2136,7 @@ App.Panels = (function(){
       });
       ev.sceneId = scId;
     }
-    S.emit('change', {type:'updateEvent'});
+    S.emit('change', {type:'updateEvent',targetId:ev.id,targetName:ev.title||''});
     closeAll();
     App.UI.toast('"' + ev.title + '" güncellendi');
   }
@@ -2410,7 +2502,7 @@ App.Panels = (function(){
       id: evId, title: t, description: ozet, episodeId: epId, category: cat,
       characters: ch, sceneId: scId, s: sVal, dur: durVal
     });
-    S.emit('change', {type:'addEvent'});
+    S.emit('change', {type:'addEvent',targetId:evId,targetName:t});
     App.UI.closeModal();
     App.UI.toast('"' + t + '" eklendi');
   }
@@ -2566,7 +2658,7 @@ App.Analysis = (function(){
       if(ev.s + ev.dur > EPDUR + 5) {
         const ep = P.episodes.find(e=>e.id===ev.episodeId);
         warns.push({ tp:'overflow', id:ev.id, t:'Süre Taşması', d:`"${ev.title}" (${U.epLbl(ep?.number||'?')}) bölüm süresini aşıyor.`,
-          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.emit('change',{type:'fix'}); App.UI.toast('Düzeltildi'); } });
+          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.emit('change',{type:'fix',targetId:ev.id,targetName:ev.title||''}); App.UI.toast('Düzeltildi'); } });
       }
     });
 
@@ -2580,7 +2672,7 @@ App.Analysis = (function(){
       const tAbs = (epOrder[te.episodeId]||0) * EPDUR + te.s;
       if(fAbs > tAbs + 30)
         warns.push({ tp:'dep', id:cn.from, id2:cn.to, t:'Bağımlılık Hatası', d:`"${fe.title}" → "${te.title}": Neden, sonuçtan sonra!`,
-          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.emit('change',{type:'fix'}); App.UI.toast('Taşındı'); } });
+          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.emit('change',{type:'fix',targetId:te.id,targetName:te.title||''}); App.UI.toast('Taşındı'); } });
     });
 
     // Overlaps
@@ -2589,7 +2681,7 @@ App.Analysis = (function(){
       for(let i=0;i<re.length;i++) for(let j=i+1;j<re.length;j++) {
         if(re[i]._lane===re[j]._lane && re[j].s < re[i].s+re[i].dur)
           warns.push({ tp:'overlap', id:re[i].id, id2:re[j].id, t:'Çakışma', d:`"${re[i].title}" ile "${re[j].title}" çakışıyor.`,
-            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.emit('change',{type:'fix'}); App.UI.toast('Düzeltildi'); } });
+            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.emit('change',{type:'fix',targetId:re[j].id,targetName:re[j].title||''}); App.UI.toast('Düzeltildi'); } });
       }
     });
 
@@ -2850,6 +2942,289 @@ App.Analysis = (function(){
   }
 
   return { getWarnings, invalidateCache, getCriticalPath, getImpact, getCharacterData, getTempoData, renderConnections, renderTempo, renderCharacters, renderImpact, detectCycles };
+})();
+
+// ═══ CHANGELOG MODULE ═══
+App.Changelog = (function(){
+  const U = App.Utils;
+  const KEY = 'scenario_changelog';
+  const MAX_LOCAL = 500;
+  const MAX_REMOTE = 200;
+  const SKIP = new Set(['undo','redo','set']);
+  let _entries = [];
+  let _remoteRef = null;
+  let _remoteListener = null;
+
+  const ACTION_LABELS = {
+    addEvent:'Olay eklendi', updateEvent:'Olay güncellendi', removeEvent:'Olay silindi',
+    addScene:'Sahne eklendi', updateScene:'Sahne güncellendi', removeScene:'Sahne silindi',
+    addEp:'Bölüm eklendi', updateEp:'Bölüm güncellendi', removeEp:'Bölüm silindi',
+    addCn:'Bağlantı eklendi', removeCn:'Bağlantı silindi',
+    addChar:'Karakter eklendi', removeChar:'Karakter silindi',
+    addCat:'Kategori eklendi', removeCat:'Kategori silindi',
+    batch:'Toplu güncelleme', settings:'Ayarlar değiştirildi',
+    docx:'DOCX dışa aktarıldı', fix:'Düzeltme uygulandı'
+  };
+
+  function init() {
+    if(!App.Sync || !App.Sync.isInRoom()) {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if(raw) _entries = JSON.parse(raw);
+      } catch(e) { _entries = []; }
+    }
+  }
+
+  function addEntry(data) {
+    if(!data || !data.type) return;
+    const actionType = data.type;
+    if(SKIP.has(actionType) || actionType.startsWith('remote')) return;
+    const userName = (App.Sync && App.Sync.getUserName) ? App.Sync.getUserName() : (localStorage.getItem('sync_userName') || 'Kullanıcı');
+    const label = ACTION_LABELS[actionType] || actionType;
+    const targetName = data.targetName || '';
+    const desc = targetName ? label + ': "' + targetName + '"' : label;
+    const entry = {
+      id: U.genId(),
+      ts: Date.now(),
+      userName: userName,
+      action: actionType,
+      targetId: data.targetId || null,
+      targetName: targetName,
+      desc: desc
+    };
+
+    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+      _remoteRef.push(entry);
+    } else {
+      _entries.push(entry);
+      if(_entries.length > MAX_LOCAL) _entries = _entries.slice(-MAX_LOCAL);
+      try { localStorage.setItem(KEY, JSON.stringify(_entries)); } catch(e) {}
+    }
+  }
+
+  function setupRemoteListener(roomRef) {
+    _remoteRef = roomRef.child('changelog');
+    _entries = [];
+    _remoteListener = _remoteRef.limitToLast(MAX_REMOTE).on('value', snap => {
+      _entries = [];
+      snap.forEach(ch => { _entries.push(ch.val()); });
+      // Re-render if panel is open
+      if(document.getElementById('rPanel').classList.contains('open')) {
+        const hdr = document.getElementById('rPanel').querySelector('.rpanel-hdr h3');
+        if(hdr && hdr.textContent.includes('Günlük')) renderPanel();
+      }
+    });
+  }
+
+  function teardownRemoteListener() {
+    if(_remoteRef && _remoteListener) {
+      _remoteRef.off('value', _remoteListener);
+    }
+    _remoteRef = null;
+    _remoteListener = null;
+    // Load local entries
+    init();
+  }
+
+  function _navigate(targetId) {
+    if(!targetId) return;
+    const ev = App.Store.getEvent(targetId);
+    if(ev) {
+      App.Timeline.scrollToEvent(targetId);
+      App.Panels.openEditEvent(targetId);
+      return;
+    }
+    const sc = App.Store.getScene(targetId);
+    if(sc) {
+      const linked = App.Store.get().events.find(e => e.sceneId === targetId);
+      if(linked) { App.Timeline.scrollToEvent(linked.id); App.Panels.openEditEvent(linked.id); }
+    }
+  }
+
+  function renderPanel() {
+    const rp = document.getElementById('rPanel');
+    const sorted = _entries.slice().reverse();
+    let h = '<div class="rpanel-hdr"><h3>📋 Değişiklik Günlüğü</h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div>';
+    h += '<div class="rpanel-body" style="overflow-y:auto;flex:1;">';
+    if(sorted.length === 0) {
+      h += '<div style="padding:20px;text-align:center;color:var(--tx3);font-size:12px;">Henüz değişiklik yok</div>';
+    } else {
+      sorted.forEach(e => {
+        const d = new Date(e.ts);
+        const time = d.toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit'});
+        const date = d.toLocaleDateString('tr-TR', {day:'numeric',month:'short'});
+        const clickable = e.targetId && !e.action.startsWith('remove');
+        const cursor = clickable ? 'cursor:pointer;' : '';
+        const onclick = clickable ? ' onclick="App.Changelog.navigate(\'' + e.targetId + '\')"' : '';
+        h += '<div class="cl-entry" style="' + cursor + '"' + onclick + '>';
+        h += '<div class="cl-hdr"><span class="cl-user">' + U.escHtml(e.userName) + '</span><span class="cl-time">' + date + ' ' + time + '</span></div>';
+        h += '<div class="cl-desc">' + U.escHtml(e.desc) + '</div>';
+        if(clickable) h += '<div style="font-size:10px;color:var(--blue);margin-top:2px;">Olaya git →</div>';
+        h += '</div>';
+      });
+    }
+    h += '</div>';
+    rp.innerHTML = h;
+  }
+
+  return { init, addEntry, setupRemoteListener, teardownRemoteListener, renderPanel, navigate: _navigate };
+})();
+
+// ═══ NOTES MODULE ═══
+App.Notes = (function(){
+  const U = App.Utils;
+  const KEY = 'scenario_notes';
+  const MAX_LOCAL = 100;
+  let _notes = [];
+  let _remoteRef = null;
+  let _remoteListener = null;
+  let _panelOpen = false;
+  let _editingId = null;
+
+  function init() {
+    if(!App.Sync || !App.Sync.isInRoom()) {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if(raw) _notes = JSON.parse(raw);
+      } catch(e) { _notes = []; }
+    }
+  }
+
+  function setPanelOpen(v) { _panelOpen = v; if(!v) _editingId = null; }
+
+  function _getUserName() {
+    return (App.Sync && App.Sync.getUserName) ? App.Sync.getUserName() : (localStorage.getItem('sync_userName') || 'Kullanıcı');
+  }
+  function _getUserColor() {
+    return (App.Sync && App.Sync.getUserColor) ? App.Sync.getUserColor() : (localStorage.getItem('sync_userColor') || '#3b82f6');
+  }
+
+  function addNote(text) {
+    text = (text || '').trim();
+    if(!text) return;
+    const note = {
+      id: U.genId(),
+      author: _getUserName(),
+      authorColor: _getUserColor(),
+      text: text,
+      ts: Date.now(),
+      edited: false
+    };
+    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+      _remoteRef.child(note.id).set(note);
+    } else {
+      _notes.push(note);
+      if(_notes.length > MAX_LOCAL) _notes = _notes.slice(-MAX_LOCAL);
+      _saveLocal();
+    }
+    if(_panelOpen) renderPanel();
+  }
+
+  function updateNote(id, newText) {
+    newText = (newText || '').trim();
+    if(!newText) return;
+    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+      _remoteRef.child(id).update({ text: newText, edited: true });
+    } else {
+      const n = _notes.find(n => n.id === id);
+      if(n) { n.text = newText; n.edited = true; _saveLocal(); }
+    }
+    _editingId = null;
+    if(_panelOpen) renderPanel();
+  }
+
+  function removeNote(id) {
+    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+      _remoteRef.child(id).remove();
+    } else {
+      _notes = _notes.filter(n => n.id !== id);
+      _saveLocal();
+    }
+    if(_panelOpen) renderPanel();
+  }
+
+  function _saveLocal() {
+    try { localStorage.setItem(KEY, JSON.stringify(_notes)); } catch(e) {}
+  }
+
+  function setupRemoteListener(roomRef) {
+    _remoteRef = roomRef.child('notes');
+    _notes = [];
+    _remoteListener = _remoteRef.on('value', snap => {
+      _notes = [];
+      snap.forEach(ch => { _notes.push(ch.val()); });
+      if(_panelOpen) renderPanel();
+    });
+  }
+
+  function teardownRemoteListener() {
+    if(_remoteRef && _remoteListener) {
+      _remoteRef.off('value', _remoteListener);
+    }
+    _remoteRef = null;
+    _remoteListener = null;
+    init();
+  }
+
+  function renderPanel() {
+    const rp = document.getElementById('rPanel');
+    const myName = _getUserName();
+    const sorted = _notes.slice().reverse();
+
+    let h = '<div class="rpanel-hdr"><h3>📌 Notlar</h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div>';
+    // Compose area
+    h += '<div class="notes-compose">';
+    h += '<textarea id="noteInput" placeholder="Not yaz..." onkeydown="if(event.ctrlKey&&event.key===\'Enter\'){App.Notes.addNote(this.value);this.value=\'\';event.preventDefault();}"></textarea>';
+    h += '<div class="notes-compose-bar"><button class="btn btn-p btn-s" onclick="var ta=document.getElementById(\'noteInput\');App.Notes.addNote(ta.value);ta.value=\'\';">Ekle</button></div>';
+    h += '</div>';
+    // Notes list
+    h += '<div class="rpanel-body" style="overflow-y:auto;flex:1;">';
+    if(sorted.length === 0) {
+      h += '<div style="padding:20px;text-align:center;color:var(--tx3);font-size:12px;">Henüz not yok</div>';
+    } else {
+      sorted.forEach(n => {
+        const d = new Date(n.ts);
+        const time = d.toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit'});
+        const date = d.toLocaleDateString('tr-TR', {day:'numeric',month:'short'});
+        const isMine = n.author === myName;
+        h += '<div class="note-item" data-note-id="' + n.id + '">';
+        h += '<div class="note-hdr">';
+        h += '<span class="note-author" style="color:' + (n.authorColor || 'var(--tx)') + '">' + U.escHtml(n.author) + '</span>';
+        h += '<span class="note-time">' + date + ' ' + time + (n.edited ? ' (düzenlendi)' : '') + '</span>';
+        if(isMine) {
+          h += '<div class="note-actions">';
+          h += '<button class="btn btn-s" onclick="App.Notes.startEdit(\'' + n.id + '\')">✏</button>';
+          h += '<button class="btn btn-s btn-d" onclick="App.Notes.removeNote(\'' + n.id + '\')">✕</button>';
+          h += '</div>';
+        }
+        h += '</div>';
+        if(_editingId === n.id) {
+          h += '<textarea id="noteEdit_' + n.id + '" class="notes-compose" style="width:100%;min-height:50px;padding:6px;border-radius:var(--radius);border:1px solid var(--blue);background:var(--bg);color:var(--tx);font-family:inherit;font-size:12px;resize:vertical;outline:none;">' + U.escHtml(n.text) + '</textarea>';
+          h += '<div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end;">';
+          h += '<button class="btn btn-s" onclick="App.Notes._cancelEdit()">İptal</button>';
+          h += '<button class="btn btn-s btn-p" onclick="App.Notes.updateNote(\'' + n.id + '\',document.getElementById(\'noteEdit_' + n.id + '\').value)">Kaydet</button>';
+          h += '</div>';
+        } else {
+          h += '<div class="note-text">' + U.escHtml(n.text) + '</div>';
+        }
+        h += '</div>';
+      });
+    }
+    h += '</div>';
+    rp.innerHTML = h;
+  }
+
+  function startEdit(id) {
+    _editingId = id;
+    renderPanel();
+  }
+
+  function _cancelEdit() {
+    _editingId = null;
+    renderPanel();
+  }
+
+  return { init, setPanelOpen, addNote, updateNote, removeNote, setupRemoteListener, teardownRemoteListener, renderPanel, startEdit, _cancelEdit };
 })();
 
 // ═══ IO MODULE ═══
@@ -3319,6 +3694,8 @@ App.Sync = (function(){
       updateHash();
       syncIdCounter();
       updateSyncUI();
+      if(App.Changelog) App.Changelog.setupRemoteListener(_roomRef);
+      if(App.Notes) App.Notes.setupRemoteListener(_roomRef);
       App.UI.closeModal();
       App.UI.toast('Oda oluşturuldu: ' + roomId);
     } catch(err) {
@@ -3397,6 +3774,8 @@ App.Sync = (function(){
       updateHash();
       syncIdCounter();
       updateSyncUI();
+      if(App.Changelog) App.Changelog.setupRemoteListener(_roomRef);
+      if(App.Notes) App.Notes.setupRemoteListener(_roomRef);
       App.UI.closeModal();
       App.UI.toast('Odaya katıldınız: ' + roomId);
     } catch(err) {
@@ -3436,6 +3815,8 @@ App.Sync = (function(){
     // Clear hash
     history.replaceState(null, '', window.location.pathname + window.location.search);
     updateSyncUI();
+    if(App.Changelog) App.Changelog.teardownRemoteListener();
+    if(App.Notes) App.Notes.teardownRemoteListener();
     App.UI.toast('Odadan ayrıldınız');
   }
 
@@ -3886,7 +4267,9 @@ App.Sync = (function(){
     openSyncPanel, copyRoomLink, renderPresenceBar,
     pushChange, pushAll, handleStoreChange,
     _doCreate, _doJoin, _doJoinWithPassword,
-    kickUser, toggleRoomLock, isAdmin: () => _isAdmin
+    kickUser, toggleRoomLock, isAdmin: () => _isAdmin,
+    getUserName: () => _userName,
+    getUserColor: () => _userColor
   };
 })();
 
@@ -4123,6 +4506,9 @@ App.refresh = function() {
       }
       // Push to Firebase if in a room
       if(App.Sync) App.Sync.handleStoreChange(data);
+      // AutoSave & Changelog
+      if(App.AutoSave) App.AutoSave.save();
+      if(App.Changelog) App.Changelog.addEntry(data);
     });
     App.Timeline.initFilter();
     App.Timeline.buildToolbar();
@@ -4133,6 +4519,11 @@ App.refresh = function() {
     App.setViewMode('split');
     // Initialize Firebase Sync (if configured)
     if(App.Sync) App.Sync.init();
+    // Initialize Changelog & Notes
+    if(App.Changelog) App.Changelog.init();
+    if(App.Notes) App.Notes.init();
+    // Restore autosaved project
+    if(App.AutoSave) App.AutoSave.restore();
     // Hide loading, show app
     const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
     const ar = document.getElementById('appRoot'); if(ar) ar.style.display = 'flex';
