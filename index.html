@@ -530,11 +530,74 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
   .ruler{background:#f5f5f5!important;border-color:#ccc!important;}
   .rtick{color:#666!important;border-color:#999!important;}
 }
+
+/* ── AUTH SCREEN ── */
+.auth-tabs{display:flex;gap:2px;background:var(--bg);border-radius:var(--radius);padding:2px;border:1px solid var(--brd);margin-bottom:20px;}
+.auth-tab{flex:1;padding:8px;border:none;background:none;color:var(--tx3);cursor:pointer;font-family:inherit;font-size:13px;border-radius:4px;transition:all .15s;}
+.auth-tab.active{background:var(--bg4);color:var(--tx);}
+.auth-form{max-width:360px;margin:0 auto;}
+.auth-form input{width:100%;padding:10px 12px;margin-bottom:10px;border:1px solid var(--brd);border-radius:var(--radius);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;}
+.auth-form input:focus{border-color:var(--blue);}
+.auth-form .btn{width:100%;padding:10px;margin-top:4px;}
+.auth-error{color:var(--red);font-size:12px;margin-bottom:8px;display:none;}
+
+/* ── USER INFO (topbar) ── */
+.user-info{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;}
+
+/* ── READONLY MODE (viewer) ── */
+.readonly-mode .sp-add-scene-btn,
+.readonly-mode .sp-block-actions,
+.readonly-mode .btn-p[onclick*="addEvent"],
+.readonly-mode .btn-p[onclick*="addScene"],
+.readonly-mode #tb{display:none !important;}
+.readonly-mode .sp-scene-header select,
+.readonly-mode .sp-scene-header input{pointer-events:none;opacity:.7;}
+.readonly-badge{background:var(--orange);color:#fff;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;display:none;}
+.readonly-mode .readonly-badge{display:inline-block;}
+
+/* ── PROJECT CARD ROLE BADGE ── */
+.ps-card-role{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;}
+.ps-card-role.owner{background:var(--blue);color:#fff;}
+.ps-card-role.editor{background:var(--green);color:#fff;}
+.ps-card-role.viewer{background:var(--orange);color:#fff;}
+
+/* ── MEMBER LIST (share modal) ── */
+.member-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd);}
+.member-row:last-child{border:none;}
+.member-email{flex:1;font-size:12px;color:var(--tx);}
+.member-role{font-size:11px;color:var(--tx2);}
 </style>
 </head>
 <body>
 <noscript><div style="color:var(--red);background:var(--bg2);padding:24px;margin:20px;font-size:16px;border:2px solid var(--red);border-radius:8px;">JavaScript devre dışı. Lütfen tarayıcı ayarlarından JavaScript'i etkinleştirin.</div></noscript>
 <div id="loadMsg" style="color:var(--tx2);padding:20px;font-size:14px;">Yükleniyor...</div>
+
+<div id="authScreen" style="display:none;">
+  <div class="ps-inner">
+    <div class="ps-header">
+      <h1>Senaryo Timeline Editörü</h1>
+      <p>Giriş yapın veya hesap oluşturun</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="App.Auth.switchTab('login')" data-tab="login">Giriş Yap</button>
+      <button class="auth-tab" onclick="App.Auth.switchTab('register')" data-tab="register">Kayıt Ol</button>
+    </div>
+    <div class="auth-form" id="authLoginForm">
+      <div class="auth-error" id="loginError"></div>
+      <input type="email" id="loginEmail" placeholder="E-posta adresi" onkeydown="if(event.key==='Enter')App.Auth.doLogin()" />
+      <input type="password" id="loginPass" placeholder="Parola" onkeydown="if(event.key==='Enter')App.Auth.doLogin()" />
+      <button class="btn btn-p" onclick="App.Auth.doLogin()">Giriş Yap</button>
+    </div>
+    <div class="auth-form" id="authRegisterForm" style="display:none;">
+      <div class="auth-error" id="registerError"></div>
+      <input type="text" id="regName" placeholder="Adınız" />
+      <input type="email" id="regEmail" placeholder="E-posta adresi" />
+      <input type="password" id="regPass" placeholder="Parola (min 6 karakter)" onkeydown="if(event.key==='Enter')App.Auth.doRegister()" />
+      <button class="btn btn-p" onclick="App.Auth.doRegister()">Kayıt Ol</button>
+    </div>
+  </div>
+</div>
 
 <div id="projectsScreen" style="display:none;">
   <div class="ps-inner">
@@ -565,15 +628,19 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
       <button class="view-mode" data-vm="timeline" onclick="App.setViewMode('timeline')">Timeline</button>
     </div>
     <div class="sync-bar" id="syncBar">
-      <span class="sync-dot disconnected" id="syncDot"></span>
-      <span class="sync-status-text" id="syncStatusText">Bağlantı yok</span>
+      <span class="sync-dot connected" id="syncDot"></span>
+      <span class="sync-status-text" id="syncStatusText"></span>
       <div class="presence-bar" id="presenceBar"></div>
-      <span class="room-code" id="roomCodeLabel" style="display:none" onclick="App.Sync.copyRoomLink()" title="Oda linkini kopyala"></span>
-      <button class="btn btn-leave" id="leaveBtn" style="display:none" onclick="App.Sync.leaveRoom()">Ayrıl</button>
     </div>
     <div class="tba">
-      <button class="btn" onclick="App.Projects.save()" title="Projeyi Kaydet (Ctrl+S)">💾 Kaydet</button>
-      <button class="btn" id="syncBtn" onclick="App.Sync.openSyncPanel()" title="Gerçek Zamanlı İşbirliği">👥 İşbirliği</button>
+      <span class="readonly-badge">Sadece Okuma</span>
+      <div class="user-info" id="userInfo" style="display:none;">
+        <div class="user-avatar" id="userAvatar"></div>
+        <span id="userDisplayName"></span>
+      </div>
+      <button class="btn" id="shareBtn" onclick="App.Projects.openShareModal()" style="display:none;">Paylaş</button>
+      <button class="btn" id="logoutBtn" onclick="App.Auth.logout()" style="display:none;">Çıkış</button>
+      <button class="btn" onclick="App.Projects.save();App.UI.toast('Kaydedildi')" title="Projeyi Kaydet (Ctrl+S)">💾 Kaydet</button>
       <div class="sep"></div>
       <button class="btn btn-icon" onclick="App.Store.undo()" title="Geri Al (Ctrl+Z)">↩</button>
       <button class="btn btn-icon" onclick="App.Store.redo()" title="Yinele (Ctrl+Y)">↪</button>
@@ -901,201 +968,448 @@ App.UI = (function(){
   return { toast, openModal, closeModal, showTooltip, hideTooltip, showContextMenu, hideContextMenu, updateStatusBar };
 })();
 
-// ═══ AUTOSAVE MODULE ═══
-App.AutoSave = (function(){
-  const S = App.Store;
-  const MAX_BYTES = 4 * 1024 * 1024; // 4MB
-  let _timer = null;
-  let _quotaWarned = false;
-
-  function _getKeys() {
-    const id = App.Projects && App.Projects.getCurrentId();
-    if(id) return { data: 'ste_proj_' + id, meta: 'ste_proj_' + id + '_meta' };
-    return { data: 'scenario_autosave', meta: 'scenario_autosave_meta' };
+// ═══ AUTH MODULE ═══
+App.Auth = (function(){
+  function switchTab(tab) {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('authLoginForm').style.display = tab === 'login' ? '' : 'none';
+    document.getElementById('authRegisterForm').style.display = tab === 'register' ? '' : 'none';
   }
 
+  function showLoginScreen() {
+    document.getElementById('authScreen').style.display = 'block';
+    document.getElementById('projectsScreen').style.display = 'none';
+    document.getElementById('appRoot').style.display = 'none';
+    document.getElementById('loadMsg').style.display = 'none';
+    // Her zaman login sekmesine sıfırla
+    switchTab('login');
+    document.getElementById('loginError').style.display = 'none';
+    document.getElementById('registerError').style.display = 'none';
+  }
+
+  function doRegister() {
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const pass = document.getElementById('regPass').value;
+    const errEl = document.getElementById('registerError');
+    errEl.style.display = 'none';
+    if(!name) { errEl.textContent = 'Ad gerekli'; errEl.style.display = 'block'; return; }
+    if(!email) { errEl.textContent = 'E-posta gerekli'; errEl.style.display = 'block'; return; }
+    if(pass.length < 6) { errEl.textContent = 'Parola en az 6 karakter olmalı'; errEl.style.display = 'block'; return; }
+
+    firebase.auth().createUserWithEmailAndPassword(email, pass)
+      .then(cred => {
+        return cred.user.updateProfile({ displayName: name }).then(() => {
+          firebase.database().ref('users/' + cred.user.uid + '/profile').set({
+            displayName: name, email: email, createdAt: firebase.database.ServerValue.TIMESTAMP
+          });
+        });
+      })
+      .catch(err => {
+        errEl.textContent = _translateError(err.code);
+        errEl.style.display = 'block';
+      });
+  }
+
+  function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+    if(!email || !pass) { errEl.textContent = 'E-posta ve parola gerekli'; errEl.style.display = 'block'; return; }
+
+    firebase.auth().signInWithEmailAndPassword(email, pass)
+      .catch(err => {
+        errEl.textContent = _translateError(err.code);
+        errEl.style.display = 'block';
+      });
+  }
+
+  function logout() {
+    if(App.Sync && App.Sync.isInRoom()) App.Sync.leaveRoom();
+    firebase.auth().signOut();
+  }
+
+  function getCurrentUser() { return firebase.auth().currentUser; }
+
+  function _translateError(code) {
+    const map = {
+      'auth/email-already-in-use': 'Bu e-posta zaten kayıtlı',
+      'auth/invalid-email': 'Geçersiz e-posta adresi',
+      'auth/weak-password': 'Parola çok zayıf (min 6 karakter)',
+      'auth/user-not-found': 'Kullanıcı bulunamadı',
+      'auth/wrong-password': 'Yanlış parola',
+      'auth/too-many-requests': 'Çok fazla deneme, lütfen bekleyin',
+      'auth/invalid-credential': 'Geçersiz kimlik bilgileri'
+    };
+    return map[code] || ('Hata: ' + code);
+  }
+
+  return { switchTab, showLoginScreen, doRegister, doLogin, logout, getCurrentUser };
+})();
+
+// ═══ AUTOSAVE MODULE ═══
+App.AutoSave = (function(){
+  let _timer = null;
   function save() {
     if(_timer) clearTimeout(_timer);
     _timer = setTimeout(_doSave, 2000);
   }
-
   function _doSave() {
     _timer = null;
-    const keys = _getKeys();
-    const id = App.Projects && App.Projects.getCurrentId();
-    try {
-      const P = S.get();
-      const json = JSON.stringify(P);
-      if(json.length > MAX_BYTES) {
-        if(!_quotaWarned) { _quotaWarned = true; App.UI.toast('Proje çok büyük, otomatik kayıt atlandı'); }
-        return;
-      }
-      localStorage.setItem(keys.data, json);
-      localStorage.setItem(keys.meta, JSON.stringify({
-        savedAt: new Date().toISOString(),
-        title: P.meta.title,
-        episodes: P.episodes.length,
-        events: P.events.length
-      }));
-      // Also update index updatedAt if in a project
-      if(id && App.Projects) {
-        try {
-          const idx = JSON.parse(localStorage.getItem('ste_projects_index') || '[]');
-          const entry = idx.find(e => e.id === id);
-          if(entry) {
-            entry.updatedAt = new Date().toISOString();
-            entry.episodeCount = (P.episodes || []).length;
-            entry.eventCount = (P.events || []).length;
-            entry.sceneCount = (P.scenes || []).length;
-            localStorage.setItem('ste_projects_index', JSON.stringify(idx));
-          }
-        } catch(e) {}
-      }
-    } catch(e) {
-      if(e.name === 'QuotaExceededError' && !_quotaWarned) {
-        _quotaWarned = true;
-        App.UI.toast('localStorage dolu, otomatik kayıt başarısız');
-      }
+    if(App.Projects && App.Projects.getCurrentId() && App.Projects.canEdit()) {
+      App.Projects.save();
     }
   }
-
-  function clear() {
-    const keys = _getKeys();
-    localStorage.removeItem(keys.data);
-    localStorage.removeItem(keys.meta);
-  }
-
+  function clear() {}
   return { save, clear };
 })();
 
-// ═══ PROJECTS MODULE ═══
+// ═══ PROJECTS MODULE (Firebase RTDB) ═══
 App.Projects = (function(){
   const S = App.Store;
   const U = App.Utils;
-  const IDX_KEY = 'ste_projects_index';
   let _currentId = null;
+  let _myRole = null;
+  let _membersCache = {};
+  let _userProjectsRef = null;
+  let _projectDataListeners = [];
+  let _remoteChangeInProgress = false;
+  let _heartbeatInterval = null;
 
-  function _getIndex() {
-    try { return JSON.parse(localStorage.getItem(IDX_KEY) || '[]'); }
-    catch(e) { return []; }
+  // ── Firebase'den proje listesi yükle ──
+  function loadFromFirebase() {
+    const user = App.Auth.getCurrentUser();
+    if(!user) return;
+    const uid = user.uid;
+    if(_userProjectsRef) _userProjectsRef.off();
+    _userProjectsRef = firebase.database().ref('userProjects/' + uid);
+    _userProjectsRef.on('value', snap => {
+      renderList(snap.val() || {});
+    });
+    showProjectsScreen();
   }
-  function _setIndex(idx) {
-    localStorage.setItem(IDX_KEY, JSON.stringify(idx));
-  }
-  function _projKey(id) { return 'ste_proj_' + id; }
 
-  function list() { return _getIndex(); }
   function getCurrentId() { return _currentId; }
 
-  function open(id) {
-    try {
-      const raw = localStorage.getItem(_projKey(id));
-      if(!raw) { App.UI.toast('Proje verisi bulunamadı'); return; }
-      const data = JSON.parse(raw);
-      _currentId = id;
-      S.set(data);
+  // ── Proje oluştur ──
+  function create() {
+    const user = App.Auth.getCurrentUser();
+    const uid = user.uid;
+    const projectId = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const now = firebase.database.ServerValue.TIMESTAMP;
+    const displayName = user.displayName || user.email.split('@')[0];
+
+    const emptyData = {
+      categories: { operasyon:{label:'Operasyon',color:'#ef4444'}, karakter:{label:'Karakter',color:'#3b82f6'}, organizasyon:{label:'Organizasyon',color:'#10b981'}, sistem:{label:'Sistem',color:'#f59e0b'}, flashback:{label:'Flashback',color:'#a855f7'}, ihanet:{label:'İhanet',color:'#f97316'} },
+      characters: {}, episodes: {}, scenes: {}, events: {}, connections: {}
+    };
+
+    const projRef = firebase.database().ref('projects/' + projectId);
+    // Adım 1: owner yaz (kural: !data.exists())
+    projRef.child('owner').set(uid)
+      .then(() => {
+        // Adım 2: members yaz (kural: owner === auth.uid)
+        return projRef.child('members/' + uid).set({ role:'owner', email:user.email, displayName:displayName, addedAt:now });
+      })
+      .then(() => {
+        // Adım 3: data, meta, userProjects yaz (artık member/owner mevcut)
+        const updates = {};
+        updates['projects/' + projectId + '/meta'] = { title:'Yeni Proje', author:displayName, settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 }, createdAt:now, updatedAt:now };
+        updates['projects/' + projectId + '/data'] = emptyData;
+        updates['userProjects/' + uid + '/' + projectId] = { role:'owner', title:'Yeni Proje', updatedAt:now };
+        return firebase.database().ref().update(updates);
+      })
+      .then(() => open(projectId))
+      .catch(err => App.UI.toast('Proje oluşturma hatası: ' + err.message));
+  }
+
+  // ── Proje aç ──
+  function open(projectId) {
+    _currentId = projectId;
+    const ref = firebase.database().ref('projects/' + projectId);
+
+    Promise.all([
+      ref.child('meta').once('value'),
+      ref.child('data').once('value'),
+      ref.child('members').once('value')
+    ]).then(([metaSnap, dataSnap, membersSnap]) => {
+      const meta = metaSnap.val() || { title:'İsimsiz', author:'', settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 } };
+      const data = dataSnap.val() || {};
+      _membersCache = membersSnap.val() || {};
+
+      const uid = App.Auth.getCurrentUser().uid;
+      _myRole = _membersCache[uid] ? _membersCache[uid].role : null;
+
+      const P = {
+        meta: meta,
+        categories: data.categories || {},
+        characters: _keyedToArray(data.characters),
+        episodes: _keyedToArray(data.episodes).sort((a,b) => a.order - b.order),
+        scenes: _keyedToArray(data.scenes),
+        events: _keyedToArray(data.events),
+        connections: _keyedToArray(data.connections)
+      };
+      S.set(P);
+      _syncIdCounter();
       _initEditor();
       showEditor();
-      App.UI.toast('Proje açıldı');
-    } catch(e) {
-      App.UI.toast('Proje yüklenirken hata: ' + e.message);
-    }
-  }
-
-  function _initEditor() {
-    App.Timeline.initFilter();
-    App.Timeline.buildToolbar();
-    App.Timeline.render();
-    App.Screenplay.render();
-    App.UI.updateStatusBar();
-    App.setViewMode('split');
-    document.getElementById('projTitle').textContent = S.get().meta.title;
-  }
-
-  function save() {
-    if(!_currentId) return;
-    try {
-      const P = S.get();
-      const json = JSON.stringify(P);
-      localStorage.setItem(_projKey(_currentId), json);
-      // Update index
-      const idx = _getIndex();
-      const entry = idx.find(e => e.id === _currentId);
-      if(entry) {
-        entry.title = P.meta.title || 'İsimsiz Proje';
-        entry.author = P.meta.author || '';
-        entry.updatedAt = new Date().toISOString();
-        entry.episodeCount = (P.episodes || []).length;
-        entry.eventCount = (P.events || []).length;
-        entry.sceneCount = (P.scenes || []).length;
-      }
-      _setIndex(idx);
-      App.UI.toast('Proje kaydedildi');
-    } catch(e) {
-      App.UI.toast('Kaydetme hatası: ' + e.message);
-    }
-  }
-
-  function create() {
-    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-    const now = new Date().toISOString();
-    // Reset store to empty project
-    const emptyProject = {
-      meta: { title: 'Yeni Proje', author: '', settings: { episodeDuration: 2700, pixelsPerSecond: 0.5, snapGrid: 10 } },
-      categories: {
-        operasyon:{label:'Operasyon',color:'#ef4444'},
-        karakter:{label:'Karakter',color:'#3b82f6'},
-        organizasyon:{label:'Organizasyon',color:'#10b981'},
-        sistem:{label:'Sistem',color:'#f59e0b'},
-        flashback:{label:'Flashback',color:'#a855f7'},
-        ihanet:{label:'İhanet',color:'#f97316'}
-      },
-      characters: [], episodes: [], scenes: [], events: [], connections: []
-    };
-    // Save project data
-    localStorage.setItem(_projKey(id), JSON.stringify(emptyProject));
-    // Add to index
-    const idx = _getIndex();
-    idx.push({ id, title: 'Yeni Proje', author: '', createdAt: now, updatedAt: now, episodeCount: 0, eventCount: 0, sceneCount: 0 });
-    _setIndex(idx);
-    // Open it
-    _currentId = id;
-    S.set(emptyProject);
-    _initEditor();
-    showEditor();
-    App.UI.toast('Yeni proje oluşturuldu');
-  }
-
-  function deleteProject(id) {
-    if(!confirm('Bu proje kalıcı olarak silinecek. Devam?')) return;
-    localStorage.removeItem(_projKey(id));
-    const idx = _getIndex().filter(e => e.id !== id);
-    _setIndex(idx);
-    if(_currentId === id) _currentId = null;
-    renderList();
-    App.UI.toast('Proje silindi');
-  }
-
-  function importToProject(data) {
-    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-    const now = new Date().toISOString();
-    localStorage.setItem(_projKey(id), JSON.stringify(data));
-    const idx = _getIndex();
-    idx.push({
-      id,
-      title: (data.meta && data.meta.title) || 'İçe Aktarılmış Proje',
-      author: (data.meta && data.meta.author) || '',
-      createdAt: now, updatedAt: now,
-      episodeCount: (data.episodes || []).length,
-      eventCount: (data.events || []).length,
-      sceneCount: (data.scenes || []).length
+      _applyPermissions();
+      _setupProjectListeners(projectId);
+      _setupPresence(projectId);
+    }).catch(err => {
+      App.UI.toast('Proje açılamadı: ' + err.message);
     });
-    _setIndex(idx);
-    _currentId = id;
-    S.set(data);
-    _initEditor();
-    showEditor();
-    App.UI.toast('Proje içe aktarıldı');
+  }
+
+  // ── Proje kaydet (debounced, Store change'de çağrılır) ──
+  function save() {
+    if(!_currentId || !canEdit()) return;
+    const P = S.get();
+    const ref = firebase.database().ref('projects/' + _currentId);
+    ref.child('data').update({
+      categories: P.categories,
+      characters: _arrayToKeyed(P.characters),
+      episodes: _arrayToKeyed(P.episodes),
+      scenes: _arrayToKeyed(P.scenes),
+      events: _arrayToKeyed(P.events),
+      connections: _arrayToKeyed(P.connections)
+    });
+    ref.child('meta').update({ title: P.meta.title, author: P.meta.author, settings: P.meta.settings, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+    const uid = App.Auth.getCurrentUser().uid;
+    firebase.database().ref('userProjects/' + uid + '/' + _currentId).update({ title: P.meta.title, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+  }
+
+  // ── Real-time listeners ──
+  function _setupProjectListeners(projectId) {
+    _teardownProjectListeners();
+    const ref = firebase.database().ref('projects/' + projectId + '/data');
+    ['categories','characters','episodes','scenes','events','connections'].forEach(col => {
+      const colRef = ref.child(col);
+      const fn = colRef.on('value', snap => {
+        if(_remoteChangeInProgress) return;
+        _remoteChangeInProgress = true;
+        const P = S.get();
+        if(col === 'categories') {
+          P.categories = snap.val() || {};
+        } else {
+          P[col] = _keyedToArray(snap.val());
+          if(col === 'episodes') P.episodes.sort((a,b) => a.order - b.order);
+        }
+        S.emit('change', {type:'remote_' + col});
+        App.refresh();
+        _remoteChangeInProgress = false;
+      });
+      _projectDataListeners.push({ ref: colRef, fn });
+    });
+    const metaRef = firebase.database().ref('projects/' + projectId + '/meta');
+    const metaFn = metaRef.on('value', snap => {
+      if(_remoteChangeInProgress) return;
+      _remoteChangeInProgress = true;
+      const P = S.get();
+      P.meta = snap.val() || P.meta;
+      S.emit('change', {type:'remoteMeta'});
+      document.getElementById('projTitle').textContent = P.meta.title;
+      _remoteChangeInProgress = false;
+    });
+    _projectDataListeners.push({ ref: metaRef, fn: metaFn });
+    const membersRef = firebase.database().ref('projects/' + projectId + '/members');
+    const membersFn = membersRef.on('value', snap => {
+      _membersCache = snap.val() || {};
+    });
+    _projectDataListeners.push({ ref: membersRef, fn: membersFn });
+  }
+
+  function _teardownProjectListeners() {
+    _projectDataListeners.forEach(l => { if(l.fn) l.ref.off('value', l.fn); else l.ref.off(); });
+    _projectDataListeners = [];
+  }
+
+  // ── Presence ──
+  function _setupPresence(projectId) {
+    const user = App.Auth.getCurrentUser();
+    const presRef = firebase.database().ref('projects/' + projectId + '/presence/' + user.uid);
+    const colors = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#f97316'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    presRef.set({ name: user.displayName || user.email.split('@')[0], color, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+    presRef.onDisconnect().remove();
+    if(_heartbeatInterval) clearInterval(_heartbeatInterval);
+    _heartbeatInterval = setInterval(() => {
+      presRef.child('lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
+    }, 60000);
+    const presenceRef = firebase.database().ref('projects/' + projectId + '/presence');
+    const presFn = presenceRef.on('value', snap => {
+      _renderPresenceBar(snap.val() || {});
+    });
+    _projectDataListeners.push({ ref: presenceRef, fn: presFn });
+  }
+
+  // ── Yetki kontrolleri ──
+  function getMyRole() { return _myRole; }
+  function canEdit() { return _myRole === 'owner' || _myRole === 'editor'; }
+  function canManage() { return _myRole === 'owner'; }
+
+  function _applyPermissions() {
+    document.body.classList.toggle('readonly-mode', !canEdit());
+    const shareBtn = document.getElementById('shareBtn');
+    if(shareBtn) shareBtn.style.display = canManage() ? '' : 'none';
+  }
+
+  // ── Proje sil ──
+  function deleteProject(projectId) {
+    if(!confirm('Bu proje kalıcı olarak silinecek. Devam?')) return;
+    firebase.database().ref('projects/' + projectId + '/members').once('value').then(snap => {
+      const members = snap.val() || {};
+      const updates = {};
+      Object.keys(members).forEach(memberUid => {
+        updates['userProjects/' + memberUid + '/' + projectId] = null;
+      });
+      updates['projects/' + projectId] = null;
+      return firebase.database().ref().update(updates);
+    }).then(() => {
+      if(_currentId === projectId) { _currentId = null; _myRole = null; }
+      App.UI.toast('Proje silindi');
+    });
+  }
+
+  // ── Davet sistemi ──
+  function openShareModal() {
+    if(!_currentId || !canManage()) return;
+    let membersHtml = '';
+    Object.keys(_membersCache).forEach(uid => {
+      const m = _membersCache[uid];
+      const isMe = uid === App.Auth.getCurrentUser().uid;
+      const roleLabel = { owner:'Sahip', editor:'Editör', viewer:'İzleyici' }[m.role] || m.role;
+      const removeBtn = (!isMe && canManage()) ? '<button class="btn btn-s" style="color:var(--red);" onclick="App.Projects.removeMember(\'' + uid + '\')">Kaldır</button>' : '';
+      membersHtml += '<div class="member-row"><span class="member-email">' + U.escHtml(m.email || m.displayName || 'Bilinmiyor') + (isMe ? ' (sen)' : '') + '</span><span class="member-role">' + roleLabel + '</span>' + removeBtn + '</div>';
+    });
+
+    App.UI.openModal(
+      '<div style="padding:24px;max-width:480px;">' +
+        '<h2 style="margin-bottom:16px;">Projeyi Paylaş</h2>' +
+        '<div class="fg" style="margin-bottom:8px;"><label style="font-size:11px;color:var(--tx3);">E-posta adresi</label><input type="email" id="inviteEmail" placeholder="ornek@email.com" style="width:100%;padding:8px 12px;border:1px solid var(--brd);border-radius:var(--radius);background:var(--bg3);color:var(--tx);font-size:13px;" /></div>' +
+        '<div class="fg" style="margin-bottom:12px;display:flex;gap:8px;"><select id="inviteRole" style="flex:1;padding:8px;border:1px solid var(--brd);border-radius:var(--radius);background:var(--bg3);color:var(--tx);font-size:12px;"><option value="editor">Editör</option><option value="viewer">İzleyici</option></select><button class="btn btn-p" onclick="App.Projects.sendInvite()">Davet Gönder</button></div>' +
+        '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--brd);"><div style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Üyeler</div>' + membersHtml + '</div>' +
+        '<div style="margin-top:16px;"><button class="btn" onclick="App.UI.closeModal()" style="width:100%;">Kapat</button></div>' +
+      '</div>'
+    );
+  }
+
+  function sendInvite() {
+    const email = (document.getElementById('inviteEmail').value || '').trim().toLowerCase();
+    const role = document.getElementById('inviteRole').value;
+    if(!email || !email.includes('@')) { App.UI.toast('Geçerli e-posta girin'); return; }
+
+    const alreadyMember = Object.values(_membersCache).some(m => m.email === email);
+    if(alreadyMember) { App.UI.toast('Bu kullanıcı zaten üye'); return; }
+
+    const user = App.Auth.getCurrentUser();
+    const invId = 'inv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const sanitizedEmail = email.replace(/\./g, ',');
+
+    const updates = {};
+    updates['invitations/' + invId] = {
+      projectId: _currentId,
+      projectTitle: S.get().meta.title,
+      invitedEmail: email,
+      invitedBy: user.uid,
+      invitedByName: user.displayName || user.email,
+      role: role,
+      status: 'pending',
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    };
+    updates['emailIndex/' + sanitizedEmail + '/' + invId] = true;
+
+    firebase.database().ref().update(updates).then(() => {
+      App.UI.toast(email + ' adresine davet gönderildi');
+      document.getElementById('inviteEmail').value = '';
+    }).catch(err => App.UI.toast('Davet hatası: ' + err.message));
+  }
+
+  function removeMember(uid) {
+    if(!_currentId || !canManage()) return;
+    if(!confirm('Bu üyeyi projeden kaldırmak istediğinize emin misiniz?')) return;
+    const updates = {};
+    updates['projects/' + _currentId + '/members/' + uid] = null;
+    updates['userProjects/' + uid + '/' + _currentId] = null;
+    updates['projects/' + _currentId + '/presence/' + uid] = null;
+    firebase.database().ref().update(updates).then(() => {
+      App.UI.toast('Üye kaldırıldı');
+      openShareModal();
+    });
+  }
+
+  // ── Davet kontrolü (giriş yapınca çağrılır) ──
+  function checkPendingInvitations() {
+    const user = App.Auth.getCurrentUser();
+    if(!user || !user.email) return Promise.resolve();
+    const sanitizedEmail = user.email.toLowerCase().replace(/\./g, ',');
+    const uid = user.uid;
+
+    return firebase.database().ref('emailIndex/' + sanitizedEmail).once('value').then(snap => {
+      const invIds = snap.val();
+      if(!invIds) return;
+
+      const promises = Object.keys(invIds).map(invId => {
+        return firebase.database().ref('invitations/' + invId).once('value').then(invSnap => {
+          const inv = invSnap.val();
+          if(!inv || inv.status !== 'pending') return;
+          const updates = {};
+          updates['invitations/' + invId + '/status'] = 'accepted';
+          updates['projects/' + inv.projectId + '/members/' + uid] = {
+            role: inv.role, email: user.email,
+            displayName: user.displayName || user.email.split('@')[0],
+            addedAt: firebase.database.ServerValue.TIMESTAMP
+          };
+          updates['userProjects/' + uid + '/' + inv.projectId] = {
+            role: inv.role, title: inv.projectTitle,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+          };
+          updates['emailIndex/' + sanitizedEmail + '/' + invId] = null;
+          return firebase.database().ref().update(updates).then(() => {
+            App.UI.toast(inv.invitedByName + ' sizi "' + inv.projectTitle + '" projesine davet etti');
+          });
+        });
+      });
+      return Promise.all(promises);
+    });
+  }
+
+  // ── Import (JSON dosyasından Firebase'e) ──
+  function importToProject(data) {
+    const user = App.Auth.getCurrentUser();
+    const uid = user.uid;
+    const projectId = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const now = firebase.database.ServerValue.TIMESTAMP;
+    const displayName = user.displayName || user.email.split('@')[0];
+    const title = (data.meta && data.meta.title) || 'İçe Aktarılmış Proje';
+
+    const fbData = {
+      categories: data.categories || {},
+      characters: _arrayToKeyed(data.characters || []),
+      episodes: _arrayToKeyed(data.episodes || []),
+      scenes: _arrayToKeyed(data.scenes || []),
+      events: _arrayToKeyed(data.events || []),
+      connections: _arrayToKeyed(data.connections || [])
+    };
+
+    const projRef = firebase.database().ref('projects/' + projectId);
+    // Adım 1: owner yaz
+    projRef.child('owner').set(uid)
+      .then(() => {
+        // Adım 2: members yaz
+        return projRef.child('members/' + uid).set({ role:'owner', email:user.email, displayName:displayName, addedAt:now });
+      })
+      .then(() => {
+        // Adım 3: data, meta, userProjects yaz
+        const updates = {};
+        updates['projects/' + projectId + '/meta'] = { title: title, author: (data.meta && data.meta.author) || displayName, settings: (data.meta && data.meta.settings) || { episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 }, createdAt:now, updatedAt:now };
+        updates['projects/' + projectId + '/data'] = fbData;
+        updates['userProjects/' + uid + '/' + projectId] = { role:'owner', title: title, updatedAt:now };
+        return firebase.database().ref().update(updates);
+      })
+      .then(() => open(projectId))
+      .catch(err => App.UI.toast('İçe aktarma hatası: ' + err.message));
   }
 
   function loadDemoAsProject() {
@@ -1113,7 +1427,6 @@ App.Projects = (function(){
         if(d.meta && d.episodes) {
           importToProject(d);
         } else if(d.events && d.events[0] && ('ep' in d.events[0]) && ('t' in d.events[0])) {
-          // Old format — migrate via IO, then wrap as project
           App.IO.migrateOldFormat(d);
           importToProject(S.get());
         } else {
@@ -1125,80 +1438,137 @@ App.Projects = (function(){
     e.target.value = '';
   }
 
+  // ── Yardımcı fonksiyonlar ──
+  function _arrayToKeyed(arr) {
+    const obj = {};
+    if(!arr || !Array.isArray(arr)) return obj;
+    arr.forEach(item => { if(item && item.id) obj[item.id] = U.deepClone(item); });
+    return obj;
+  }
+  function _keyedToArray(obj) {
+    if(!obj || typeof obj !== 'object') return [];
+    return Object.keys(obj).map(key => { const item = obj[key]; if(item && typeof item === 'object') { return { ...item, id: key }; } return null; }).filter(Boolean);
+  }
+  function _syncIdCounter() {
+    const P = S.get();
+    let maxNum = 0;
+    const extractNum = id => { const m = (id||'').match(/(\d+)$/); return m ? parseInt(m[1]) : 0; };
+    P.events.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
+    P.scenes.forEach(s => { maxNum = Math.max(maxNum, extractNum(s.id)); });
+    P.episodes.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
+    P.characters.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
+    P.connections.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
+    U.setIdCounter(maxNum + 1);
+  }
+
+  function _renderPresenceBar(presenceData) {
+    const bar = document.getElementById('presenceBar');
+    if(!bar) return;
+    const user = App.Auth.getCurrentUser();
+    if(!user) return;
+    const uid = user.uid;
+    let html = '';
+    Object.keys(presenceData).forEach(pUid => {
+      const u = presenceData[pUid];
+      if(!u || !u.name) return;
+      const initial = u.name.charAt(0).toUpperCase();
+      const isMe = pUid === uid;
+      html += '<div class="presence-avatar" style="background:' + U.sanitizeColor(u.color||'#666') + ';' + (isMe?'box-shadow:0 0 0 2px var(--cyan);':'') + '" title="' + U.escHtml(u.name) + (isMe?' (sen)':'') + '"><span>' + initial + '</span></div>';
+    });
+    bar.innerHTML = html;
+    const stSync = document.getElementById('stSync');
+    if(stSync) { stSync.textContent = Object.keys(presenceData).length + ' kullanıcı'; stSync.style.display = ''; }
+  }
+
+  // ── Ekranlar ──
+  function _initEditor() {
+    App.Timeline.initFilter();
+    App.Timeline.buildToolbar();
+    App.Timeline.render();
+    App.Screenplay.render();
+    App.UI.updateStatusBar();
+    App.setViewMode('split');
+    document.getElementById('projTitle').textContent = S.get().meta.title;
+    const user = App.Auth.getCurrentUser();
+    const userInfo = document.getElementById('userInfo');
+    if(userInfo) {
+      userInfo.style.display = 'flex';
+      document.getElementById('userAvatar').textContent = (user.displayName || user.email || '?').charAt(0).toUpperCase();
+      document.getElementById('userDisplayName').textContent = user.displayName || user.email.split('@')[0];
+    }
+    document.getElementById('logoutBtn').style.display = '';
+    if(canManage()) document.getElementById('shareBtn').style.display = '';
+  }
+
   function showProjectsScreen() {
+    document.getElementById('authScreen').style.display = 'none';
     document.getElementById('appRoot').style.display = 'none';
     document.getElementById('projectsScreen').style.display = 'block';
-    const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
-    renderList();
+    document.getElementById('loadMsg').style.display = 'none';
+    _showUserInfoOnProjectsScreen();
+  }
+
+  function _showUserInfoOnProjectsScreen() {
+    const user = App.Auth.getCurrentUser();
+    if(!user) return;
+    const header = document.querySelector('#projectsScreen .ps-header');
+    const existing = document.getElementById('psUserBar');
+    if(existing) existing.remove();
+    const bar = document.createElement('div');
+    bar.id = 'psUserBar';
+    bar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--brd);';
+    bar.innerHTML = '<div class="user-avatar">' + (user.displayName||user.email||'?').charAt(0).toUpperCase() + '</div><span style="flex:1;font-size:13px;color:var(--tx);">' + U.escHtml(user.displayName || user.email) + '</span><button class="btn btn-s" onclick="App.Auth.logout()">Çıkış</button>';
+    header.after(bar);
   }
 
   function showEditor() {
+    document.getElementById('authScreen').style.display = 'none';
     document.getElementById('projectsScreen').style.display = 'none';
     document.getElementById('appRoot').style.display = 'flex';
   }
 
   function goBack() {
-    if(_currentId) save();
-    showProjectsScreen();
+    _teardownProjectListeners();
+    if(_heartbeatInterval) { clearInterval(_heartbeatInterval); _heartbeatInterval = null; }
+    const user = App.Auth.getCurrentUser();
+    if(_currentId && user) {
+      firebase.database().ref('projects/' + _currentId + '/presence/' + user.uid).remove();
+    }
+    _currentId = null;
+    _myRole = null;
+    document.body.classList.remove('readonly-mode');
+    if(user) loadFromFirebase();
   }
 
-  function renderList() {
+  function renderList(userProjects) {
     const el = document.getElementById('psList');
-    const idx = _getIndex();
-    if(!idx.length) {
-      el.innerHTML = '<div class="ps-empty">Henüz proje yok. Yeni proje oluşturun veya demo projeyi yükleyin.</div>';
+    const entries = Object.keys(userProjects).map(pid => ({ id: pid, ...userProjects[pid] }));
+    if(!entries.length) {
+      el.innerHTML = '<div class="ps-empty">Henüz proje yok. Yeni proje oluşturun.</div>';
       return;
     }
-    // Sort by updatedAt descending
-    idx.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
-    el.innerHTML = idx.map(p => {
-      const date = p.updatedAt ? new Date(p.updatedAt).toLocaleString('tr-TR', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+    entries.sort((a,b) => ((b.updatedAt||0) - (a.updatedAt||0)));
+    el.innerHTML = entries.map(p => {
+      const roleLabel = { owner:'Sahip', editor:'Editör', viewer:'İzleyici' }[p.role] || '';
+      const roleClass = p.role || 'viewer';
+      const deleteBtn = p.role === 'owner' ? '<button class="btn btn-s btn-d" onclick="event.stopPropagation();App.Projects.deleteProject(\'' + p.id + '\')">Sil</button>' : '';
       return '<div class="ps-card" ondblclick="App.Projects.open(\'' + p.id + '\')">' +
-        '<div class="ps-card-title">' + _esc(p.title || 'İsimsiz Proje') + '</div>' +
-        '<div class="ps-card-stats">' + (p.episodeCount||0) + ' bölüm · ' + (p.eventCount||0) + ' olay · ' + (p.sceneCount||0) + ' sahne</div>' +
-        '<div class="ps-card-date">Son kayıt: ' + date + '</div>' +
-        '<div class="ps-card-actions">' +
+        '<div style="display:flex;align-items:center;gap:8px;"><div class="ps-card-title" style="flex:1;">' + U.escHtml(p.title || 'İsimsiz Proje') + '</div><span class="ps-card-role ' + roleClass + '">' + roleLabel + '</span></div>' +
+        '<div class="ps-card-actions" style="margin-top:8px;">' +
           '<button class="btn btn-s btn-p" onclick="event.stopPropagation();App.Projects.open(\'' + p.id + '\')">Aç</button>' +
-          '<button class="btn btn-s btn-d" onclick="event.stopPropagation();App.Projects.deleteProject(\'' + p.id + '\')">Sil</button>' +
+          deleteBtn +
         '</div>' +
       '</div>';
     }).join('');
   }
 
-  function _esc(s) {
-    const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
-  }
-
-  function migrateV1() {
-    // If old autosave exists and no projects index yet
-    if(localStorage.getItem(IDX_KEY)) return; // already migrated
-    const raw = localStorage.getItem('scenario_autosave');
-    if(!raw) return;
-    try {
-      const data = JSON.parse(raw);
-      const id = 'p_migrated_' + Date.now();
-      const now = new Date().toISOString();
-      const meta = JSON.parse(localStorage.getItem('scenario_autosave_meta') || '{}');
-      localStorage.setItem(_projKey(id), raw);
-      _setIndex([{
-        id,
-        title: (data.meta && data.meta.title) || (meta.title) || 'Taşınmış Proje',
-        author: (data.meta && data.meta.author) || '',
-        createdAt: meta.savedAt || now,
-        updatedAt: meta.savedAt || now,
-        episodeCount: (data.episodes || []).length,
-        eventCount: (data.events || []).length,
-        sceneCount: (data.scenes || []).length
-      }]);
-      // Clean up old keys
-      localStorage.removeItem('scenario_autosave');
-      localStorage.removeItem('scenario_autosave_meta');
-    } catch(e) {
-      console.warn('[Projects] Migration error:', e);
-    }
-  }
-
-  return { list, getCurrentId, open, save, create, deleteProject, importToProject, loadDemoAsProject, handleImport, showProjectsScreen, showEditor, goBack, renderList, migrateV1 };
+  return {
+    loadFromFirebase, create, open, save, deleteProject,
+    importToProject, loadDemoAsProject, handleImport,
+    openShareModal, sendInvite, removeMember, checkPendingInvitations,
+    showProjectsScreen, showEditor, goBack, getCurrentId, renderList,
+    getMyRole, canEdit, canManage
+  };
 })();
 
 // ═══ TIMELINE MODULE ═══
@@ -1663,7 +2033,7 @@ App.Screenplay = (function(){
     App.Analysis.invalidateCache();
     App.Timeline.render();
     App.UI.updateStatusBar();
-    if(App.Sync && App.Sync.isInRoom()) App.Sync.pushChange('scenes', 800);
+    // Real-time sync handled by App.AutoSave
   }
 
   function saveSceneMeta(scId, field, value) {
@@ -1700,7 +2070,7 @@ App.Screenplay = (function(){
         }
       }
     }
-    if(App.Sync && App.Sync.isInRoom()) { App.Sync.pushChange('scenes'); App.Sync.pushChange('events'); }
+    // Real-time sync handled by App.AutoSave
   }
 
   // ── SCREENPLAY TEXT WITH @ MENTION ──
@@ -1783,7 +2153,7 @@ App.Screenplay = (function(){
         }
       }
     }
-    if(App.Sync && App.Sync.isInRoom()) App.Sync.pushChange('scenes', 800);
+    // Real-time sync handled by App.AutoSave
   }
 
   function removeSceneChar(scId, charId) {
@@ -4114,7 +4484,7 @@ App.Changelog = (function(){
     if(!data || !data.type) return;
     const actionType = data.type;
     if(SKIP.has(actionType) || actionType.startsWith('remote')) return;
-    const userName = (App.Sync && App.Sync.getUserName) ? App.Sync.getUserName() : (localStorage.getItem('sync_userName') || 'Kullanıcı');
+    const userName = (App.Auth && App.Auth.getCurrentUser()) ? (App.Auth.getCurrentUser().displayName || App.Auth.getCurrentUser().email || 'Kullanıcı') : 'Kullanıcı';
     const label = ACTION_LABELS[actionType] || actionType;
     const targetName = data.targetName || '';
     const desc = targetName ? label + ': "' + targetName + '"' : label;
@@ -4228,10 +4598,10 @@ App.Notes = (function(){
   function setPanelOpen(v) { _panelOpen = v; if(!v) _editingId = null; }
 
   function _getUserName() {
-    return (App.Sync && App.Sync.getUserName) ? App.Sync.getUserName() : (localStorage.getItem('sync_userName') || 'Kullanıcı');
+    return (App.Auth && App.Auth.getCurrentUser()) ? (App.Auth.getCurrentUser().displayName || App.Auth.getCurrentUser().email || 'Kullanıcı') : 'Kullanıcı';
   }
   function _getUserColor() {
-    return (App.Sync && App.Sync.getUserColor) ? App.Sync.getUserColor() : (localStorage.getItem('sync_userColor') || '#3b82f6');
+    return '#3b82f6';
   }
 
   function addNote(text) {
@@ -5284,854 +5654,85 @@ App.IO = (function(){
   return { exportJSON, importJSON, loadDemo, handleDocx, migrateOldFormat };
 })();
 
-// ═══ SYNC MODULE (Gerçek Zamanlı İşbirliği) ═══
+// ═══ FIREBASE CONFIG ═══
+const firebaseConfig = {
+  apiKey: "AIzaSyDwrB0ghEJUZRI6p5AuCGwobdsof9nhESQ",
+  authDomain: "senaryo-7e7fb.firebaseapp.com",
+  databaseURL: "https://senaryo-7e7fb-default-rtdb.firebaseio.com",
+  projectId: "senaryo-7e7fb",
+  storageBucket: "senaryo-7e7fb.firebasestorage.app",
+  messagingSenderId: "1092333524437",
+  appId: "1:1092333524437:web:31cec6e577c127abc5d95c"
+};
+
+/*
+ * ═══ FIREBASE SECURITY RULES ═══
+ * Deploy these rules in Firebase Console → Realtime Database → Rules
+ *
+ * {
+ *   "rules": {
+ *     "users": {
+ *       "$uid": {
+ *         ".read": "auth != null && auth.uid === $uid",
+ *         ".write": "auth != null && auth.uid === $uid"
+ *       }
+ *     },
+ *     "projects": {
+ *       "$projectId": {
+ *         ".read": "auth != null && (data.child('members/' + auth.uid).exists() || data.child('owner').val() === auth.uid)",
+ *         "data": {
+ *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
+ *         },
+ *         "meta": {
+ *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
+ *         },
+ *         "owner": {
+ *           ".write": "auth != null && !data.exists()"
+ *         },
+ *         "members": {
+ *           ".read": "auth != null && (data.parent().child('members/' + auth.uid).exists() || data.parent().child('owner').val() === auth.uid)",
+ *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')"
+ *         },
+ *         "presence": {
+ *           "$uid": {
+ *             ".write": "auth != null && $uid === auth.uid && (root.child('projects/' + $projectId + '/members/' + auth.uid).exists() || root.child('projects/' + $projectId + '/owner').val() === auth.uid)"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "userProjects": {
+ *       "$uid": {
+ *         ".read": "auth != null && auth.uid === $uid",
+ *         "$projectId": {
+ *           ".write": "auth != null"
+ *         }
+ *       }
+ *     },
+ *     "invitations": {
+ *       "$invId": {
+ *         ".read": "auth != null",
+ *         ".write": "auth != null"
+ *       }
+ *     },
+ *     "emailIndex": {
+ *       "$email": {
+ *         ".read": "auth != null",
+ *         ".write": "auth != null"
+ *       }
+ *     }
+ *   }
+ * }
+ */
+
+// ═══ SYNC MODULE (Minimal — real-time sync is now in App.Projects) ═══
 App.Sync = (function(){
-  const U = App.Utils;
-  const S = App.Store;
-
-  // ── Firebase Config ──
-  // Firebase projenizin ayarlarını buraya girin.
-  // Adımlar:
-  //   1. https://console.firebase.google.com/ → Yeni proje oluşturun
-  //   2. Realtime Database oluşturun (test modunda başlatın)
-  //   3. Authentication → Sign-in method → Anonymous'u etkinleştirin
-  //   4. Proje Ayarları → Genel → Web uygulaması ekle → Config bilgilerini kopyalayın
-  //   5. Aşağıdaki boş alanları doldurun
-  const firebaseConfig = {
-    apiKey: "AIzaSyDwrB0ghEJUZRI6p5AuCGwobdsof9nhESQ",
-    authDomain: "senaryo-7e7fb.firebaseapp.com",
-    databaseURL: "https://senaryo-7e7fb-default-rtdb.firebaseio.com",
-    projectId: "senaryo-7e7fb",
-    storageBucket: "senaryo-7e7fb.firebasestorage.app",
-    messagingSenderId: "1092333524437",
-    appId: "1:1092333524437:web:31cec6e577c127abc5d95c"
-  };
-
-  /*
-   * ═══ FIREBASE SECURITY RULES ═══
-   * Deploy these rules in Firebase Console → Realtime Database → Rules
-   * AFTER deploying the client code with password/lock/presence-first flow.
-   *
-   * {
-   *   "rules": {
-   *     "rooms": {
-   *       "$roomId": {
-   *         ".read": "auth != null && (data.child('presence').child(auth.uid).exists() || data.child('_roomMeta/createdBy').val() === auth.uid)",
-   *         "_roomMeta": {
-   *           ".read": "auth != null",
-   *           ".write": "auth != null && (!data.exists() || data.child('createdBy').val() === auth.uid)",
-   *           "createdBy": { ".validate": "!data.exists() || newData.val() === data.val()" },
-   *           "passwordHash": { ".validate": "newData.isString() && newData.val().length <= 128" },
-   *           "locked": { ".validate": "newData.isBoolean()" }
-   *         },
-   *         "presence": {
-   *           "$uid": {
-   *             ".write": "auth != null && ($uid === auth.uid || data.parent().parent().child('_roomMeta/createdBy').val() === auth.uid)",
-   *             ".validate": "newData.hasChildren(['name', 'lastSeen']) || !newData.exists()",
-   *             "name": { ".validate": "newData.isString() && newData.val().length <= 30" },
-   *             "color": { ".validate": "newData.isString() && newData.val().length <= 20" },
-   *             "lastSeen": { ".validate": "newData.isNumber()" }
-   *           }
-   *         },
-   *         "meta": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
-   *         "categories": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
-   *         "characters": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
-   *         "episodes": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
-   *         "scenes": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
-   *         "events": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" },
-   *         "connections": { ".write": "auth != null && data.parent().child('presence').child(auth.uid).exists()" }
-   *       }
-   *     },
-   *     ".read": false,
-   *     ".write": false
-   *   }
-   * }
-   */
-
-  // ── State ──
-  let _db = null;
-  let _auth = null;
-  let _userId = null;
-  let _userName = '';
-  let _userColor = '';
-  let _roomId = null;
-  let _roomRef = null;
-  let _listeners = [];
-  let _remoteChangeInProgress = 0;
-  let _initialized = false;
-  let _connected = false;
-  let _heartbeatInterval = null;
-  let _presenceUsers = {};
-
-  let _isAdmin = false;
-
-  const PRESENCE_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#06b6d4','#f97316'];
-  const COLLECTIONS = ['categories','characters','episodes','scenes','events','connections'];
-
-  // ── Rate Limiting ──
-  let _joinAttempts = []; // timestamps
-  let _createAttempts = []; // timestamps
-
-  function checkRateLimit(type) {
-    const now = Date.now();
-    if(type === 'join') {
-      _joinAttempts = _joinAttempts.filter(t => now - t < 60000);
-      if(_joinAttempts.length >= 5) {
-        const wait = Math.ceil((60000 - (now - _joinAttempts[0])) / 1000);
-        App.UI.toast('Çok fazla katılma denemesi. ' + wait + ' saniye bekleyin.');
-        return false;
-      }
-      _joinAttempts.push(now);
-      return true;
-    } else if(type === 'create') {
-      _createAttempts = _createAttempts.filter(t => now - t < 300000);
-      if(_createAttempts.length >= 3) {
-        const wait = Math.ceil((300000 - (now - _createAttempts[0])) / 1000);
-        App.UI.toast('Çok fazla oda oluşturma denemesi. ' + wait + ' saniye bekleyin.');
-        return false;
-      }
-      _createAttempts.push(now);
-      return true;
-    }
-    return true;
-  }
-
-  // ── Password Hashing (Web Crypto API — SHA-256) ──
-  async function hashPassword(pw) {
-    const enc = new TextEncoder().encode(pw);
-    const buf = await crypto.subtle.digest('SHA-256', enc);
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
-
-  // ── Debounce timers ──
-  let _pushTimers = {};
-
-  // ── Helpers ──
-  function genRoomId() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let id = '';
-    for(let i = 0; i < 10; i++) id += chars[Math.floor(Math.random() * chars.length)];
-    return id;
-  }
-
-  function arrayToKeyed(arr) {
-    const obj = {};
-    if(!arr || !Array.isArray(arr)) return obj;
-    arr.forEach(item => { if(item && item.id) obj[item.id] = U.deepClone(item); });
-    return obj;
-  }
-
-  function keyedToArray(obj) {
-    if(!obj || typeof obj !== 'object') return [];
-    return Object.keys(obj).map(key => {
-      const item = obj[key];
-      if(item && typeof item === 'object') { item.id = key; return item; }
-      return null;
-    }).filter(Boolean);
-  }
-
-  function categoriesToKeyed(cats) {
-    if(!cats || typeof cats !== 'object') return {};
-    return U.deepClone(cats);
-  }
-
-  function keyedToCategories(obj) {
-    if(!obj || typeof obj !== 'object') return {};
-    return U.deepClone(obj);
-  }
-
-  function isConfigValid() {
-    return firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId;
-  }
-
-  // ── Init ──
-  function init() {
-    if(_initialized) return Promise.resolve();
-    if(!isConfigValid()) return Promise.resolve();
-    if(typeof firebase === 'undefined') {
-      console.warn('Firebase SDK yüklenemedi');
-      return Promise.resolve();
-    }
-    try {
-      if(!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      _db = firebase.database();
-      _auth = firebase.auth();
-
-      // Listen for connection state
-      _db.ref('.info/connected').on('value', snap => {
-        const wasConnected = _connected;
-        _connected = snap.val() === true;
-        updateSyncUI();
-        // If reconnected while in room, do a full resync
-        if(_connected && !wasConnected && _roomId) {
-          console.log('[Sync] Reconnected, resyncing...');
-        }
-      });
-
-      _initialized = true;
-      return _auth.signInAnonymously().then(cred => {
-        _userId = cred.user.uid;
-        // Restore display name from localStorage
-        _userName = localStorage.getItem('sync_userName') || '';
-        _userColor = localStorage.getItem('sync_userColor') || '';
-        // Check URL hash for auto-join
-        checkHashJoin();
-      }).catch(err => {
-        console.error('[Sync] Auth error:', err);
-        App.UI.toast('Firebase auth hatası: ' + err.message);
-      });
-    } catch(err) {
-      console.error('[Sync] Init error:', err);
-      return Promise.resolve();
-    }
-  }
-
-  function checkHashJoin() {
-    const hash = window.location.hash;
-    const match = hash.match(/room=([A-Z0-9]{6,10})/i);
-    if(match) {
-      const roomId = match[1].toUpperCase();
-      if(!_userName) {
-        // Need name first — open panel with prefilled room code
-        setTimeout(() => openSyncPanel(roomId), 500);
-      } else {
-        joinRoom(roomId);
-      }
-    }
-  }
-
-  // ── Room Management ──
-  async function createRoom(passwordPlain) {
-    if(!_initialized) { App.UI.toast('Firebase başlatılamadı'); return; }
-    if(!checkRateLimit('create')) return;
-    const roomId = genRoomId();
-    _roomId = roomId;
-    _roomRef = _db.ref('rooms/' + roomId);
-
-    const P = S.get();
-    const roomMeta = { createdAt: firebase.database.ServerValue.TIMESTAMP, createdBy: _userId, locked: false };
-    if(passwordPlain) {
-      roomMeta.passwordHash = await hashPassword(passwordPlain);
-    }
-
-    try {
-      // Step 1: Write _roomMeta first (has its own write rule for !data.exists())
-      await _roomRef.child('_roomMeta').set(roomMeta);
-
-      // Step 2: Write presence (has own write rule for $uid === auth.uid)
-      if(!_userColor) {
-        const idx = Object.keys(_presenceUsers).length % PRESENCE_COLORS.length;
-        _userColor = PRESENCE_COLORS[idx];
-        localStorage.setItem('sync_userColor', _userColor);
-      }
-      await _roomRef.child('presence/' + _userId).set({
-        name: _userName,
-        color: _userColor,
-        lastSeen: firebase.database.ServerValue.TIMESTAMP
-      });
-      _roomRef.child('presence/' + _userId).onDisconnect().remove();
-
-      // Step 3: Write data collections (require presence to exist)
-      await _roomRef.child('meta').set(U.deepClone(P.meta));
-      await _roomRef.child('categories').set(categoriesToKeyed(P.categories));
-      await _roomRef.child('characters').set(arrayToKeyed(P.characters));
-      await _roomRef.child('episodes').set(arrayToKeyed(P.episodes));
-      await _roomRef.child('scenes').set(arrayToKeyed(P.scenes));
-      await _roomRef.child('events').set(arrayToKeyed(P.events));
-      await _roomRef.child('connections').set(arrayToKeyed(P.connections));
-
-      _isAdmin = true;
-      setupListeners();
-      // Heartbeat for presence (don't re-setup, already written above)
-      if(_heartbeatInterval) clearInterval(_heartbeatInterval);
-      _heartbeatInterval = setInterval(() => {
-        if(_roomRef && _userId) {
-          _roomRef.child('presence/' + _userId + '/lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
-        }
-        cleanStalePresence();
-      }, 60000);
-      updateHash();
-      syncIdCounter();
-      updateSyncUI();
-      if(App.Changelog) App.Changelog.setupRemoteListener(_roomRef);
-      if(App.Notes) App.Notes.setupRemoteListener(_roomRef);
-      App.UI.closeModal();
-      App.UI.toast('Oda oluşturuldu: ' + roomId);
-    } catch(err) {
-      console.error('[Sync] Create room error:', err);
-      App.UI.toast('Oda oluşturma hatası: ' + err.message);
-      _roomId = null; _roomRef = null;
-    }
-  }
-
-  async function joinRoom(roomId, passwordPlain) {
-    if(!_initialized) { App.UI.toast('Firebase başlatılamadı'); return; }
-    if(!checkRateLimit('join')) return;
-    roomId = roomId.toUpperCase().trim();
-    if(roomId.length < 6 || roomId.length > 10) { App.UI.toast('Geçersiz oda kodu'); return; }
-
-    const ref = _db.ref('rooms/' + roomId);
-    try {
-      // Step 1: Read _roomMeta first
-      let metaSnap;
-      try {
-        metaSnap = await ref.child('_roomMeta').once('value');
-      } catch(metaErr) {
-        // permission_denied means room doesn't exist or rules block it
-        App.UI.toast('Oda bulunamadı: ' + roomId);
-        return;
-      }
-      if(!metaSnap.exists()) { App.UI.toast('Oda bulunamadı: ' + roomId); return; }
-      const roomMeta = metaSnap.val();
-
-      // Step 2: Lock check
-      if(roomMeta.locked && roomMeta.createdBy !== _userId) {
-        App.UI.toast('Bu oda kilitli — yeni katılımlar engellendi');
-        return;
-      }
-
-      // Step 3: Password check
-      if(roomMeta.passwordHash) {
-        if(!passwordPlain) {
-          // Prompt for password via modal
-          _pendingJoinRoomId = roomId;
-          App.UI.openModal(`
-            <div class="mh"><span>Oda Parolası Gerekli</span><button class="close-btn" onclick="App.UI.closeModal()">✕</button></div>
-            <div class="mb">
-              <div class="fg"><label>Parola</label><input type="password" id="joinPwInput" placeholder="Oda parolasını girin..." onkeydown="if(event.key==='Enter')App.Sync._doJoinWithPassword()"></div>
-            </div>
-            <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Sync._doJoinWithPassword()">Katıl</button></div>
-          `);
-          setTimeout(() => { const el = document.getElementById('joinPwInput'); if(el) el.focus(); }, 100);
-          return;
-        }
-        const inputHash = await hashPassword(passwordPlain);
-        if(inputHash !== roomMeta.passwordHash) {
-          App.UI.toast('Yanlış parola');
-          return;
-        }
-      }
-
-      // Step 4: Write presence
-      _roomId = roomId;
-      _roomRef = ref;
-      _isAdmin = (roomMeta.createdBy === _userId);
-      setupPresence();
-
-      // Step 5: Read full room data
-      const snap = await ref.once('value');
-      if(!snap.exists()) {
-        // Cleanup presence on failure
-        ref.child('presence/' + _userId).remove();
-        _roomId = null; _roomRef = null;
-        App.UI.toast('Oda verisi okunamadı');
-        return;
-      }
-      const data = snap.val();
-      applyFullState(data);
-      setupListeners();
-      updateHash();
-      syncIdCounter();
-      updateSyncUI();
-      if(App.Changelog) App.Changelog.setupRemoteListener(_roomRef);
-      if(App.Notes) App.Notes.setupRemoteListener(_roomRef);
-      App.UI.closeModal();
-      App.UI.toast('Odaya katıldınız: ' + roomId);
-    } catch(err) {
-      // Cleanup presence on error
-      if(_roomId) ref.child('presence/' + _userId).remove();
-      _roomId = null; _roomRef = null;
-      console.error('[Sync] Join error:', err);
-      App.UI.toast('Katılma hatası: ' + err.message);
-    }
-  }
-
-  let _pendingJoinRoomId = null;
-  function _doJoinWithPassword() {
-    const pwIn = document.getElementById('joinPwInput');
-    const pw = pwIn ? pwIn.value : '';
-    if(!pw) { App.UI.toast('Parola gerekli'); return; }
-    if(!_pendingJoinRoomId) return;
-    const rid = _pendingJoinRoomId;
-    _pendingJoinRoomId = null;
-    joinRoom(rid, pw);
-  }
-
-  function leaveRoom() {
-    if(!_roomId) return;
-    // Remove presence
-    if(_roomRef && _userId) {
-      _roomRef.child('presence/' + _userId).remove();
-    }
-    // Remove listeners
-    _listeners.forEach(l => l.ref.off(l.event, l.fn));
-    _listeners = [];
-    // Clear heartbeat
-    if(_heartbeatInterval) { clearInterval(_heartbeatInterval); _heartbeatInterval = null; }
-    _roomId = null;
-    _roomRef = null;
-    _presenceUsers = {};
-    // Clear hash
-    history.replaceState(null, '', window.location.pathname + window.location.search);
-    updateSyncUI();
-    if(App.Changelog) App.Changelog.teardownRemoteListener();
-    if(App.Notes) App.Notes.teardownRemoteListener();
-    App.UI.toast('Odadan ayrıldınız');
-  }
-
-  function isInRoom() { return !!_roomId; }
-
-  // ── Apply full state from Firebase ──
-  function applyFullState(data) {
-    _remoteChangeInProgress++;
-    try {
-      const P = S.get();
-      if(data.meta) P.meta = U.deepClone(data.meta);
-      P.categories = keyedToCategories(data.categories || {});
-      P.characters = keyedToArray(data.characters || {});
-      P.episodes = keyedToArray(data.episodes || {}).sort((a,b) => a.order - b.order);
-      P.scenes = keyedToArray(data.scenes || {});
-      P.events = keyedToArray(data.events || {});
-      P.connections = keyedToArray(data.connections || {});
-      S.set(P);
-      App.refresh();
-      document.getElementById('projTitle').textContent = P.meta.title;
-    } finally {
-      _remoteChangeInProgress--;
-    }
-  }
-
-  // ── Sync listeners (Firebase → Local) ──
-  function setupListeners() {
-    // Remove any existing listeners
-    _listeners.forEach(l => l.ref.off(l.event, l.fn));
-    _listeners = [];
-
-    // Meta
-    listenCollection('meta', data => {
-      if(!data) return;
-      _remoteChangeInProgress++;
-      try {
-        const P = S.get();
-        P.meta = U.deepClone(data);
-        S.emit('change', {type:'remoteMeta'});
-        document.getElementById('projTitle').textContent = P.meta.title;
-      } finally { _remoteChangeInProgress--; }
-    });
-
-    // Collections with array↔keyed conversion
-    ['characters','episodes','scenes','events','connections'].forEach(col => {
-      listenCollection(col, data => {
-        _remoteChangeInProgress++;
-        try {
-          const P = S.get();
-          P[col] = keyedToArray(data || {});
-          if(col === 'episodes') P.episodes.sort((a,b) => a.order - b.order);
-          S.emit('change', {type:'remote_' + col});
-          App.refresh();
-        } finally { _remoteChangeInProgress--; }
-      });
-    });
-
-    // Categories (object, not array)
-    listenCollection('categories', data => {
-      _remoteChangeInProgress++;
-      try {
-        const P = S.get();
-        P.categories = keyedToCategories(data || {});
-        S.emit('change', {type:'remote_categories'});
-        App.refresh();
-      } finally { _remoteChangeInProgress--; }
-    });
-
-    // Presence
-    listenCollection('presence', data => {
-      _presenceUsers = data || {};
-      renderPresenceBar();
-      updateStatusBarSync();
-    });
-  }
-
-  function listenCollection(path, callback) {
-    const ref = _roomRef.child(path);
-    const fn = ref.on('value', snap => callback(snap.val()));
-    _listeners.push({ ref, event: 'value', fn });
-  }
-
-  // ── Push changes (Local → Firebase) ──
-  function pushChange(col, delay) {
-    if(!_roomId || !_roomRef) return;
-    if(_remoteChangeInProgress > 0) return; // Break sync loop
-
-    delay = delay || 300;
-    if(_pushTimers[col]) clearTimeout(_pushTimers[col]);
-    _pushTimers[col] = setTimeout(() => {
-      _pushTimers[col] = null;
-      doPush(col);
-    }, delay);
-  }
-
-  function doPush(col) {
-    if(!_roomRef || _remoteChangeInProgress > 0) return;
-    const P = S.get();
-    let data;
-    if(col === 'meta') {
-      data = U.deepClone(P.meta);
-    } else if(col === 'categories') {
-      data = categoriesToKeyed(P.categories);
-    } else {
-      data = arrayToKeyed(P[col]);
-    }
-    // Size check: 1MB limit per collection
-    const json = JSON.stringify(data);
-    if(json.length > 1048576) {
-      App.UI.toast('Veri boyutu çok büyük (' + col + ': ' + Math.round(json.length/1024) + 'KB) — senkronizasyon engellendi');
-      console.warn('[Sync] Collection too large:', col, json.length);
-      return;
-    }
-    _roomRef.child(col).set(data).catch(err => {
-      console.error('[Sync] Push error (' + col + '):', err);
-    });
-  }
-
-  function pushAll() {
-    if(!_roomId || _remoteChangeInProgress > 0) return;
-    pushChange('meta', 100);
-    pushChange('categories', 100);
-    COLLECTIONS.filter(c => c !== 'categories').forEach(c => pushChange(c, 100));
-  }
-
-  // ── Store change handler ──
+  function init() {}
   function handleStoreChange(data) {
-    if(!_roomId || _remoteChangeInProgress > 0) return;
-    const type = data && data.type;
-    if(!type) { pushAll(); return; }
-
-    // Map change types to collections
-    if(type === 'addEvent' || type === 'updateEvent' || type === 'removeEvent') {
-      pushChange('events'); pushChange('connections');
-    } else if(type === 'addScene' || type === 'updateScene' || type === 'removeScene') {
-      pushChange('scenes'); pushChange('events');
-    } else if(type === 'addEp' || type === 'updateEp' || type === 'removeEp') {
-      pushChange('episodes'); pushChange('scenes'); pushChange('events');
-    } else if(type === 'addCn' || type === 'removeCn') {
-      pushChange('connections');
-    } else if(type === 'addChar' || type === 'removeChar') {
-      pushChange('characters');
-    } else if(type === 'addCat' || type === 'removeCat') {
-      pushChange('categories');
-    } else if(type === 'set' || type === 'undo' || type === 'redo' || type === 'batch' || type === 'docx') {
-      pushAll();
-    } else if(type && type.startsWith('remote')) {
-      // Remote changes — don't push back
-    } else {
-      pushAll();
-    }
+    if(data && data.type && data.type.startsWith('remote')) return;
   }
-
-  // ── Presence ──
-  function setupPresence() {
-    if(!_roomRef || !_userId) return;
-    if(!_userColor) {
-      // Assign color based on number of existing users
-      const idx = Object.keys(_presenceUsers).length % PRESENCE_COLORS.length;
-      _userColor = PRESENCE_COLORS[idx];
-      localStorage.setItem('sync_userColor', _userColor);
-    }
-    const presRef = _roomRef.child('presence/' + _userId);
-    presRef.set({
-      name: _userName,
-      color: _userColor,
-      lastSeen: firebase.database.ServerValue.TIMESTAMP
-    });
-    presRef.onDisconnect().remove();
-
-    // Heartbeat
-    if(_heartbeatInterval) clearInterval(_heartbeatInterval);
-    _heartbeatInterval = setInterval(() => {
-      if(_roomRef && _userId) {
-        _roomRef.child('presence/' + _userId + '/lastSeen').set(firebase.database.ServerValue.TIMESTAMP);
-      }
-      // Clean stale entries (5 min)
-      cleanStalePresence();
-    }, 60000);
-  }
-
-  function cleanStalePresence() {
-    const now = Date.now();
-    Object.keys(_presenceUsers).forEach(uid => {
-      const u = _presenceUsers[uid];
-      if(u && u.lastSeen && (now - u.lastSeen > 300000)) {
-        if(_roomRef) _roomRef.child('presence/' + uid).remove();
-      }
-    });
-  }
-
-  function renderPresenceBar() {
-    const bar = document.getElementById('presenceBar');
-    if(!bar) return;
-    let html = '';
-    Object.keys(_presenceUsers).forEach(uid => {
-      const u = _presenceUsers[uid];
-      if(!u || !u.name) return;
-      const initial = u.name.charAt(0).toUpperCase();
-      const isMe = uid === _userId;
-      html += '<div class="presence-avatar" style="background:' + U.sanitizeColor(u.color || '#666') + ';' + (isMe ? 'box-shadow:0 0 0 2px var(--cyan);' : '') + '" title="' + U.escHtml(u.name) + (isMe ? ' (sen)' : '') + '"><span>' + initial + '</span><span class="pa-tip">' + U.escHtml(u.name) + '</span></div>';
-    });
-    bar.innerHTML = html;
-  }
-
-  // ── Sync ID counter ──
-  function syncIdCounter() {
-    const P = S.get();
-    let maxNum = 0;
-    const extractNum = id => {
-      const m = (id || '').match(/(\d+)$/);
-      return m ? parseInt(m[1]) : 0;
-    };
-    P.events.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
-    P.scenes.forEach(s => { maxNum = Math.max(maxNum, extractNum(s.id)); });
-    P.episodes.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
-    P.characters.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
-    P.connections.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
-    U.setIdCounter(maxNum + 1);
-  }
-
-  // ── UI ──
-  function updateHash() {
-    if(_roomId) {
-      history.replaceState(null, '', window.location.pathname + window.location.search + '#room=' + _roomId);
-    }
-  }
-
-  function updateSyncUI() {
-    const bar = document.getElementById('syncBar');
-    const dot = document.getElementById('syncDot');
-    const statusText = document.getElementById('syncStatusText');
-    const roomLabel = document.getElementById('roomCodeLabel');
-    const leaveBtn = document.getElementById('leaveBtn');
-    const syncBtn = document.getElementById('syncBtn');
-
-    if(_roomId) {
-      bar.classList.add('active');
-      roomLabel.style.display = '';
-      roomLabel.textContent = _roomId;
-      leaveBtn.style.display = '';
-      if(syncBtn) syncBtn.style.display = 'none';
-      if(_connected) {
-        dot.className = 'sync-dot connected';
-        statusText.textContent = 'Bağlı';
-      } else {
-        dot.className = 'sync-dot connecting';
-        statusText.textContent = 'Bağlanıyor...';
-      }
-    } else {
-      bar.classList.remove('active');
-      roomLabel.style.display = 'none';
-      leaveBtn.style.display = 'none';
-      if(syncBtn) syncBtn.style.display = '';
-      dot.className = 'sync-dot disconnected';
-      statusText.textContent = 'Bağlantı yok';
-    }
-    updateStatusBarSync();
-  }
-
-  function updateStatusBarSync() {
-    const el = document.getElementById('stSync');
-    if(!el) return;
-    if(_roomId) {
-      const count = Object.keys(_presenceUsers).length;
-      el.textContent = '👥 ' + count + ' kullanıcı';
-      el.style.display = '';
-    } else {
-      el.style.display = 'none';
-    }
-  }
-
-  function copyRoomLink() {
-    if(!_roomId) return;
-    const url = window.location.origin + window.location.pathname + '#room=' + _roomId;
-    navigator.clipboard.writeText(url).then(() => {
-      App.UI.toast('Oda linki panoya kopyalandı');
-    }).catch(() => {
-      // Fallback
-      prompt('Oda linkini kopyalayın:', url);
-    });
-  }
-
-  function openSyncPanel(prefillCode) {
-    if(!isConfigValid()) {
-      App.UI.openModal(`
-        <div style="padding:24px;max-width:480px;">
-          <h2 style="margin-bottom:12px;">Firebase Yapılandırması Gerekli</h2>
-          <p style="color:var(--tx2);font-size:13px;line-height:1.6;margin-bottom:16px;">
-            Gerçek zamanlı işbirliği için Firebase Realtime Database gereklidir.<br><br>
-            <strong>Kurulum adımları:</strong><br>
-            1. <code>console.firebase.google.com</code> → Yeni proje oluşturun<br>
-            2. Realtime Database oluşturun (test modunda)<br>
-            3. Authentication → Anonymous sign-in etkinleştirin<br>
-            4. Proje ayarlarından config bilgilerini kopyalayın<br>
-            5. HTML dosyasındaki <code>firebaseConfig</code> nesnesine yapıştırın
-          </p>
-          <button class="btn" onclick="App.UI.closeModal()">Tamam</button>
-        </div>
-      `);
-      return;
-    }
-
-    // If already in a room, show room info
-    if(_roomId) {
-      openRoomInfoPanel();
-      return;
-    }
-
-    const savedName = localStorage.getItem('sync_userName') || '';
-    App.UI.openModal(`
-      <div style="padding:24px;max-width:560px;">
-        <h2 style="margin-bottom:4px;">Gerçek Zamanlı İşbirliği</h2>
-        <p style="color:var(--tx3);font-size:11px;margin-bottom:16px;">Aynı projeyi birden fazla kişiyle düzenleyin</p>
-        <div class="sync-name-row">
-          <label>Görünen Adınız</label>
-          <input type="text" id="syncNameInput" value="${U.escHtml(savedName)}" placeholder="Adınızı girin..." maxlength="20" />
-        </div>
-        <div class="sync-modal-body">
-          <div class="sync-modal-col">
-            <h3>Yeni Oda Oluştur</h3>
-            <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut projeyi paylaşılabilir bir odaya taşıyın. Diğer kullanıcılar oda kodu ile katılabilir.</p>
-            <input type="password" id="syncCreatePwInput" placeholder="Parola (opsiyonel)" maxlength="64" style="font-size:12px;" />
-            <button class="btn btn-p" onclick="App.Sync._doCreate()">Oda Oluştur</button>
-          </div>
-          <div class="sync-modal-col">
-            <h3>Odaya Katıl</h3>
-            <p style="font-size:11px;color:var(--tx3);line-height:1.5;">Mevcut bir odanın 10 haneli kodunu girerek katılın.</p>
-            <input type="text" id="syncRoomCodeInput" placeholder="ABCD123456" maxlength="10" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-size:16px;font-weight:600;" value="${prefillCode ? U.escHtml(prefillCode) : ''}" />
-            <input type="password" id="syncJoinPwInput" placeholder="Parola (varsa)" maxlength="64" style="font-size:12px;" />
-            <button class="btn btn-p" onclick="App.Sync._doJoin()">Katıl</button>
-          </div>
-        </div>
-        <div class="sync-info">
-          <strong>Not:</strong> Tüm katılımcılar aynı Firebase projesini kullanmalıdır. Veriler Firebase Realtime Database üzerinden senkronize edilir.
-        </div>
-      </div>
-    `);
-    // Focus name input if empty
-    setTimeout(() => {
-      const nameIn = document.getElementById('syncNameInput');
-      if(nameIn && !nameIn.value) nameIn.focus();
-      else {
-        const codeIn = document.getElementById('syncRoomCodeInput');
-        if(codeIn && prefillCode) codeIn.focus();
-      }
-    }, 100);
-  }
-
-  function openRoomInfoPanel() {
-    const userCount = Object.keys(_presenceUsers).length;
-    let usersHtml = '';
-    Object.keys(_presenceUsers).forEach(uid => {
-      const u = _presenceUsers[uid];
-      if(!u) return;
-      const isMe = uid === _userId;
-      const kickBtn = (_isAdmin && !isMe) ? ' <button class="btn btn-s" style="color:var(--red);margin-left:auto;" onclick="App.Sync.kickUser(\'' + uid + '\')">At</button>' : '';
-      usersHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;"><div class="presence-avatar" style="background:' + U.sanitizeColor(u.color || '#666') + ';width:24px;height:24px;font-size:10px;">' + (u.name || '?').charAt(0).toUpperCase() + '</div><span style="font-size:12px;color:var(--tx);">' + U.escHtml(u.name || 'Anonim') + (isMe ? ' (sen)' : '') + '</span>' + kickBtn + '</div>';
-    });
-
-    // Check lock state
-    let adminHtml = '';
-    if(_isAdmin) {
-      adminHtml = `
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--brd);">
-          <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Yönetici Kontrolleri</div>
-          <button class="btn" onclick="App.Sync.toggleRoomLock()" style="width:100%;">Odayı Kilitle / Kilidi Aç</button>
-        </div>`;
-    }
-
-    App.UI.openModal(`
-      <div style="padding:24px;max-width:420px;">
-        <h2 style="margin-bottom:12px;">Oda Bilgileri ${_isAdmin ? '<span style="font-size:11px;color:var(--cyan);font-weight:400;">(Yönetici)</span>' : ''}</h2>
-        <div class="sync-room-info">
-          <div style="text-align:center;">
-            <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">Oda Kodu</div>
-            <span class="room-code" onclick="App.Sync.copyRoomLink()" style="cursor:pointer;">${_roomId}</span>
-          </div>
-          <div style="font-size:11px;color:var(--tx3);">Bağlı: ${_connected ? '<span style="color:var(--green);">Evet</span>' : '<span style="color:var(--red);">Hayır</span>'}</div>
-        </div>
-        <div style="margin-top:16px;">
-          <div style="font-size:12px;color:var(--tx2);margin-bottom:8px;">Kullanıcılar (${userCount})</div>
-          ${usersHtml}
-        </div>
-        ${adminHtml}
-        <div style="display:flex;gap:8px;margin-top:16px;">
-          <button class="btn" onclick="App.Sync.copyRoomLink();App.UI.closeModal();" style="flex:1;">Linki Kopyala</button>
-          <button class="btn btn-d" onclick="App.Sync.leaveRoom();App.UI.closeModal();" style="flex:1;">Odadan Ayrıl</button>
-        </div>
-      </div>
-    `);
-  }
-
-  // ── Admin Controls ──
-  function kickUser(uid) {
-    if(!_isAdmin || !_roomRef) { App.UI.toast('Yetkiniz yok'); return; }
-    if(uid === _userId) { App.UI.toast('Kendinizi atamazsınız'); return; }
-    _roomRef.child('presence/' + uid).remove().then(() => {
-      App.UI.toast('Kullanıcı atıldı');
-    }).catch(err => {
-      App.UI.toast('Atma hatası: ' + err.message);
-    });
-  }
-
-  function toggleRoomLock() {
-    if(!_isAdmin || !_roomRef) { App.UI.toast('Yetkiniz yok'); return; }
-    _roomRef.child('_roomMeta/locked').once('value').then(snap => {
-      const current = snap.val() === true;
-      _roomRef.child('_roomMeta/locked').set(!current).then(() => {
-        App.UI.toast(current ? 'Oda kilidi açıldı' : 'Oda kilitlendi');
-        openRoomInfoPanel(); // Refresh panel
-      });
-    });
-  }
-
-  // ── Internal create/join (called from modal) ──
-  function _doCreate() {
-    const nameIn = document.getElementById('syncNameInput');
-    const pwIn = document.getElementById('syncCreatePwInput');
-    const name = (nameIn ? nameIn.value.trim() : '') || 'Anonim';
-    const pw = pwIn ? pwIn.value : '';
-    _userName = name;
-    localStorage.setItem('sync_userName', name);
-
-    init().then(() => {
-      createRoom(pw || null);
-    });
-  }
-
-  function _doJoin() {
-    const nameIn = document.getElementById('syncNameInput');
-    const codeIn = document.getElementById('syncRoomCodeInput');
-    const pwIn = document.getElementById('syncJoinPwInput');
-    const name = (nameIn ? nameIn.value.trim() : '') || 'Anonim';
-    const code = (codeIn ? codeIn.value.trim().toUpperCase() : '');
-    const pw = pwIn ? pwIn.value : '';
-    if(!code || code.length < 6 || code.length > 10) { App.UI.toast('Lütfen 10 haneli oda kodunu girin'); return; }
-    _userName = name;
-    localStorage.setItem('sync_userName', name);
-
-    init().then(() => {
-      joinRoom(code, pw || null);
-    });
-  }
-
-  return {
-    init, createRoom, joinRoom, leaveRoom, isInRoom,
-    openSyncPanel, copyRoomLink, renderPresenceBar,
-    pushChange, pushAll, handleStoreChange,
-    _doCreate, _doJoin, _doJoinWithPassword,
-    kickUser, toggleRoomLock, isAdmin: () => _isAdmin,
-    getUserName: () => _userName,
-    getUserColor: () => _userColor
-  };
+  function isInRoom() { return !!App.Projects.getCurrentId(); }
+  function leaveRoom() { App.Projects.goBack(); }
+  return { init, handleStoreChange, isInRoom, leaveRoom };
 })();
 
 // ═══ DEMO PROJECT DATA (SAKAL) ═══
@@ -6370,14 +5971,18 @@ App.refresh = function() {
 // ═══ INIT ═══
 (function(){
   try {
+    // Firebase init
+    if(typeof firebase !== 'undefined') {
+      if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    }
+
+    // Store change listener
     App.Store.on('change', (data) => {
       App.Analysis.invalidateCache();
       const fromEditor = data && data.type === 'screenplay-editor';
-      // If in screenplay editor mode and change came from the editor, only update left panel
       if(App.ScreenplayEditor.isActive()) {
-        App.Screenplay.render(); // Always update left panel tree
+        App.Screenplay.render();
         if(!fromEditor) {
-          // External change (undo, remote sync) → rebuild editor
           App.ScreenplayEditor.buildFromState();
           App.ScreenplayEditor.render();
         }
@@ -6387,39 +5992,36 @@ App.refresh = function() {
       }
       App.UI.updateStatusBar();
       if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
-      // Re-render right panel if open (for warnings/analysis updates after fix)
       if(document.getElementById('rPanel').classList.contains('open')) {
         App.Panels.renderPanel();
       }
-      // Push to Firebase if in a room
-      if(App.Sync) App.Sync.handleStoreChange(data);
-      // AutoSave & Changelog
+      // AutoSave (Firebase'e yazma)
       if(App.AutoSave) App.AutoSave.save();
       if(App.Changelog) App.Changelog.addEntry(data);
     });
-    // Setup interaction handlers (keyboard, mouse, etc.)
+
     App.Interaction.setup();
-    // Initialize Firebase Sync (if configured)
-    if(App.Sync) App.Sync.init();
-    // Initialize Changelog & Notes
     if(App.Changelog) App.Changelog.init();
     if(App.Notes) App.Notes.init();
-    // Migrate old autosave data to projects system
-    App.Projects.migrateV1();
-    // Check URL for room hash — skip projects screen and join room directly
-    if(window.location.hash && window.location.hash.includes('room=')) {
-      App.Timeline.initFilter();
-      App.Timeline.buildToolbar();
-      App.Timeline.render();
-      App.Screenplay.render();
-      App.UI.updateStatusBar();
-      App.setViewMode('split');
-      const lm = document.getElementById('loadMsg'); if(lm) lm.style.display = 'none';
-      const ar = document.getElementById('appRoot'); if(ar) ar.style.display = 'flex';
-    } else {
-      // Show projects screen
-      App.Projects.showProjectsScreen();
-    }
+
+    // AUTH STATE OBSERVER — tüm akışı kontrol eder
+    firebase.auth().onAuthStateChanged(user => {
+      document.getElementById('loadMsg').style.display = 'none';
+      if(user && user.isAnonymous) {
+        // Eski anonim oturumu kapat, email/password auth'a geçiş
+        firebase.auth().signOut();
+        return;
+      }
+      if(user) {
+        App.Projects.checkPendingInvitations()
+          .catch(err => console.warn('[Auth] Davet kontrolü atlandı:', err.message))
+          .then(() => {
+            App.Projects.loadFromFirebase();
+          });
+      } else {
+        App.Auth.showLoginScreen();
+      }
+    });
   } catch(e) {
     const d = document.createElement('div');
     d.style.cssText = 'color:#ef4444;background:#1a1a2e;padding:24px;margin:20px;border:2px solid #ef4444;border-radius:8px;font-size:14px;font-family:monospace;white-space:pre-wrap;z-index:99999;position:relative;';
