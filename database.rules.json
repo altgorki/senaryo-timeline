@@ -1,0 +1,54 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "projects": {
+      "$projectId": {
+        ".read": "auth != null && (data.child('members/' + auth.uid).exists() || data.child('owner').val() === auth.uid)",
+        ".write": "auth != null && data.exists() && data.child('owner').val() === auth.uid && !newData.exists()",
+        "data": {
+          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
+        },
+        "meta": {
+          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
+        },
+        "owner": {
+          ".write": "auth != null && !data.exists()"
+        },
+        "members": {
+          ".read": "auth != null && (data.parent().child('members/' + auth.uid).exists() || data.parent().child('owner').val() === auth.uid)",
+          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')"
+        },
+        "presence": {
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && (root.child('projects/' + $projectId + '/members/' + auth.uid).exists() || root.child('projects/' + $projectId + '/owner').val() === auth.uid)"
+          }
+        }
+      }
+    },
+    "userProjects": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$projectId": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "invitations": {
+      "$invId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "emailIndex": {
+      "$email": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

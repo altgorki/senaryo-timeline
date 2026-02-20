@@ -1092,7 +1092,7 @@ App.Projects = (function(){
 
   function getCurrentId() { return _currentId; }
 
-  // ── Proje oluştur ──
+  // ── Proje oluştur (tek atomik multi-path update) ──
   function create() {
     const user = App.Auth.getCurrentUser();
     const uid = user.uid;
@@ -1105,21 +1105,14 @@ App.Projects = (function(){
       characters: {}, episodes: {}, scenes: {}, events: {}, connections: {}
     };
 
-    const projRef = firebase.database().ref('projects/' + projectId);
-    // Adım 1: owner yaz (kural: !data.exists())
-    projRef.child('owner').set(uid)
-      .then(() => {
-        // Adım 2: members yaz (kural: owner === auth.uid)
-        return projRef.child('members/' + uid).set({ role:'owner', email:user.email, displayName:displayName, addedAt:now });
-      })
-      .then(() => {
-        // Adım 3: data, meta, userProjects yaz (artık member/owner mevcut)
-        const updates = {};
-        updates['projects/' + projectId + '/meta'] = { title:'Yeni Proje', author:displayName, settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 }, createdAt:now, updatedAt:now };
-        updates['projects/' + projectId + '/data'] = emptyData;
-        updates['userProjects/' + uid + '/' + projectId] = { role:'owner', title:'Yeni Proje', updatedAt:now };
-        return firebase.database().ref().update(updates);
-      })
+    const updates = {};
+    updates['projects/' + projectId + '/owner'] = uid;
+    updates['projects/' + projectId + '/members/' + uid] = { role:'owner', email:user.email, displayName:displayName, addedAt:now };
+    updates['projects/' + projectId + '/meta'] = { title:'Yeni Proje', author:displayName, settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 }, createdAt:now, updatedAt:now };
+    updates['projects/' + projectId + '/data'] = emptyData;
+    updates['userProjects/' + uid + '/' + projectId] = { role:'owner', title:'Yeni Proje', updatedAt:now };
+
+    firebase.database().ref().update(updates)
       .then(() => open(projectId))
       .catch(err => App.UI.toast('Proje oluşturma hatası: ' + err.message));
   }
@@ -1269,7 +1262,7 @@ App.Projects = (function(){
     }).then(() => {
       if(_currentId === projectId) { _currentId = null; _myRole = null; }
       App.UI.toast('Proje silindi');
-    });
+    }).catch(err => App.UI.toast('Silme hatası: ' + err.message));
   }
 
   // ── Davet sistemi ──
@@ -1375,7 +1368,7 @@ App.Projects = (function(){
     });
   }
 
-  // ── Import (JSON dosyasından Firebase'e) ──
+  // ── Import (JSON dosyasından Firebase'e — tek atomik multi-path update) ──
   function importToProject(data) {
     const user = App.Auth.getCurrentUser();
     const uid = user.uid;
@@ -1393,21 +1386,14 @@ App.Projects = (function(){
       connections: _arrayToKeyed(data.connections || [])
     };
 
-    const projRef = firebase.database().ref('projects/' + projectId);
-    // Adım 1: owner yaz
-    projRef.child('owner').set(uid)
-      .then(() => {
-        // Adım 2: members yaz
-        return projRef.child('members/' + uid).set({ role:'owner', email:user.email, displayName:displayName, addedAt:now });
-      })
-      .then(() => {
-        // Adım 3: data, meta, userProjects yaz
-        const updates = {};
-        updates['projects/' + projectId + '/meta'] = { title: title, author: (data.meta && data.meta.author) || displayName, settings: (data.meta && data.meta.settings) || { episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 }, createdAt:now, updatedAt:now };
-        updates['projects/' + projectId + '/data'] = fbData;
-        updates['userProjects/' + uid + '/' + projectId] = { role:'owner', title: title, updatedAt:now };
-        return firebase.database().ref().update(updates);
-      })
+    const updates = {};
+    updates['projects/' + projectId + '/owner'] = uid;
+    updates['projects/' + projectId + '/members/' + uid] = { role:'owner', email:user.email, displayName:displayName, addedAt:now };
+    updates['projects/' + projectId + '/meta'] = { title: title, author: (data.meta && data.meta.author) || displayName, settings: (data.meta && data.meta.settings) || { episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 }, createdAt:now, updatedAt:now };
+    updates['projects/' + projectId + '/data'] = fbData;
+    updates['userProjects/' + uid + '/' + projectId] = { role:'owner', title: title, updatedAt:now };
+
+    firebase.database().ref().update(updates)
       .then(() => open(projectId))
       .catch(err => App.UI.toast('İçe aktarma hatası: ' + err.message));
   }
@@ -3411,7 +3397,7 @@ App.Interaction = (function(){
       }
       if((e.ctrlKey||e.metaKey) && e.key === 'z') { e.preventDefault(); S.undo(); }
       if((e.ctrlKey||e.metaKey) && e.key === 'y') { e.preventDefault(); S.redo(); }
-      if((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); App.Projects.save(); }
+      if((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); App.Projects.save(); App.UI.toast('Kaydedildi'); }
       if((e.ctrlKey||e.metaKey) && e.key === 'n') { e.preventDefault(); App.Panels.openAddEvent(); }
     });
 
@@ -5668,6 +5654,9 @@ const firebaseConfig = {
 /*
  * ═══ FIREBASE SECURITY RULES ═══
  * Deploy these rules in Firebase Console → Realtime Database → Rules
+ * NOT: Multi-path update için newData bazlı kontroller eklendi.
+ * Firebase multi-path update atomiktir — tüm path'ler tek seferde yazılır.
+ * newData.parent().child('owner') ile yazılacak owner değeri kontrol edilir.
  *
  * {
  *   "rules": {
@@ -5680,18 +5669,19 @@ const firebaseConfig = {
  *     "projects": {
  *       "$projectId": {
  *         ".read": "auth != null && (data.child('members/' + auth.uid).exists() || data.child('owner').val() === auth.uid)",
+ *         ".write": "auth != null && data.exists() && data.child('owner').val() === auth.uid && !newData.exists()",
  *         "data": {
- *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
+ *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
  *         },
  *         "meta": {
- *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
+ *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
  *         },
  *         "owner": {
  *           ".write": "auth != null && !data.exists()"
  *         },
  *         "members": {
  *           ".read": "auth != null && (data.parent().child('members/' + auth.uid).exists() || data.parent().child('owner').val() === auth.uid)",
- *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')"
+ *           ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')"
  *         },
  *         "presence": {
  *           "$uid": {
