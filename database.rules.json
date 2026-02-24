@@ -21,7 +21,10 @@
         },
         "members": {
           ".read": "auth != null && (data.parent().child('members/' + auth.uid).exists() || data.parent().child('owner').val() === auth.uid)",
-          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')"
+          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')",
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && !data.exists()"
+          }
         },
         "presence": {
           "$uid": {

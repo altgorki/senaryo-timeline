@@ -4,7 +4,7 @@ App.Utils = (function(){
   const s2t = s => { const m=Math.floor(s/60); return m+':'+String(Math.floor(s%60)).padStart(2,'0'); };
   const s2px = (s,pps) => s * (pps||0.5);
   const px2s = (p,pps) => p / (pps||0.5);
-  const genId = (prefix) => prefix + (_nid++);
+  const genId = (prefix) => prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
   const setIdCounter = (n) => { _nid = n; };
   const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
   const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
