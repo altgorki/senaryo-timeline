@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Senaryo Timeline Editörü</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
+<!-- Firebase Realtime Database (Gerçek Zamanlı İşbirliği) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" integrity="sha384-sEVIly94UBRLKWdkYoPpSG7GD/e79YHMrxVyZaOk712Ga7+EAw6w1EFi+xBzBdd+" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js" integrity="sha384-1/m+A1jVWbD3yiK3/vtFvm1+LjK1WLpSoDY+Kaxppwn/yP9BVSgdHTNQVOjrzUO5" crossorigin="anonymous"></script>
+<style>
+/* __CSS_PLACEHOLDER__ */
+</style>
+</head>
+<body>
+<noscript><div style="color:var(--red);background:var(--bg2);padding:24px;margin:20px;font-size:16px;border:2px solid var(--red);border-radius:8px;">JavaScript devre dışı. Lütfen tarayıcı ayarlarından JavaScript'i etkinleştirin.</div></noscript>
+<div id="loadMsg" style="color:var(--tx2);padding:20px;font-size:14px;">Yükleniyor...</div>
+
+<div id="authScreen" style="display:none;">
+  <div class="ps-inner">
+    <div class="ps-header">
+      <h1>Senaryo Timeline Editörü</h1>
+      <p>Giriş yapın veya hesap oluşturun</p>
+    </div>
+    <div class="auth-tabs" role="tablist" aria-label="Kimlik doğrulama sekmeleri">
+      <button class="auth-tab active" onclick="App.Auth.switchTab('login')" data-tab="login" role="tab" aria-selected="true" aria-controls="authLoginForm">Giriş Yap</button>
+      <button class="auth-tab" onclick="App.Auth.switchTab('register')" data-tab="register" role="tab" aria-selected="false" aria-controls="authRegisterForm">Kayıt Ol</button>
+    </div>
+    <div class="auth-form" id="authLoginForm" role="tabpanel" aria-labelledby="authLoginForm">
+      <div class="auth-error" id="loginError"></div>
+      <input type="email" id="loginEmail" placeholder="E-posta adresi" onkeydown="if(event.key==='Enter')App.Auth.doLogin()" />
+      <input type="password" id="loginPass" placeholder="Parola" onkeydown="if(event.key==='Enter')App.Auth.doLogin()" />
+      <button class="btn btn-p" onclick="App.Auth.doLogin()">Giriş Yap</button>
+    </div>
+    <div class="auth-form" id="authRegisterForm" style="display:none;" role="tabpanel" aria-labelledby="authRegisterForm">
+      <div class="auth-error" id="registerError"></div>
+      <input type="text" id="regName" placeholder="Adınız" />
+      <input type="email" id="regEmail" placeholder="E-posta adresi" />
+      <input type="password" id="regPass" placeholder="Parola (min 6 karakter)" onkeydown="if(event.key==='Enter')App.Auth.doRegister()" />
+      <button class="btn btn-p" onclick="App.Auth.doRegister()">Kayıt Ol</button>
+    </div>
+  </div>
+</div>
+
+<div id="projectsScreen" style="display:none;">
+  <div class="ps-inner">
+    <div class="ps-header">
+      <h1>Senaryo Timeline Editörü</h1>
+      <p>Projelerinizi yönetin</p>
+    </div>
+    <div class="ps-actions">
+      <button class="btn btn-p" onclick="App.Projects.create()">+ Yeni Proje</button>
+      <button class="btn" onclick="App.Projects.loadDemoAsProject()">Demo Proje</button>
+      <button class="btn" onclick="document.getElementById('psFIn').click()">↑ JSON Yükle</button>
+      <input type="file" id="psFIn" accept=".json" style="display:none" onchange="App.Projects.handleImport(event)">
+    </div>
+    <div class="ps-list" id="psList"></div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" style="display:none;">
+  <div class="topbar">
+    <div class="logo">
+      <h1 id="projTitle" onclick="App.Panels.openSettings()">Yeni Proje</h1>
+      <span id="projSub">Senaryo Timeline Editörü</span>
+      <button class="btn" onclick="App.Projects.goBack()" title="Proje listesine dön">📂 Projeler</button>
+    </div>
+    <div class="view-modes">
+      <button class="view-mode" data-vm="screenplay" onclick="App.setViewMode('screenplay')">Senaryo</button>
+      <button class="view-mode active" data-vm="split" onclick="App.setViewMode('split')">Bölünmüş</button>
+      <button class="view-mode" data-vm="timeline" onclick="App.setViewMode('timeline')">Timeline</button>
+    </div>
+    <div class="sync-bar" id="syncBar">
+      <span class="sync-dot connected" id="syncDot"></span>
+      <span class="sync-status-text" id="syncStatusText" role="status"></span>
+      <div class="presence-bar" id="presenceBar"></div>
+    </div>
+    <div class="tba">
+      <span class="readonly-badge">Sadece Okuma</span>
+      <div class="user-info" id="userInfo" style="display:none;cursor:pointer;" onclick="App.Auth.openProfileModal()" title="Profili düzenle">
+        <div class="user-avatar" id="userAvatar"></div>
+        <span id="userDisplayName"></span>
+      </div>
+      <button class="btn" id="shareBtn" onclick="App.Projects.openShareModal()" style="display:none;">Paylaş</button>
+      <button class="btn" id="logoutBtn" onclick="App.Auth.logout()" style="display:none;">Çıkış</button>
+      <button class="btn" onclick="App.Projects.save();App.UI.toast('Kaydedildi')" title="Projeyi Kaydet (Ctrl+S)">💾 Kaydet</button>
+      <div class="sep"></div>
+      <button class="btn btn-icon" onclick="App.Store.undo()" title="Geri Al (Ctrl+Z)" aria-label="Geri Al">↩</button>
+      <button class="btn btn-icon" onclick="App.Store.redo()" title="Yinele (Ctrl+Y)" aria-label="Yinele">↪</button>
+      <div class="sep"></div>
+      <button class="btn" onclick="App.Timeline.zoomOut()" aria-label="Uzaklaştır">−</button>
+      <span id="zLvl" style="font-size:10px;color:var(--tx3);font-family:monospace;min-width:36px;text-align:center">100%</span>
+      <button class="btn" onclick="App.Timeline.zoomIn()" aria-label="Yakınlaştır">+</button>
+      <button class="btn" onclick="App.Timeline.zoomReset()">Sığdır</button>
+      <div class="sep"></div>
+      <button class="btn" onclick="document.getElementById('fIn').click()">↑ Yükle</button>
+      <button class="btn" onclick="App.Panels.openSettings()" aria-label="Ayarlar">⚙</button>
+      <button class="btn btn-p" onclick="App.Panels.openAddEvent()">+ Olay</button>
+      <input type="file" id="fIn" accept=".json" style="display:none" onchange="App.IO.importJSON(event)">
+    </div>
+  </div>
+
+  <div class="toolbar" id="tb">
+    <label>Bölüm</label>
+    <select id="fEp" onchange="App.Timeline.doFilter()"><option value="all">Tümü</option></select>
+    <label>Karakter</label>
+    <select id="fCh" onchange="App.Timeline.doFilter()"><option value="all">Tümü</option></select>
+    <div class="sep"></div>
+    <label>Snap</label>
+    <select id="snapSel" onchange="App.Interaction.setSnap(+this.value)">
+      <option value="0">Kapalı</option>
+      <option value="5">5sn</option>
+      <option value="10" selected>10sn</option>
+      <option value="15">15sn</option>
+      <option value="30">30sn</option>
+      <option value="60">60sn</option>
+    </select>
+    <div class="sep"></div>
+    <div id="catP" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    <div class="sep"></div>
+    <button class="btn btn-s" id="wBtn" onclick="App.Panels.togglePanel('warn')">⚠ Uyarılar <span class="badge" id="wBdg" style="display:none">0</span></button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('analysis')">◎ Analiz</button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('changelog')">📋 Günlük</button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('notes')">📌 Notlar</button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('ai')" style="background:linear-gradient(135deg,#a855f7,#3b82f6);border-color:transparent;color:#fff;">✦ AI Asistan</button>
+  </div>
+
+  <div class="main-wrap">
+    <div class="sp-panel" id="spPanel">
+      <div class="sp-resize" id="spResize"></div>
+      <div class="sp-header">
+        <h3>📝 Senaryo</h3>
+        <button class="close-btn" onclick="App.setViewMode('timeline')">✕</button>
+      </div>
+      <div class="sp-toolbar">
+        <button class="btn btn-s" onclick="App.Screenplay.addEpisode()">+ Bölüm</button>
+        <button class="btn btn-s" onclick="document.getElementById('docxIn').click()">📄 DOCX</button>
+        <input type="file" id="docxIn" accept=".docx" style="display:none" onchange="App.IO.handleDocx(event)">
+      </div>
+      <div class="sp-episodes" id="spEpisodes"></div>
+    </div>
+
+    <div class="tl-area" id="tlA">
+      <div class="tl-container" id="tlC"></div>
+    </div>
+
+    <div class="rpanel" id="rPanel"></div>
+  </div>
+
+  <div class="statusbar" id="statusbar" role="status">
+    <div class="st-item" id="stProj">Proje: Yeni Proje</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stEps">0 bölüm</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stScenes">0 sahne</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stEvents">0 olay</div>
+    <div class="st-sep"></div>
+    <div class="st-item" id="stDur">00:00</div>
+    <div style="flex:1"></div>
+    <div class="st-item st-warn" id="stWarn" onclick="App.Panels.togglePanel('warn')"></div>
+    <div class="st-item" id="stSel"></div>
+    <div class="st-item" id="stSync" style="display:none"></div>
+  </div>
+</div>
+
+<div class="ttp" id="ttp"></div>
+<div class="ctx-menu" id="ctxMenu"></div>
+<div class="mbg" id="mbg" role="dialog" aria-modal="true" onclick="if(event.target===this)App.UI.closeModal()"><div class="mdl" id="mdl"></div></div>
+<div class="tbox" id="tbox" aria-live="polite"></div>
+
+<script>
+/* __JS_PLACEHOLDER__ */
+</script>
+</body>
+</html>
