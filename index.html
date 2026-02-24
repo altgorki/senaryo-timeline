@@ -4454,7 +4454,8 @@ App.Changelog = (function(){
     addChar:'Karakter eklendi', removeChar:'Karakter silindi',
     addCat:'Kategori eklendi', removeCat:'Kategori silindi',
     batch:'Toplu güncelleme', settings:'Ayarlar değiştirildi',
-    docx:'DOCX dışa aktarıldı', fix:'Düzeltme uygulandı'
+    docx:'DOCX dışa aktarıldı', fix:'Düzeltme uygulandı',
+    addNote:'Not eklendi', updateNote:'Not düzenlendi', removeNote:'Not silindi'
   };
 
   function init() {
@@ -4475,7 +4476,7 @@ App.Changelog = (function(){
     const targetName = data.targetName || '';
     const desc = targetName ? label + ': "' + targetName + '"' : label;
     const entry = {
-      id: U.genId(),
+      id: U.genId('cl'),
       ts: Date.now(),
       userName: userName,
       action: actionType,
@@ -4594,7 +4595,7 @@ App.Notes = (function(){
     text = (text || '').trim();
     if(!text) return;
     const note = {
-      id: U.genId(),
+      id: U.genId('note'),
       author: _getUserName(),
       authorColor: _getUserColor(),
       text: text,
@@ -4608,6 +4609,7 @@ App.Notes = (function(){
       if(_notes.length > MAX_LOCAL) _notes = _notes.slice(-MAX_LOCAL);
       _saveLocal();
     }
+    if(App.Changelog) App.Changelog.addEntry({type:'addNote', targetName: text.substring(0, 40)});
     if(_panelOpen) renderPanel();
   }
 
@@ -4620,17 +4622,22 @@ App.Notes = (function(){
       const n = _notes.find(n => n.id === id);
       if(n) { n.text = newText; n.edited = true; _saveLocal(); }
     }
+    if(App.Changelog) App.Changelog.addEntry({type:'updateNote', targetName: newText.substring(0, 40)});
     _editingId = null;
     if(_panelOpen) renderPanel();
   }
 
   function removeNote(id) {
+    var _removedText = '';
+    var _n = _notes.find(n => n.id === id);
+    if(_n) _removedText = _n.text || '';
     if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
       _remoteRef.child(id).remove();
     } else {
       _notes = _notes.filter(n => n.id !== id);
       _saveLocal();
     }
+    if(App.Changelog) App.Changelog.addEntry({type:'removeNote', targetName: _removedText.substring(0, 40)});
     if(_panelOpen) renderPanel();
   }
 
@@ -5944,6 +5951,14 @@ App.setViewMode = function(mode) {
 // ═══ REFRESH ═══
 App.refresh = function() {
   App.Analysis.invalidateCache();
+  // Kullanıcı bir input/textarea/contenteditable alanında yazıyorsa ağır render'ları atla
+  var _ae = document.activeElement;
+  var _isEditing = _ae && (_ae.tagName === 'TEXTAREA' || _ae.tagName === 'INPUT' || _ae.isContentEditable);
+  if(_isEditing) {
+    App.UI.updateStatusBar();
+    document.getElementById('projTitle').textContent = App.Store.get().meta.title;
+    return;
+  }
   App.Timeline.initFilter();
   App.Timeline.buildToolbar();
   if(App.ScreenplayEditor.isActive()) {
@@ -5970,6 +5985,15 @@ App.refresh = function() {
     App.Store.on('change', (data) => {
       App.Analysis.invalidateCache();
       const fromEditor = data && data.type === 'screenplay-editor';
+      const isRemote = data && data.type && (data.type.startsWith('remote') || data.type === 'set');
+      // Kullanıcı bir input/textarea/contenteditable alanında yazıyorsa render'ları atla
+      var _ae = document.activeElement;
+      var _isEditing = _ae && (_ae.tagName === 'TEXTAREA' || _ae.tagName === 'INPUT' || _ae.isContentEditable);
+      // Remote değişikliklerde kullanıcı yazıyorsa tüm ağır render'ları atla
+      if(isRemote && _isEditing) {
+        App.UI.updateStatusBar();
+        return;
+      }
       if(App.ScreenplayEditor.isActive()) {
         App.Screenplay.render();
         if(!fromEditor) {
@@ -5983,7 +6007,9 @@ App.refresh = function() {
       App.UI.updateStatusBar();
       if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
       if(document.getElementById('rPanel').classList.contains('open')) {
-        App.Panels.renderPanel();
+        if(!_isEditing) {
+          App.Panels.renderPanel();
+        }
       }
       // AutoSave (Firebase'e yazma)
       if(App.AutoSave) App.AutoSave.save();
