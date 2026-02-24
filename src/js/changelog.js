@@ -23,7 +23,7 @@ App.Changelog = (function(){
   };
 
   function init() {
-    if(!App.Sync || !App.Sync.isInRoom()) {
+    if(!_remoteRef) {
       try {
         const raw = localStorage.getItem(KEY);
         if(raw) _entries = JSON.parse(raw);
@@ -49,7 +49,7 @@ App.Changelog = (function(){
       desc: desc
     };
 
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.push(entry);
     } else {
       _entries.push(entry);

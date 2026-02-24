@@ -88,19 +88,24 @@ App.Projects = (function(){
     });
   }
 
-  // ── Proje kaydet (debounced, Store change'de çağrılır) ──
+  // ── Proje kaydet (debounced, Store change'de çağrılır — sadece dirty koleksiyonları yazar) ──
   function save() {
     if(!_currentId || !canEdit()) return;
     const P = S.get();
+    const dirty = S.getDirty();
+    if(!dirty.size) return;
+    S.clearDirty();
     const ref = firebase.database().ref('projects/' + _currentId);
-    ref.child('data').update({
-      categories: P.categories,
-      characters: _arrayToKeyed(P.characters),
-      episodes: _arrayToKeyed(P.episodes),
-      scenes: _arrayToKeyed(P.scenes),
-      events: _arrayToKeyed(P.events),
-      connections: _arrayToKeyed(P.connections)
-    });
+    const dataUpdate = {};
+    if(dirty.has('categories')) dataUpdate.categories = P.categories;
+    if(dirty.has('characters')) dataUpdate.characters = _arrayToKeyed(P.characters);
+    if(dirty.has('episodes')) dataUpdate.episodes = _arrayToKeyed(P.episodes);
+    if(dirty.has('scenes')) dataUpdate.scenes = _arrayToKeyed(P.scenes);
+    if(dirty.has('events')) dataUpdate.events = _arrayToKeyed(P.events);
+    if(dirty.has('connections')) dataUpdate.connections = _arrayToKeyed(P.connections);
+    if(Object.keys(dataUpdate).length) {
+      ref.child('data').update(dataUpdate);
+    }
     ref.child('meta').update({ title: P.meta.title, author: P.meta.author, settings: P.meta.settings, updatedAt: firebase.database.ServerValue.TIMESTAMP });
     const uid = App.Auth.getCurrentUser().uid;
     firebase.database().ref('userProjects/' + uid + '/' + _currentId).update({ title: P.meta.title, updatedAt: firebase.database.ServerValue.TIMESTAMP });
@@ -144,9 +149,15 @@ App.Projects = (function(){
       _membersCache = snap.val() || {};
     });
     _projectDataListeners.push({ ref: membersRef, fn: membersFn });
+    // Changelog & Notes remote listeners
+    var dataRef = firebase.database().ref('projects/' + projectId + '/data');
+    if(App.Changelog && App.Changelog.setupRemoteListener) App.Changelog.setupRemoteListener(dataRef);
+    if(App.Notes && App.Notes.setupRemoteListener) App.Notes.setupRemoteListener(dataRef);
   }
 
   function _teardownProjectListeners() {
+    if(App.Changelog && App.Changelog.teardownRemoteListener) App.Changelog.teardownRemoteListener();
+    if(App.Notes && App.Notes.teardownRemoteListener) App.Notes.teardownRemoteListener();
     _projectDataListeners.forEach(l => { if(l.fn) l.ref.off('value', l.fn); else l.ref.off(); });
     _projectDataListeners = [];
   }

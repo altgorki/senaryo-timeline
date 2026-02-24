@@ -216,6 +216,7 @@ App.setViewMode = function(mode) {
 
 // ═══ REFRESH ═══
 App.refresh = function() {
+  App._pendingRemoteRefresh = false;
   App.Analysis.invalidateCache();
   // Kullanıcı bir input/textarea/contenteditable alanında yazıyorsa ağır render'ları atla
   var _ae = document.activeElement;
@@ -255,8 +256,9 @@ App.refresh = function() {
       // Kullanıcı bir input/textarea/contenteditable alanında yazıyorsa render'ları atla
       var _ae = document.activeElement;
       var _isEditing = _ae && (_ae.tagName === 'TEXTAREA' || _ae.tagName === 'INPUT' || _ae.isContentEditable);
-      // Remote değişikliklerde kullanıcı yazıyorsa tüm ağır render'ları atla
+      // Remote değişikliklerde kullanıcı yazıyorsa render'ları kuyruğa al
       if(isRemote && _isEditing) {
+        App._pendingRemoteRefresh = true;
         App.UI.updateStatusBar();
         return;
       }
@@ -277,14 +279,22 @@ App.refresh = function() {
           App.Panels.renderPanel();
         }
       }
-      // AutoSave (Firebase'e yazma)
-      if(App.AutoSave) App.AutoSave.save();
+      // AutoSave (Firebase'e yazma) — remote değişikliklerde tekrar yazmayı engelle
+      if(App.AutoSave && !isRemote) App.AutoSave.save();
       if(App.Changelog) App.Changelog.addEntry(data);
     });
 
     App.Interaction.setup();
     if(App.Changelog) App.Changelog.init();
     if(App.Notes) App.Notes.init();
+
+    // focusout: kullanıcı yazmayı bırakınca bekleyen remote değişiklikleri uygula
+    document.addEventListener('focusout', function() {
+      if(App._pendingRemoteRefresh) {
+        App._pendingRemoteRefresh = false;
+        setTimeout(function() { App.refresh(); }, 100);
+      }
+    }, true);
 
     // AUTH STATE OBSERVER — tüm akışı kontrol eder
     firebase.auth().onAuthStateChanged(user => {

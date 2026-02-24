@@ -117,6 +117,7 @@ App.Panels = (function(){
       });
       ev.sceneId = scId;
     }
+    S.markDirty(['events','scenes']);
     S.emit('change', {type:'updateEvent',targetId:ev.id,targetName:ev.title||''});
     closeAll();
     App.UI.toast('"' + ev.title + '" güncellendi');
@@ -285,6 +286,7 @@ App.Panels = (function(){
       id: evId, title: t, description: ozet, episodeId: epId, category: cat,
       characters: ch, sceneId: scId, s: sVal, dur: durVal
     });
+    S.markDirty(['events','scenes']);
     S.emit('change', {type:'addEvent',targetId:evId,targetName:t});
     App.UI.closeModal();
     App.UI.toast('"' + t + '" eklendi');
@@ -443,6 +445,7 @@ App.Panels = (function(){
       const keyInp = document.getElementById('sAIKey');
       if(keyInp && keyInp.value && keyInp.value !== '********') App.AI.setKey(App.AI.getProvider(), keyInp.value.trim());
     }
+    S.markDirty(['categories','characters']);
     S.emit('change', {type:'settings'});
     App.UI.closeModal();
     document.getElementById('projTitle').textContent = P.meta.title;

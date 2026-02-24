@@ -17,7 +17,7 @@ App.Analysis = (function(){
       if(ev.s + ev.dur > EPDUR + 5) {
         const ep = P.episodes.find(e=>e.id===ev.episodeId);
         warns.push({ tp:'overflow', id:ev.id, t:'Süre Taşması', d:`"${ev.title}" (${U.epLbl(ep?.number||'?')}) bölüm süresini aşıyor.`,
-          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.emit('change',{type:'fix',targetId:ev.id,targetName:ev.title||''}); App.UI.toast('Düzeltildi'); } });
+          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.markDirty('events'); S.emit('change',{type:'fix',targetId:ev.id,targetName:ev.title||''}); App.UI.toast('Düzeltildi'); } });
       }
     });
 
@@ -31,7 +31,7 @@ App.Analysis = (function(){
       const tAbs = (epOrder[te.episodeId]||0) * EPDUR + te.s;
       if(fAbs > tAbs + 30)
         warns.push({ tp:'dep', id:cn.from, id2:cn.to, t:'Bağımlılık Hatası', d:`"${fe.title}" → "${te.title}": Neden, sonuçtan sonra!`,
-          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.emit('change',{type:'fix',targetId:te.id,targetName:te.title||''}); App.UI.toast('Taşındı'); } });
+          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.markDirty('events'); S.emit('change',{type:'fix',targetId:te.id,targetName:te.title||''}); App.UI.toast('Taşındı'); } });
     });
 
     // Overlaps
@@ -40,7 +40,7 @@ App.Analysis = (function(){
       for(let i=0;i<re.length;i++) for(let j=i+1;j<re.length;j++) {
         if(re[i]._lane===re[j]._lane && re[j].s < re[i].s+re[i].dur)
           warns.push({ tp:'overlap', id:re[i].id, id2:re[j].id, t:'Çakışma', d:`"${re[i].title}" ile "${re[j].title}" çakışıyor.`,
-            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.emit('change',{type:'fix',targetId:re[j].id,targetName:re[j].title||''}); App.UI.toast('Düzeltildi'); } });
+            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.markDirty('events'); S.emit('change',{type:'fix',targetId:re[j].id,targetName:re[j].title||''}); App.UI.toast('Düzeltildi'); } });
       }
     });
 

@@ -10,7 +10,7 @@ App.Notes = (function(){
   let _editingId = null;
 
   function init() {
-    if(!App.Sync || !App.Sync.isInRoom()) {
+    if(!_remoteRef) {
       try {
         const raw = localStorage.getItem(KEY);
         if(raw) _notes = JSON.parse(raw);
@@ -38,7 +38,7 @@ App.Notes = (function(){
       ts: Date.now(),
       edited: false
     };
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.child(note.id).set(note);
     } else {
       _notes.push(note);
@@ -52,7 +52,7 @@ App.Notes = (function(){
   function updateNote(id, newText) {
     newText = (newText || '').trim();
     if(!newText) return;
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.child(id).update({ text: newText, edited: true });
     } else {
       const n = _notes.find(n => n.id === id);
@@ -67,7 +67,7 @@ App.Notes = (function(){
     var _removedText = '';
     var _n = _notes.find(n => n.id === id);
     if(_n) _removedText = _n.text || '';
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.child(id).remove();
     } else {
       _notes = _notes.filter(n => n.id !== id);

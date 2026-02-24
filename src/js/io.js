@@ -177,6 +177,7 @@ App.IO = (function(){
       P.events.push(ev);
       perEpTime[ep]=s+dur+10;
     });
+    S.markAllDirty();
     S.emit('change',{type:'docx'});
     App.refresh();
     App.UI.toast(scenes.length+' sahne ayrıştırıldı');

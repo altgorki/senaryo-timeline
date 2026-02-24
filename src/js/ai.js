@@ -489,6 +489,7 @@ Kurallar:
     if(!sc || !_lastResponse) return;
     S.snapshot();
     sc.screenplay = (sc.screenplay || '') + '\n\n' + _lastResponse;
+    S.markDirty('scenes');
     S.emit('change', {type:'screenplay', sceneId});
     App.UI.toast('Senaryoya eklendi');
   }
@@ -499,6 +500,7 @@ Kurallar:
     if(!confirm('Mevcut senaryo metni AI yanıtıyla değiştirilecek. Emin misiniz?')) return;
     S.snapshot();
     sc.screenplay = _lastResponse;
+    S.markDirty('scenes');
     S.emit('change', {type:'screenplay', sceneId});
     App.UI.toast('Senaryo metni değiştirildi');
   }

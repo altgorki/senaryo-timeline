@@ -191,6 +191,7 @@ App.Screenplay = (function(){
       sceneId: sc.id, category: sc.category, characters: sc.characters||[],
       s: Math.max(0, s), dur: dur
     });
+    S.markDirty(['scenes','events']);
     S.emit('change', {type:'addScene',targetId:sc.id,targetName:sc.title||''});
     // Focus the first editable block after render
     setTimeout(() => {
@@ -217,6 +218,7 @@ App.Screenplay = (function(){
     sc.content.push(block);
     const bi = sc.content.length - 1;
     updateTimelineDuration(sc);
+    S.markDirty('scenes');
     S.emit('change', {type:'updateScene',targetId:scId,targetName:sc.title||''});
     // Focus the new block after render
     setTimeout(() => {
@@ -376,6 +378,7 @@ App.Screenplay = (function(){
     const P = S.get();
     const ev = P.events.find(e => e.sceneId === scId);
     if(ev) ev.characters = sc.characters.slice();
+    S.markDirty(['scenes','events']);
     S.emit('change', {type:'updateScene',targetId:scId,targetName:sc.title||''});
   }
 

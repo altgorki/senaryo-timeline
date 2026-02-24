@@ -161,6 +161,7 @@
     <div style="flex:1"></div>
     <div class="st-item st-warn" id="stWarn" onclick="App.Panels.togglePanel('warn')"></div>
     <div class="st-item" id="stSel"></div>
+    <div class="st-item" id="stSyncStatus" style="font-size:11px;"></div>
     <div class="st-item" id="stSync" style="display:none"></div>
   </div>
 </div>
@@ -383,6 +384,13 @@ App.Store = (function(){
   function on(evt, fn) { if(!listeners[evt]) listeners[evt]=[]; listeners[evt].push(fn); }
   function emit(evt, data) { (listeners[evt]||[]).forEach(fn => fn(data)); }
 
+  // Dirty collection tracking for per-collection saves
+  let _dirty = new Set();
+  function markDirty(col) { if(Array.isArray(col)) col.forEach(function(c){ _dirty.add(c); }); else _dirty.add(col); }
+  function getDirty() { return new Set(_dirty); }
+  function clearDirty() { _dirty.clear(); }
+  function markAllDirty() { ['events','scenes','episodes','connections','characters','categories'].forEach(function(c){ _dirty.add(c); }); }
+
   // Snapshot for undo
   function snapshot() {
     undoStack.push(U.deepClone(project));
@@ -393,12 +401,14 @@ App.Store = (function(){
     if(!undoStack.length) return;
     redoStack.push(U.deepClone(project));
     project = undoStack.pop();
+    markAllDirty();
     emit('change', {type:'undo'});
   }
   function redo() {
     if(!redoStack.length) return;
     undoStack.push(U.deepClone(project));
     project = redoStack.pop();
+    markAllDirty();
     emit('change', {type:'redo'});
   }
 
@@ -413,44 +423,45 @@ App.Store = (function(){
   // Episode helpers
   function getEpisodeIds() { return project.episodes.map(e=>e.id); }
   function getEpisode(id) { return project.episodes.find(e=>e.id===id); }
-  function addEpisode(ep) { snapshot(); project.episodes.push(ep); project.episodes.sort((a,b)=>a.order-b.order); emit('change',{type:'addEp',targetId:ep.id,targetName:ep.title||''}); }
-  function updateEpisode(id, data) { snapshot(); const ep=getEpisode(id); if(ep) Object.assign(ep,data); emit('change',{type:'updateEp',targetId:id,targetName:(ep&&ep.title)||''}); }
-  function removeEpisode(id) { snapshot(); const _n=(getEpisode(id)||{}).title||''; project.episodes=project.episodes.filter(e=>e.id!==id); project.scenes=project.scenes.filter(s=>s.episodeId!==id); project.events=project.events.filter(e=>e.episodeId!==id); emit('change',{type:'removeEp',targetId:id,targetName:_n}); }
+  function addEpisode(ep) { snapshot(); project.episodes.push(ep); project.episodes.sort((a,b)=>a.order-b.order); markDirty('episodes'); emit('change',{type:'addEp',targetId:ep.id,targetName:ep.title||''}); }
+  function updateEpisode(id, data) { snapshot(); const ep=getEpisode(id); if(ep) Object.assign(ep,data); markDirty('episodes'); emit('change',{type:'updateEp',targetId:id,targetName:(ep&&ep.title)||''}); }
+  function removeEpisode(id) { snapshot(); const _n=(getEpisode(id)||{}).title||''; project.episodes=project.episodes.filter(e=>e.id!==id); project.scenes=project.scenes.filter(s=>s.episodeId!==id); project.events=project.events.filter(e=>e.episodeId!==id); markDirty(['episodes','scenes','events']); emit('change',{type:'removeEp',targetId:id,targetName:_n}); }
 
   // Scene helpers
   function getScenes(epId) { return project.scenes.filter(s=>s.episodeId===epId).sort((a,b)=>a.order-b.order); }
   function getScene(id) { return project.scenes.find(s=>s.id===id); }
-  function addScene(sc) { snapshot(); project.scenes.push(sc); emit('change',{type:'addScene',targetId:sc.id,targetName:sc.title||''}); }
-  function updateScene(id, data) { snapshot(); const sc=getScene(id); if(sc) Object.assign(sc,data); emit('change',{type:'updateScene',targetId:id,targetName:(sc&&sc.title)||''}); }
-  function removeScene(id) { snapshot(); const _n=(getScene(id)||{}).title||''; project.scenes=project.scenes.filter(s=>s.id!==id); project.events=project.events.filter(e=>e.sceneId!==id); emit('change',{type:'removeScene',targetId:id,targetName:_n}); }
+  function addScene(sc) { snapshot(); project.scenes.push(sc); markDirty('scenes'); emit('change',{type:'addScene',targetId:sc.id,targetName:sc.title||''}); }
+  function updateScene(id, data) { snapshot(); const sc=getScene(id); if(sc) Object.assign(sc,data); markDirty('scenes'); emit('change',{type:'updateScene',targetId:id,targetName:(sc&&sc.title)||''}); }
+  function removeScene(id) { snapshot(); const _n=(getScene(id)||{}).title||''; project.scenes=project.scenes.filter(s=>s.id!==id); project.events=project.events.filter(e=>e.sceneId!==id); markDirty(['scenes','events']); emit('change',{type:'removeScene',targetId:id,targetName:_n}); }
 
   // Event helpers
   function getEvents(epId) { return epId ? project.events.filter(e=>e.episodeId===epId) : project.events; }
   function getEvent(id) { return project.events.find(e=>e.id===id); }
-  function addEvent(ev) { snapshot(); project.events.push(ev); emit('change',{type:'addEvent',targetId:ev.id,targetName:ev.title||''}); }
-  function updateEvent(id, data) { snapshot(); const ev=getEvent(id); if(ev) Object.assign(ev,data); emit('change',{type:'updateEvent',targetId:id,targetName:(ev&&ev.title)||''}); }
-  function removeEvent(id) { snapshot(); const _n=(getEvent(id)||{}).title||''; project.events=project.events.filter(e=>e.id!==id); project.connections=project.connections.filter(c=>c.from!==id&&c.to!==id); emit('change',{type:'removeEvent',targetId:id,targetName:_n}); }
+  function addEvent(ev) { snapshot(); project.events.push(ev); markDirty('events'); emit('change',{type:'addEvent',targetId:ev.id,targetName:ev.title||''}); }
+  function updateEvent(id, data) { snapshot(); const ev=getEvent(id); if(ev) Object.assign(ev,data); markDirty('events'); emit('change',{type:'updateEvent',targetId:id,targetName:(ev&&ev.title)||''}); }
+  function removeEvent(id) { snapshot(); const _n=(getEvent(id)||{}).title||''; project.events=project.events.filter(e=>e.id!==id); project.connections=project.connections.filter(c=>c.from!==id&&c.to!==id); markDirty(['events','connections']); emit('change',{type:'removeEvent',targetId:id,targetName:_n}); }
 
   // Connection helpers
   function getConnections(evId) { return evId ? project.connections.filter(c=>c.from===evId||c.to===evId) : project.connections; }
-  function addConnection(cn) { snapshot(); if(!project.connections.some(c=>c.from===cn.from&&c.to===cn.to&&c.type===cn.type)){project.connections.push(cn);} emit('change',{type:'addCn'}); }
-  function removeConnection(from,to,type) { snapshot(); project.connections=project.connections.filter(c=>!(c.from===from&&c.to===to&&c.type===type)); emit('change',{type:'removeCn'}); }
+  function addConnection(cn) { snapshot(); if(!project.connections.some(c=>c.from===cn.from&&c.to===cn.to&&c.type===cn.type)){project.connections.push(cn);} markDirty('connections'); emit('change',{type:'addCn'}); }
+  function removeConnection(from,to,type) { snapshot(); project.connections=project.connections.filter(c=>!(c.from===from&&c.to===to&&c.type===type)); markDirty('connections'); emit('change',{type:'removeCn'}); }
 
   // Character helpers
   function getCharacters() { return project.characters; }
-  function addCharacter(ch) { snapshot(); project.characters.push(ch); emit('change',{type:'addChar',targetName:ch.name||''}); }
-  function removeCharacter(id) { snapshot(); const _n=(project.characters.find(c=>c.id===id)||{}).name||''; project.characters=project.characters.filter(c=>c.id!==id); emit('change',{type:'removeChar',targetName:_n}); }
+  function addCharacter(ch) { snapshot(); project.characters.push(ch); markDirty('characters'); emit('change',{type:'addChar',targetName:ch.name||''}); }
+  function removeCharacter(id) { snapshot(); const _n=(project.characters.find(c=>c.id===id)||{}).name||''; project.characters=project.characters.filter(c=>c.id!==id); markDirty('characters'); emit('change',{type:'removeChar',targetName:_n}); }
 
   // Category helpers
   function getCategories() { return project.categories; }
-  function addCategory(key, data) { snapshot(); project.categories[key]=data; emit('change',{type:'addCat',targetName:key}); }
-  function removeCategory(key) { snapshot(); delete project.categories[key]; emit('change',{type:'removeCat',targetName:key}); }
+  function addCategory(key, data) { snapshot(); project.categories[key]=data; markDirty('categories'); emit('change',{type:'addCat',targetName:key}); }
+  function removeCategory(key) { snapshot(); delete project.categories[key]; markDirty('categories'); emit('change',{type:'removeCat',targetName:key}); }
 
   // Batch update without multiple snapshots
-  function batch(fn) { snapshot(); fn(); emit('change',{type:'batch'}); }
+  function batch(fn) { snapshot(); fn(); markAllDirty(); emit('change',{type:'batch'}); }
 
   return {
     on, emit, snapshot, undo, redo, get, set, getPPS, getEPDUR, getEPPX, getSnap, setSnap,
+    markDirty, getDirty, clearDirty, markAllDirty,
     getEpisodeIds, getEpisode, addEpisode, updateEpisode, removeEpisode,
     getScenes, getScene, addScene, updateScene, removeScene,
     getEvents, getEvent, addEvent, updateEvent, removeEvent,
@@ -921,15 +932,36 @@ App.AutoSave = (function(){
   let _timer = null;
   function save() {
     if(_timer) clearTimeout(_timer);
-    _timer = setTimeout(_doSave, 2000);
+    _showSyncing();
+    _timer = setTimeout(_doSave, 500);
   }
   function _doSave() {
     _timer = null;
     if(App.Projects && App.Projects.getCurrentId() && App.Projects.canEdit()) {
       App.Projects.save();
     }
+    _showSynced();
   }
-  function clear() {}
+  function _showSyncing() {
+    var el = document.getElementById('syncStatusText');
+    if(el) el.textContent = 'Kaydediliyor...';
+    var st = document.getElementById('stSyncStatus');
+    if(st) { st.textContent = 'Kaydediliyor...'; st.style.color = 'var(--yellow)'; }
+  }
+  function _showSynced() {
+    var el = document.getElementById('syncStatusText');
+    if(el) el.textContent = 'Kaydedildi';
+    var st = document.getElementById('stSyncStatus');
+    if(st) { st.textContent = 'Kaydedildi'; st.style.color = 'var(--green)'; }
+    // Clear "Kaydedildi" after 3 seconds
+    setTimeout(function() {
+      var el2 = document.getElementById('syncStatusText');
+      if(el2 && el2.textContent === 'Kaydedildi') el2.textContent = '';
+      var st2 = document.getElementById('stSyncStatus');
+      if(st2 && st2.textContent === 'Kaydedildi') st2.textContent = '';
+    }, 3000);
+  }
+  function clear() { if(_timer) clearTimeout(_timer); _timer = null; }
   return { save, clear };
 })();
 
@@ -1025,19 +1057,24 @@ App.Projects = (function(){
     });
   }
 
-  // ── Proje kaydet (debounced, Store change'de çağrılır) ──
+  // ── Proje kaydet (debounced, Store change'de çağrılır — sadece dirty koleksiyonları yazar) ──
   function save() {
     if(!_currentId || !canEdit()) return;
     const P = S.get();
+    const dirty = S.getDirty();
+    if(!dirty.size) return;
+    S.clearDirty();
     const ref = firebase.database().ref('projects/' + _currentId);
-    ref.child('data').update({
-      categories: P.categories,
-      characters: _arrayToKeyed(P.characters),
-      episodes: _arrayToKeyed(P.episodes),
-      scenes: _arrayToKeyed(P.scenes),
-      events: _arrayToKeyed(P.events),
-      connections: _arrayToKeyed(P.connections)
-    });
+    const dataUpdate = {};
+    if(dirty.has('categories')) dataUpdate.categories = P.categories;
+    if(dirty.has('characters')) dataUpdate.characters = _arrayToKeyed(P.characters);
+    if(dirty.has('episodes')) dataUpdate.episodes = _arrayToKeyed(P.episodes);
+    if(dirty.has('scenes')) dataUpdate.scenes = _arrayToKeyed(P.scenes);
+    if(dirty.has('events')) dataUpdate.events = _arrayToKeyed(P.events);
+    if(dirty.has('connections')) dataUpdate.connections = _arrayToKeyed(P.connections);
+    if(Object.keys(dataUpdate).length) {
+      ref.child('data').update(dataUpdate);
+    }
     ref.child('meta').update({ title: P.meta.title, author: P.meta.author, settings: P.meta.settings, updatedAt: firebase.database.ServerValue.TIMESTAMP });
     const uid = App.Auth.getCurrentUser().uid;
     firebase.database().ref('userProjects/' + uid + '/' + _currentId).update({ title: P.meta.title, updatedAt: firebase.database.ServerValue.TIMESTAMP });
@@ -1081,9 +1118,15 @@ App.Projects = (function(){
       _membersCache = snap.val() || {};
     });
     _projectDataListeners.push({ ref: membersRef, fn: membersFn });
+    // Changelog & Notes remote listeners
+    var dataRef = firebase.database().ref('projects/' + projectId + '/data');
+    if(App.Changelog && App.Changelog.setupRemoteListener) App.Changelog.setupRemoteListener(dataRef);
+    if(App.Notes && App.Notes.setupRemoteListener) App.Notes.setupRemoteListener(dataRef);
   }
 
   function _teardownProjectListeners() {
+    if(App.Changelog && App.Changelog.teardownRemoteListener) App.Changelog.teardownRemoteListener();
+    if(App.Notes && App.Notes.teardownRemoteListener) App.Notes.teardownRemoteListener();
     _projectDataListeners.forEach(l => { if(l.fn) l.ref.off('value', l.fn); else l.ref.off(); });
     _projectDataListeners = [];
   }
@@ -1840,6 +1883,7 @@ App.Screenplay = (function(){
       sceneId: sc.id, category: sc.category, characters: sc.characters||[],
       s: Math.max(0, s), dur: dur
     });
+    S.markDirty(['scenes','events']);
     S.emit('change', {type:'addScene',targetId:sc.id,targetName:sc.title||''});
     // Focus the first editable block after render
     setTimeout(() => {
@@ -1866,6 +1910,7 @@ App.Screenplay = (function(){
     sc.content.push(block);
     const bi = sc.content.length - 1;
     updateTimelineDuration(sc);
+    S.markDirty('scenes');
     S.emit('change', {type:'updateScene',targetId:scId,targetName:sc.title||''});
     // Focus the new block after render
     setTimeout(() => {
@@ -2025,6 +2070,7 @@ App.Screenplay = (function(){
     const P = S.get();
     const ev = P.events.find(e => e.sceneId === scId);
     if(ev) ev.characters = sc.characters.slice();
+    S.markDirty(['scenes','events']);
     S.emit('change', {type:'updateScene',targetId:scId,targetName:sc.title||''});
   }
 
@@ -2813,6 +2859,7 @@ App.ScreenplayEditor = (function(){
       sc.content = newContent;
     });
 
+    S.markDirty('scenes');
     S.emit('change', {type: 'screenplay-editor'});
   }
 
@@ -2899,6 +2946,7 @@ App.ScreenplayEditor = (function(){
       s: Math.max(0, Math.min(lastEnd + 10, S.getEPDUR() - 60)), dur: 60
     });
 
+    S.markDirty(['scenes','events']);
     S.emit('change', {type: 'screenplay-editor'});
     buildFromState();
     render();
@@ -2949,6 +2997,9 @@ App.ScreenplayEditor = (function(){
     if (field === 'category') {
       const P = S.get();
       P.events.filter(e => e.sceneId === sceneId).forEach(e => { e.category = value; });
+      S.markDirty(['scenes','events']);
+    } else {
+      S.markDirty('scenes');
     }
 
     S.emit('change', {type: 'screenplay-editor'});
@@ -2967,6 +3018,7 @@ App.ScreenplayEditor = (function(){
     P.episodes.sort((a, b) => a.order - b.order);
 
     // Don't emit yet — addSceneInEditor will emit and rebuild (skip snapshot — we already took one)
+    S.markDirty('episodes');
     addSceneInEditor(null, ep.id, true);
   }
 
@@ -3476,6 +3528,7 @@ App.Panels = (function(){
       });
       ev.sceneId = scId;
     }
+    S.markDirty(['events','scenes']);
     S.emit('change', {type:'updateEvent',targetId:ev.id,targetName:ev.title||''});
     closeAll();
     App.UI.toast('"' + ev.title + '" güncellendi');
@@ -3644,6 +3697,7 @@ App.Panels = (function(){
       id: evId, title: t, description: ozet, episodeId: epId, category: cat,
       characters: ch, sceneId: scId, s: sVal, dur: durVal
     });
+    S.markDirty(['events','scenes']);
     S.emit('change', {type:'addEvent',targetId:evId,targetName:t});
     App.UI.closeModal();
     App.UI.toast('"' + t + '" eklendi');
@@ -3802,6 +3856,7 @@ App.Panels = (function(){
       const keyInp = document.getElementById('sAIKey');
       if(keyInp && keyInp.value && keyInp.value !== '********') App.AI.setKey(App.AI.getProvider(), keyInp.value.trim());
     }
+    S.markDirty(['categories','characters']);
     S.emit('change', {type:'settings'});
     App.UI.closeModal();
     document.getElementById('projTitle').textContent = P.meta.title;
@@ -3831,7 +3886,7 @@ App.Analysis = (function(){
       if(ev.s + ev.dur > EPDUR + 5) {
         const ep = P.episodes.find(e=>e.id===ev.episodeId);
         warns.push({ tp:'overflow', id:ev.id, t:'Süre Taşması', d:`"${ev.title}" (${U.epLbl(ep?.number||'?')}) bölüm süresini aşıyor.`,
-          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.emit('change',{type:'fix',targetId:ev.id,targetName:ev.title||''}); App.UI.toast('Düzeltildi'); } });
+          fix:()=>{ S.snapshot(); ev.dur = EPDUR - ev.s; S.markDirty('events'); S.emit('change',{type:'fix',targetId:ev.id,targetName:ev.title||''}); App.UI.toast('Düzeltildi'); } });
       }
     });
 
@@ -3845,7 +3900,7 @@ App.Analysis = (function(){
       const tAbs = (epOrder[te.episodeId]||0) * EPDUR + te.s;
       if(fAbs > tAbs + 30)
         warns.push({ tp:'dep', id:cn.from, id2:cn.to, t:'Bağımlılık Hatası', d:`"${fe.title}" → "${te.title}": Neden, sonuçtan sonra!`,
-          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.emit('change',{type:'fix',targetId:te.id,targetName:te.title||''}); App.UI.toast('Taşındı'); } });
+          fix:()=>{ S.snapshot(); const newAbs=fAbs+60; const eps=P.episodes; const newEpIdx=Math.min(Math.floor(newAbs/EPDUR),eps.length-1); te.episodeId=eps[newEpIdx].id; te.s=Math.min(newAbs%EPDUR,EPDUR-te.dur); S.markDirty('events'); S.emit('change',{type:'fix',targetId:te.id,targetName:te.title||''}); App.UI.toast('Taşındı'); } });
     });
 
     // Overlaps
@@ -3854,7 +3909,7 @@ App.Analysis = (function(){
       for(let i=0;i<re.length;i++) for(let j=i+1;j<re.length;j++) {
         if(re[i]._lane===re[j]._lane && re[j].s < re[i].s+re[i].dur)
           warns.push({ tp:'overlap', id:re[i].id, id2:re[j].id, t:'Çakışma', d:`"${re[i].title}" ile "${re[j].title}" çakışıyor.`,
-            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.emit('change',{type:'fix',targetId:re[j].id,targetName:re[j].title||''}); App.UI.toast('Düzeltildi'); } });
+            fix:()=>{ S.snapshot(); re[j].s=re[i].s+re[i].dur; S.markDirty('events'); S.emit('change',{type:'fix',targetId:re[j].id,targetName:re[j].title||''}); App.UI.toast('Düzeltildi'); } });
       }
     });
 
@@ -4143,7 +4198,7 @@ App.Changelog = (function(){
   };
 
   function init() {
-    if(!App.Sync || !App.Sync.isInRoom()) {
+    if(!_remoteRef) {
       try {
         const raw = localStorage.getItem(KEY);
         if(raw) _entries = JSON.parse(raw);
@@ -4169,7 +4224,7 @@ App.Changelog = (function(){
       desc: desc
     };
 
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.push(entry);
     } else {
       _entries.push(entry);
@@ -4259,7 +4314,7 @@ App.Notes = (function(){
   let _editingId = null;
 
   function init() {
-    if(!App.Sync || !App.Sync.isInRoom()) {
+    if(!_remoteRef) {
       try {
         const raw = localStorage.getItem(KEY);
         if(raw) _notes = JSON.parse(raw);
@@ -4287,7 +4342,7 @@ App.Notes = (function(){
       ts: Date.now(),
       edited: false
     };
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.child(note.id).set(note);
     } else {
       _notes.push(note);
@@ -4301,7 +4356,7 @@ App.Notes = (function(){
   function updateNote(id, newText) {
     newText = (newText || '').trim();
     if(!newText) return;
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.child(id).update({ text: newText, edited: true });
     } else {
       const n = _notes.find(n => n.id === id);
@@ -4316,7 +4371,7 @@ App.Notes = (function(){
     var _removedText = '';
     var _n = _notes.find(n => n.id === id);
     if(_n) _removedText = _n.text || '';
-    if(App.Sync && App.Sync.isInRoom() && _remoteRef) {
+    if(_remoteRef) {
       _remoteRef.child(id).remove();
     } else {
       _notes = _notes.filter(n => n.id !== id);
@@ -4902,6 +4957,7 @@ Kurallar:
     if(!sc || !_lastResponse) return;
     S.snapshot();
     sc.screenplay = (sc.screenplay || '') + '\n\n' + _lastResponse;
+    S.markDirty('scenes');
     S.emit('change', {type:'screenplay', sceneId});
     App.UI.toast('Senaryoya eklendi');
   }
@@ -4912,6 +4968,7 @@ Kurallar:
     if(!confirm('Mevcut senaryo metni AI yanıtıyla değiştirilecek. Emin misiniz?')) return;
     S.snapshot();
     sc.screenplay = _lastResponse;
+    S.markDirty('scenes');
     S.emit('change', {type:'screenplay', sceneId});
     App.UI.toast('Senaryo metni değiştirildi');
   }
@@ -5327,6 +5384,7 @@ App.IO = (function(){
       P.events.push(ev);
       perEpTime[ep]=s+dur+10;
     });
+    S.markAllDirty();
     S.emit('change',{type:'docx'});
     App.refresh();
     App.UI.toast(scenes.length+' sahne ayrıştırıldı');
@@ -5568,6 +5626,7 @@ App.setViewMode = function(mode) {
 
 // ═══ REFRESH ═══
 App.refresh = function() {
+  App._pendingRemoteRefresh = false;
   App.Analysis.invalidateCache();
   // Kullanıcı bir input/textarea/contenteditable alanında yazıyorsa ağır render'ları atla
   var _ae = document.activeElement;
@@ -5607,8 +5666,9 @@ App.refresh = function() {
       // Kullanıcı bir input/textarea/contenteditable alanında yazıyorsa render'ları atla
       var _ae = document.activeElement;
       var _isEditing = _ae && (_ae.tagName === 'TEXTAREA' || _ae.tagName === 'INPUT' || _ae.isContentEditable);
-      // Remote değişikliklerde kullanıcı yazıyorsa tüm ağır render'ları atla
+      // Remote değişikliklerde kullanıcı yazıyorsa render'ları kuyruğa al
       if(isRemote && _isEditing) {
+        App._pendingRemoteRefresh = true;
         App.UI.updateStatusBar();
         return;
       }
@@ -5629,14 +5689,22 @@ App.refresh = function() {
           App.Panels.renderPanel();
         }
       }
-      // AutoSave (Firebase'e yazma)
-      if(App.AutoSave) App.AutoSave.save();
+      // AutoSave (Firebase'e yazma) — remote değişikliklerde tekrar yazmayı engelle
+      if(App.AutoSave && !isRemote) App.AutoSave.save();
       if(App.Changelog) App.Changelog.addEntry(data);
     });
 
     App.Interaction.setup();
     if(App.Changelog) App.Changelog.init();
     if(App.Notes) App.Notes.init();
+
+    // focusout: kullanıcı yazmayı bırakınca bekleyen remote değişiklikleri uygula
+    document.addEventListener('focusout', function() {
+      if(App._pendingRemoteRefresh) {
+        App._pendingRemoteRefresh = false;
+        setTimeout(function() { App.refresh(); }, 100);
+      }
+    }, true);
 
     // AUTH STATE OBSERVER — tüm akışı kontrol eder
     firebase.auth().onAuthStateChanged(user => {

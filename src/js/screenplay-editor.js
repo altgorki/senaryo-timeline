@@ -531,6 +531,7 @@ App.ScreenplayEditor = (function(){
       sc.content = newContent;
     });
 
+    S.markDirty('scenes');
     S.emit('change', {type: 'screenplay-editor'});
   }
 
@@ -617,6 +618,7 @@ App.ScreenplayEditor = (function(){
       s: Math.max(0, Math.min(lastEnd + 10, S.getEPDUR() - 60)), dur: 60
     });
 
+    S.markDirty(['scenes','events']);
     S.emit('change', {type: 'screenplay-editor'});
     buildFromState();
     render();
@@ -667,6 +669,9 @@ App.ScreenplayEditor = (function(){
     if (field === 'category') {
       const P = S.get();
       P.events.filter(e => e.sceneId === sceneId).forEach(e => { e.category = value; });
+      S.markDirty(['scenes','events']);
+    } else {
+      S.markDirty('scenes');
     }
 
     S.emit('change', {type: 'screenplay-editor'});
@@ -685,6 +690,7 @@ App.ScreenplayEditor = (function(){
     P.episodes.sort((a, b) => a.order - b.order);
 
     // Don't emit yet — addSceneInEditor will emit and rebuild (skip snapshot — we already took one)
+    S.markDirty('episodes');
     addSceneInEditor(null, ep.id, true);
   }
 
