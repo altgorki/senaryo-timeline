@@ -634,7 +634,7 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
     </div>
     <div class="tba">
       <span class="readonly-badge">Sadece Okuma</span>
-      <div class="user-info" id="userInfo" style="display:none;">
+      <div class="user-info" id="userInfo" style="display:none;cursor:pointer;" onclick="App.Auth.openProfileModal()" title="Profili düzenle">
         <div class="user-avatar" id="userAvatar"></div>
         <span id="userDisplayName"></span>
       </div>
@@ -1032,6 +1032,72 @@ App.Auth = (function(){
 
   function getCurrentUser() { return firebase.auth().currentUser; }
 
+  function openProfileModal() {
+    const user = firebase.auth().currentUser;
+    if(!user) return;
+    const name = user.displayName || '';
+    const email = user.email || '';
+    const created = user.metadata && user.metadata.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString('tr-TR', {day:'numeric',month:'long',year:'numeric'}) : '-';
+    const avatar = (name || email || '?').charAt(0).toUpperCase();
+
+    App.UI.openModal(`<div class="mh"><span>Profil Düzenle</span><button class="close-btn" onclick="App.UI.closeModal()">✕</button></div>
+      <div class="mb" style="padding:20px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:var(--blue);color:#fff;font-size:22px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${avatar}</div>
+        </div>
+        <div class="fg" style="margin-bottom:12px;">
+          <label style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Ad</label>
+          <input type="text" id="profileName" value="${App.Utils.escHtml(name)}" placeholder="Adınız" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;" />
+        </div>
+        <div class="fg" style="margin-bottom:12px;">
+          <label style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">E-posta</label>
+          <div style="padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg);color:var(--tx3);font-size:13px;">${App.Utils.escHtml(email)}</div>
+        </div>
+        <div class="fg" style="margin-bottom:4px;">
+          <label style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Kayıt Tarihi</label>
+          <div style="padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg);color:var(--tx3);font-size:13px;">${created}</div>
+        </div>
+      </div>
+      <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Auth.saveProfile(document.getElementById('profileName').value)">Kaydet</button></div>`);
+  }
+
+  function saveProfile(newName) {
+    newName = (newName || '').trim();
+    if(!newName) { App.UI.toast('Ad boş olamaz'); return; }
+    const user = firebase.auth().currentUser;
+    if(!user) return;
+    const oldName = user.displayName || '';
+    if(newName === oldName) { App.UI.closeModal(); return; }
+
+    // 1. Firebase Auth profilini güncelle
+    user.updateProfile({ displayName: newName }).then(() => {
+      // 2. users/$uid/profile güncelle
+      firebase.database().ref('users/' + user.uid + '/profile/displayName').set(newName);
+
+      // 3. Açık projedeki members kaydını güncelle
+      if(App.Projects && App.Projects.getCurrentId) {
+        const pid = App.Projects.getCurrentId();
+        if(pid) {
+          firebase.database().ref('projects/' + pid + '/members/' + user.uid + '/displayName').set(newName);
+        }
+      }
+
+      // 4. Topbar'ı güncelle
+      var avatarEl = document.getElementById('userAvatar');
+      var nameEl = document.getElementById('userDisplayName');
+      if(avatarEl) avatarEl.textContent = newName.charAt(0).toUpperCase();
+      if(nameEl) nameEl.textContent = newName;
+
+      // 5. Günlüğe kaydet
+      if(App.Changelog) App.Changelog.addEntry({type:'updateProfile', targetName: newName});
+
+      App.UI.closeModal();
+      App.UI.toast('Profil güncellendi');
+    }).catch(err => {
+      App.UI.toast('Hata: ' + err.message);
+    });
+  }
+
   function _translateError(code) {
     const map = {
       'auth/email-already-in-use': 'Bu e-posta zaten kayıtlı',
@@ -1045,7 +1111,7 @@ App.Auth = (function(){
     return map[code] || ('Hata: ' + code);
   }
 
-  return { switchTab, showLoginScreen, doRegister, doLogin, logout, getCurrentUser };
+  return { switchTab, showLoginScreen, doRegister, doLogin, logout, getCurrentUser, openProfileModal, saveProfile };
 })();
 
 // ═══ AUTOSAVE MODULE ═══
@@ -1503,7 +1569,7 @@ App.Projects = (function(){
     const bar = document.createElement('div');
     bar.id = 'psUserBar';
     bar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--brd);';
-    bar.innerHTML = '<div class="user-avatar">' + (user.displayName||user.email||'?').charAt(0).toUpperCase() + '</div><span style="flex:1;font-size:13px;color:var(--tx);">' + U.escHtml(user.displayName || user.email) + '</span><button class="btn btn-s" onclick="App.Auth.logout()">Çıkış</button>';
+    bar.innerHTML = '<div class="user-avatar" style="cursor:pointer;" onclick="App.Auth.openProfileModal()" title="Profili düzenle">' + (user.displayName||user.email||'?').charAt(0).toUpperCase() + '</div><span style="flex:1;font-size:13px;color:var(--tx);cursor:pointer;" onclick="App.Auth.openProfileModal()" title="Profili düzenle">' + U.escHtml(user.displayName || user.email) + '</span><button class="btn btn-s" onclick="App.Auth.logout()">Çıkış</button>';
     header.after(bar);
   }
 
@@ -4455,7 +4521,8 @@ App.Changelog = (function(){
     addCat:'Kategori eklendi', removeCat:'Kategori silindi',
     batch:'Toplu güncelleme', settings:'Ayarlar değiştirildi',
     docx:'DOCX dışa aktarıldı', fix:'Düzeltme uygulandı',
-    addNote:'Not eklendi', updateNote:'Not düzenlendi', removeNote:'Not silindi'
+    addNote:'Not eklendi', updateNote:'Not düzenlendi', removeNote:'Not silindi',
+    updateProfile:'Profil güncellendi'
   };
 
   function init() {
