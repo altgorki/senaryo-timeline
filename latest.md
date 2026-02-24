@@ -69,6 +69,15 @@ Bu dosyalar sayesinde diğer PC'den `firebase deploy --only database` ile kurall
 
 Plan'da `sendInvite()`'da `.toLowerCase()` eksik deniyordu ama incelemede satır 1299'da email zaten lowercase yapılıyordu. Ek değişiklik gerekmedi.
 
+### 7. Firebase Hosting Eklendi
+
+- `firebase.json`'a `hosting` yapılandırması eklendi (`"public": "public"`)
+- `public/` dizini oluşturuldu, sadece `index.html` kopyalandı
+- `.gitignore`'a `.firebase/` eklendi (cache dizini)
+- Deploy edildi: **https://senaryo-7e7fb.web.app**
+
+**Not:** `index.html` düzenlendiğinde `public/index.html` de güncellenmelidir (veya deploy öncesi kopyalanmalıdır).
+
 ---
 
 ## Yapılmayan / Kontrol Edilmemiş
@@ -116,6 +125,7 @@ Plan'da `sendInvite()`'da `.toLowerCase()` eksik deniyordu ama incelemede satır
 | Real-time listeners | ✅ |
 | Presence sistemi | ✅ |
 | Firebase kuralları | ✅ (deploy edildi) |
+| Firebase Hosting | ✅ (https://senaryo-7e7fb.web.app) |
 
 ---
 
@@ -211,5 +221,14 @@ npm install -g firebase-tools   # Firebase CLI yoksa
 firebase login                  # Giriş yap
 firebase deploy --only database # Kuralları deploy et (zaten deploy edildi ama emin olmak için)
 ```
+
+### Hosting Deploy
+
+```bash
+cp index.html public/index.html  # Ana dosyayı public'e kopyala
+firebase deploy --only hosting   # Hosting'i deploy et
+```
+
+**Canlı URL:** https://senaryo-7e7fb.web.app
 
 Tüm değişiklikler `index.html` içinde. Firebase kuralları hem `database.rules.json` dosyasında hem de `index.html` içindeki yorum bloğunda mevcut.
