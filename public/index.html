@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Senaryo Timeline Editörü</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <!-- Firebase Realtime Database (Gerçek Zamanlı İşbirliği) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" integrity="sha384-sEVIly94UBRLKWdkYoPpSG7GD/e79YHMrxVyZaOk712Ga7+EAw6w1EFi+xBzBdd+" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js" integrity="sha384-1/m+A1jVWbD3yiK3/vtFvm1+LjK1WLpSoDY+Kaxppwn/yP9BVSgdHTNQVOjrzUO5" crossorigin="anonymous"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -1053,9 +1053,23 @@ App.Auth = (function(){
           <label style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">E-posta</label>
           <div style="padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg);color:var(--tx3);font-size:13px;">${App.Utils.escHtml(email)}</div>
         </div>
-        <div class="fg" style="margin-bottom:4px;">
+        <div class="fg" style="margin-bottom:16px;">
           <label style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Kayıt Tarihi</label>
           <div style="padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg);color:var(--tx3);font-size:13px;">${created}</div>
+        </div>
+        <div style="border-top:1px solid var(--brd);padding-top:14px;margin-top:4px;">
+          <label style="font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">Şifre Değiştir</label>
+          <div class="fg" style="margin-bottom:8px;">
+            <input type="password" id="profileCurrentPass" placeholder="Mevcut şifre" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;" />
+          </div>
+          <div class="fg" style="margin-bottom:8px;">
+            <input type="password" id="profileNewPass" placeholder="Yeni şifre (min 6 karakter)" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;" />
+          </div>
+          <div class="fg" style="margin-bottom:4px;">
+            <input type="password" id="profileNewPass2" placeholder="Yeni şifre (tekrar)" style="width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--brd);background:var(--bg3);color:var(--tx);font-family:inherit;font-size:13px;outline:none;" />
+          </div>
+          <div id="profilePassError" style="color:var(--red);font-size:11px;min-height:16px;margin-top:4px;"></div>
+          <button class="btn btn-s" onclick="App.Auth.changePassword()" style="margin-top:4px;">Şifreyi Güncelle</button>
         </div>
       </div>
       <div class="mf"><button class="btn" onclick="App.UI.closeModal()">İptal</button><button class="btn btn-p" onclick="App.Auth.saveProfile(document.getElementById('profileName').value)">Kaydet</button></div>`);
@@ -1098,6 +1112,37 @@ App.Auth = (function(){
     });
   }
 
+  function changePassword() {
+    const user = firebase.auth().currentUser;
+    if(!user) return;
+    const errEl = document.getElementById('profilePassError');
+    const current = (document.getElementById('profileCurrentPass').value || '').trim();
+    const newPass = (document.getElementById('profileNewPass').value || '').trim();
+    const newPass2 = (document.getElementById('profileNewPass2').value || '').trim();
+
+    errEl.textContent = '';
+    if(!current) { errEl.textContent = 'Mevcut şifreyi girin'; return; }
+    if(!newPass) { errEl.textContent = 'Yeni şifreyi girin'; return; }
+    if(newPass.length < 6) { errEl.textContent = 'Yeni şifre en az 6 karakter olmalı'; return; }
+    if(newPass !== newPass2) { errEl.textContent = 'Yeni şifreler eşleşmiyor'; return; }
+    if(current === newPass) { errEl.textContent = 'Yeni şifre eskisiyle aynı olamaz'; return; }
+
+    const credential = firebase.auth.EmailAuthProvider.credential(user.email, current);
+    user.reauthenticateWithCredential(credential).then(() => {
+      return user.updatePassword(newPass);
+    }).then(() => {
+      document.getElementById('profileCurrentPass').value = '';
+      document.getElementById('profileNewPass').value = '';
+      document.getElementById('profileNewPass2').value = '';
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Şifre başarıyla değiştirildi!';
+      App.UI.toast('Şifre güncellendi');
+    }).catch(err => {
+      errEl.style.color = 'var(--red)';
+      errEl.textContent = _translateError(err.code);
+    });
+  }
+
   function _translateError(code) {
     const map = {
       'auth/email-already-in-use': 'Bu e-posta zaten kayıtlı',
@@ -1106,12 +1151,14 @@ App.Auth = (function(){
       'auth/user-not-found': 'Kullanıcı bulunamadı',
       'auth/wrong-password': 'Yanlış parola',
       'auth/too-many-requests': 'Çok fazla deneme, lütfen bekleyin',
-      'auth/invalid-credential': 'Geçersiz kimlik bilgileri'
+      'auth/invalid-credential': 'Geçersiz kimlik bilgileri',
+      'auth/wrong-password': 'Mevcut şifre yanlış',
+      'auth/requires-recent-login': 'Lütfen çıkış yapıp tekrar giriş yapın'
     };
     return map[code] || ('Hata: ' + code);
   }
 
-  return { switchTab, showLoginScreen, doRegister, doLogin, logout, getCurrentUser, openProfileModal, saveProfile };
+  return { switchTab, showLoginScreen, doRegister, doLogin, logout, getCurrentUser, openProfileModal, saveProfile, changePassword };
 })();
 
 // ═══ AUTOSAVE MODULE ═══
@@ -1729,7 +1776,7 @@ App.Timeline = (function(){
       const hdr = document.createElement('div');
       hdr.className = 'ep-hdr'; hdr.style.width = colW + 'px';
       const epDurTotal = colEvs.reduce((s,e) => Math.max(s, e.s+e.dur), 0);
-      hdr.innerHTML = `<div class="num">${ep.number==='fb'?'FB':ep.number}</div><div class="sub">${ep.title||((ep.number==='fb')?'Flashback':'Bölüm')}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
+      hdr.innerHTML = `<div class="num">${ep.number==='fb'?'FB':ep.number}</div><div class="sub">${U.escHtml(ep.title||((ep.number==='fb')?'Flashback':'Bölüm'))}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
       col.appendChild(hdr);
 
       const body = document.createElement('div');
@@ -3605,7 +3652,7 @@ App.Panels = (function(){
         <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${v.label}</option>`).join('')}</select></div>
         <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
         <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
-        <div class="fg"><label>Karakterler</label><div class="chw">${P.characters.map(c=>`<label class="chcb"><input type="checkbox" value="${c.id}"${(ev.characters||[]).includes(c.id)?' checked':''}>${c.name}</label>`).join('')}</div></div>
+        <div class="fg"><label>Karakterler</label><div class="chw">${P.characters.map(c=>`<label class="chcb"><input type="checkbox" value="${c.id}"${(ev.characters||[]).includes(c.id)?' checked':''}>${U.escHtml(c.name)}</label>`).join('')}</div></div>
         <div class="epc"><label style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500">Bağlantılar (${cns.length})</label>
           ${cns.map(c=>{const o=c.from===editId?S.getEvent(c.to):S.getEvent(c.from);return `<div class="eci"><span>${c.from===editId?'→':'←'} ${o?U.escHtml(o.title):'?'} (${tl[c.type]||c.type})</span><button class="btn btn-s" style="color:var(--red)" onclick="App.Panels.rmCn('${c.from}','${c.to}','${c.type}')">✕</button></div>`;}).join('')}
           <button class="btn btn-s" style="margin-top:6px" onclick="App.Panels.openAddConnection('${editId}')">+ Bağlantı</button>
@@ -4754,7 +4801,7 @@ App.Notes = (function(){
         const isMine = n.author === myName;
         h += '<div class="note-item" data-note-id="' + n.id + '">';
         h += '<div class="note-hdr">';
-        h += '<span class="note-author" style="color:' + (n.authorColor || 'var(--tx)') + '">' + U.escHtml(n.author) + '</span>';
+        h += '<span class="note-author" style="color:' + U.sanitizeColor(n.authorColor || 'var(--tx)') + '">' + U.escHtml(n.author) + '</span>';
         h += '<span class="note-time">' + date + ' ' + time + (n.edited ? ' (düzenlendi)' : '') + '</span>';
         if(isMine) {
           h += '<div class="note-actions">';
