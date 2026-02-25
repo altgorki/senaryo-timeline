@@ -242,6 +242,7 @@ App.Screenplay = (function(){
     sc.content[bi].text = text;
     // Update timeline duration silently (no full re-render to preserve editing)
     updateTimelineDuration(sc);
+    S.markDirty(['scenes','events']);
     // Only update timeline + status, NOT screenplay panel (to preserve focus)
     App.Analysis.invalidateCache();
     App.Timeline.render();
@@ -263,6 +264,7 @@ App.Screenplay = (function(){
       if(field === 'title') ev.title = value;
       if(field === 'category') ev.category = value;
     }
+    S.markDirty(ev && (field === 'title' || field === 'category') ? ['scenes','events'] : ['scenes']);
     // Re-render timeline + status but NOT screenplay (preserve editing)
     App.Analysis.invalidateCache();
     App.Timeline.render();
@@ -343,6 +345,7 @@ App.Screenplay = (function(){
       if(!sc.characters.includes(cid)) { sc.characters.push(cid); changed = true; }
     });
     updateTimelineDuration(sc);
+    S.markDirty(['scenes','events']);
     App.Analysis.invalidateCache();
     App.Timeline.render();
     App.UI.updateStatusBar();
@@ -525,6 +528,7 @@ App.Screenplay = (function(){
           }
           charRow.innerHTML = html;
         }
+        S.markDirty(['scenes','events']);
         App.Analysis.invalidateCache();
         App.Timeline.render();
         App.UI.updateStatusBar();
@@ -575,6 +579,11 @@ App.Screenplay = (function(){
       sc.characters = sc.characters || [];
       sc.characters.push(charId);
     }
+    // Sync characters to linked event
+    const P = S.get();
+    const ev = P.events.find(e => e.sceneId === scId);
+    if(ev) ev.characters = (sc.characters||[]).slice();
+    S.markDirty(['scenes','events']);
     // Silent update — don't re-render screenplay to preserve editing context
     App.Analysis.invalidateCache();
     App.Timeline.render();
