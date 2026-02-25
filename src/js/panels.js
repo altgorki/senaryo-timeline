@@ -30,6 +30,7 @@ App.Panels = (function(){
     else if(currentPanel === 'notes') { App.Notes.setPanelOpen(true); App.Notes.renderPanel(); }
     else if(currentPanel === 'ai') { if(App.AI) App.AI.renderPanel(); }
     else if(currentPanel === 'review') { if(App.Review) App.Review.renderReviewPanel(); }
+    else if(currentPanel === 'corkboard') { /* keep existing corkboard panel content */ }
     else if(currentPanel === 'relmap') { /* keep existing relmap panel content */ }
     else { rp.classList.remove('open'); }
   }

@@ -50,7 +50,7 @@
       <p>Projelerinizi yönetin</p>
     </div>
     <div class="ps-actions">
-      <button class="btn btn-p" onclick="App.Projects.create()">+ Yeni Proje</button>
+      <button class="btn btn-p" onclick="App.Templates.openTemplateModal()">+ Yeni Proje</button>
       <button class="btn" onclick="App.Projects.loadDemoAsProject()">Demo Proje</button>
       <button class="btn" onclick="document.getElementById('psFIn').click()">↑ JSON Yükle</button>
       <input type="file" id="psFIn" accept=".json" style="display:none" onchange="App.Projects.handleImport(event)">
@@ -70,6 +70,7 @@
       <button class="view-mode" data-vm="screenplay" onclick="App.setViewMode('screenplay')">Senaryo</button>
       <button class="view-mode active" data-vm="split" onclick="App.setViewMode('split')">Bölünmüş</button>
       <button class="view-mode" data-vm="timeline" onclick="App.setViewMode('timeline')">Timeline</button>
+      <button class="view-mode" data-vm="kartlar" onclick="App.setViewMode('kartlar')">Kartlar</button>
       <button class="view-mode" data-vm="iliskiler" onclick="App.setViewMode('iliskiler')">İlişkiler</button>
     </div>
     <div class="sync-bar" id="syncBar">
@@ -100,7 +101,7 @@
       <button class="btn" id="reviewToggleBtn" onclick="App.Review.toggleReviewMode()" title="İnceleme Modu (Track Changes)">İnceleme</button>
       <button class="btn" onclick="App.Panels.openSettings()" aria-label="Ayarlar">⚙</button>
       <button class="btn btn-p" onclick="App.Panels.openAddEvent()">+ Olay</button>
-      <input type="file" id="fIn" accept=".json" style="display:none" onchange="App.IO.importJSON(event)">
+      <input type="file" id="fIn" accept=".json,.fountain,.celtx,.pdf" style="display:none" onchange="App.IO.handleAnyImport(event)">
     </div>
   </div>
 

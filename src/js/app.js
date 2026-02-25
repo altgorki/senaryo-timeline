@@ -201,6 +201,11 @@ App.setViewMode = function(mode) {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     App.Timeline.render();
+  } else if(mode === 'kartlar') {
+    sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
+    if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    document.body.classList.remove('screenplay-editor-active');
+    App.Corkboard.render();
   } else if(mode === 'iliskiler') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
@@ -233,7 +238,9 @@ App.refresh = function() {
   }
   App.Timeline.initFilter();
   App.Timeline.buildToolbar();
-  if(App._viewMode === 'iliskiler') {
+  if(App._viewMode === 'kartlar') {
+    App.Corkboard.render();
+  } else if(App._viewMode === 'iliskiler') {
     App.RelationshipMap.render();
   } else if(App.ScreenplayEditor.isActive()) {
     App.ScreenplayEditor.buildFromState();
@@ -269,7 +276,9 @@ App.refresh = function() {
         App.UI.updateStatusBar();
         return;
       }
-      if(App._viewMode === 'iliskiler') {
+      if(App._viewMode === 'kartlar') {
+        App.Corkboard.render();
+      } else if(App._viewMode === 'iliskiler') {
         if(!data || data.type !== 'relMapDrag') App.RelationshipMap.render();
       } else if(App.ScreenplayEditor.isActive()) {
         App.Screenplay.render();
