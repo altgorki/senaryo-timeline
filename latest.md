@@ -1,10 +1,13 @@
-# Senaryo Timeline — Cross-View Tam Senkronizasyon
+# Senaryo Timeline — Cross-View Sync + Persistence Fix
 
 ## Tarih: 2026-02-26
 
 ## Son Commitler
 
 ```
+540b21b  interaction.js: drag sonrası markDirty + emit eksikliğini gider
+dbc330c  screenplay.js: event sync + markDirty eksikliklerini gider
+cca087f  latest.md güncelle: cross-view senkronizasyon oturumu özeti
 e0300bc  CLAUDE.md genId format düzelt, playwright bağımlılığı ekle
 7197240  Cross-view senkronizasyon: event↔scene alanlarını tam eşitle
 ```
@@ -15,7 +18,7 @@ e0300bc  CLAUDE.md genId format düzelt, playwright bağımlılığı ekle
 
 ## Bu Oturumda Yapılanlar
 
-### Problem: Cross-View Senkronizasyon Eksikliği
+### Problem 1: Cross-View Senkronizasyon Eksikliği
 
 Event ve Scene arasında çift yönlü alan senkronizasyonu eksikti. Her view farklı veri kaynağından okuyordu:
 
@@ -24,13 +27,19 @@ Event ve Scene arasında çift yönlü alan senkronizasyonu eksikti. Her view fa
 | Timeline + Kronoloji | `event.category`, `event.title`, `event.episodeId` |
 | Senaryo + Kartlar | `scene.category`, `scene.title`, `scene.episodeId` |
 
-Değişiklik yapılan yerlerde bu iki alan her zaman senkronize edilmiyordu. Örneğin Timeline'da kategori değiştirince Senaryo'da eski kategori görünüyordu.
+Değişiklik yapılan yerlerde bu iki alan her zaman senkronize edilmiyordu.
 
-### Fix 1: panels.js — saveEvent() Event→Scene Tam Senkronizasyon
+### Problem 2: Persistence (markDirty) Eksikliği
 
-**Dosya:** `src/js/panels.js`, satır 108-110
+Bazı fonksiyonlarda `S.markDirty()` çağrılmıyordu. `S.snapshot()` sadece undo için çalışır, Firebase'e yazma `markDirty → emit('change') → AutoSave.save()` zinciriyle olur. `App.refresh()` ise sadece render yapar, AutoSave tetiklemez.
 
-Eskiden sadece `sc.screenplay` güncelleniyordu. Artık tüm ortak alanlar senkronize:
+---
+
+## Fix 1: panels.js — saveEvent() Event→Scene Tam Sync
+
+**Dosya:** `src/js/panels.js` | **Commit:** `7197240`
+
+Eskiden sadece `sc.screenplay` güncelleniyordu. Artık tüm ortak alanlar:
 
 ```javascript
 if(ev.sceneId) {
@@ -45,9 +54,9 @@ if(ev.sceneId) {
 }
 ```
 
-### Fix 2: screenplay-editor.js — saveSceneMeta() Title Senkronizasyonu
+## Fix 2: screenplay-editor.js — saveSceneMeta() Title Sync
 
-**Dosya:** `src/js/screenplay-editor.js`, satır 677-684
+**Dosya:** `src/js/screenplay-editor.js` | **Commit:** `7197240`
 
 Eskiden sadece `category` event'e senkronize ediliyordu. Artık `title` da:
 
@@ -56,16 +65,14 @@ if (field === 'category' || field === 'title') {
   const P = S.get();
   P.events.filter(e => e.sceneId === sceneId).forEach(e => { e[field] = value; });
   S.markDirty(['scenes','events']);
-} else {
-  S.markDirty('scenes');
 }
 ```
 
-### Fix 3: chronology.js — Gantt Drag Scene EpisodeId Senkronizasyonu
+## Fix 3: chronology.js — Gantt Drag Scene EpisodeId Sync
 
-**Dosya:** `src/js/chronology.js`, satır 504-507
+**Dosya:** `src/js/chronology.js` | **Commit:** `7197240`
 
-Eskiden Gantt'ta bölüm değişikliği sadece event'e yazılıyordu. Artık bağlı sahne de güncellenir:
+Gantt'ta bölüm değişikliği artık bağlı sahneyi de güncelliyor:
 
 ```javascript
 if(newEpId !== ev.episodeId) {
@@ -75,37 +82,68 @@ if(newEpId !== ev.episodeId) {
     if(sc) sc.episodeId = newEpId;
   }
   S.markDirty(['events','scenes']);
-} else {
-  S.markDirty('events');
 }
 ```
 
-### Test Sonuçları — Playwright 21/21 PASS
+## Fix 4: screenplay.js — Event Sync + markDirty (5 fonksiyon)
 
-Canlı sitede (https://senaryo-7e7fb.web.app) otomatik test:
+**Dosya:** `src/js/screenplay.js` | **Commit:** `dbc330c`
 
-| Test | Senaryo | Assertions | Sonuç |
-|------|---------|-----------|-------|
-| Test 1 | Timeline'da kategori değiştir → Senaryo, Kartlar kontrol | 6 | PASS |
-| Test 2 | Timeline'da başlık değiştir → Senaryo, Kartlar kontrol | 6 | PASS |
-| Test 3 | Senaryo editöründe başlık değiştir → Timeline, Kartlar kontrol | 5 | PASS |
-| Test 4 | Kronoloji'de sürükle (bölüm değiştir) → Kartlar, Senaryo kontrol | 4 | PASS |
-| **Toplam** | | **21** | **21/21 PASS** |
+| Fonksiyon | Düzeltme |
+|-----------|----------|
+| `saveBlockChar` | Event characters sync eklendi + `markDirty` |
+| `saveSceneMeta` | `markDirty(['scenes','events'])` eklendi |
+| `saveBlock` | `markDirty(['scenes','events'])` eklendi |
+| `saveScreenplay` | `markDirty(['scenes','events'])` eklendi |
+| `insertMention` | `markDirty(['scenes','events'])` eklendi |
 
-Unit testler: **92/92 PASS** (vitest)
+## Fix 5: interaction.js — Drag Persistence
+
+**Dosya:** `src/js/interaction.js` | **Commit:** `540b21b`
+
+Drag sonrası `App.refresh()` sadece render yapıyordu, AutoSave tetiklenmiyordu:
+
+```javascript
+// Eski (persistence yok):
+if(didMove) { App.refresh(); }
+
+// Yeni (markDirty + emit → AutoSave tetiklenir):
+if(didMove) {
+  S.markDirty(['events','scenes']);
+  S.emit('change', {type:'drag', targetId: ev.id, targetName: ev.title});
+}
+```
 
 ---
 
-## Dosya Değişiklik Özeti
+## Tüm Modüller Audit Sonucu
 
-| Dosya | Değişiklik |
-|-------|-----------|
-| `src/js/panels.js` | saveEvent: title, category, episodeId, characters → scene sync |
-| `src/js/screenplay-editor.js` | saveSceneMeta: title değişikliği → event sync |
-| `src/js/chronology.js` | Gantt drag: episodeId → bağlı scene sync |
-| `CLAUDE.md` | genId format dokümantasyonu düzeltme |
-| `package.json` | playwright bağımlılığı ekleme |
-| `public/index.html` | Build output |
+| Modül | Sync | markDirty | Durum |
+|-------|:----:|:---------:|-------|
+| `panels.js` | ✅ | ✅ | Düzeltildi (7197240) |
+| `screenplay-editor.js` | ✅ | ✅ | Düzeltildi (7197240) |
+| `chronology.js` | ✅ | ✅ | Düzeltildi (7197240) |
+| `corkboard.js` | ✅ | ✅ | Temiz (zaten doğruydu) |
+| `screenplay.js` | ✅ | ✅ | Düzeltildi (dbc330c) |
+| `interaction.js` | ✅ | ✅ | Düzeltildi (540b21b) |
+| `timeline.js` | — | — | Salt okunur |
+| `ai.js` | — | ✅ | Temiz |
+| `store.js` | — | ✅ | Düşük seviye helper'lar |
+
+---
+
+## Test Sonuçları
+
+### Playwright 21/21 PASS (cross-view sync)
+
+| Test | Senaryo | Assertions | Sonuç |
+|------|---------|-----------|-------|
+| Test 1 | Timeline'da kategori değiştir → Senaryo, Kartlar | 6 | PASS |
+| Test 2 | Timeline'da başlık değiştir → Senaryo, Kartlar | 6 | PASS |
+| Test 3 | Senaryo editöründe başlık değiştir → Timeline, Kartlar | 5 | PASS |
+| Test 4 | Kronoloji'de sürükle (bölüm değiştir) → Kartlar, Senaryo | 4 | PASS |
+
+### Unit testler: 92/92 PASS (vitest)
 
 ---
 
@@ -117,9 +155,21 @@ Gelecekte yeni alan eklendiğinde bu kural uygulanmalı:
 |---------------------|-------|-----|
 | Timeline edit paneli | `panels.js` saveEvent() | Event → Scene |
 | Senaryo editör header | `screenplay-editor.js` saveSceneMeta() | Scene → Event |
+| Senaryo panel | `screenplay.js` saveSceneMeta() | Scene → Event |
 | Gantt drag & drop | `chronology.js` | Event → Scene |
+| Kartlar drag & drop | `corkboard.js` | Scene → Event |
+| Timeline drag & drop | `interaction.js` | Event (+ Scene episodeId) |
 
 **Ortak alanlar:** `title`, `category`, `episodeId`, `characters`
+
+## Persistence Kuralı
+
+Veri değiştiren HER fonksiyon mutlaka çağırmalı:
+1. `S.snapshot()` — undo desteği
+2. `S.markDirty([...])` — hangi koleksiyonlar değişti
+3. `S.emit('change', {...})` — render + AutoSave tetikler
+
+`App.refresh()` sadece render yapar, AutoSave tetiklemez!
 
 ---
 
@@ -129,7 +179,11 @@ Gelecekte yeni alan eklendiğinde bu kural uygulanmalı:
 |---------|-------|
 | Event→Scene sync (panels.js) | ✅ |
 | Scene→Event sync (screenplay-editor.js) | ✅ |
+| Scene→Event sync (screenplay.js) | ✅ |
 | Gantt drag sync (chronology.js) | ✅ |
+| Kartlar drag sync (corkboard.js) | ✅ |
+| Timeline drag persistence (interaction.js) | ✅ |
+| markDirty tüm modüllerde | ✅ |
 | Playwright testler (21/21) | ✅ |
 | Unit testler (92/92) | ✅ |
 | Build başarılı | ✅ |
