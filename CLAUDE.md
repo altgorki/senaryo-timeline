@@ -58,7 +58,7 @@ npm run build && firebase deploy
 - **DOM caching:** Use `U.$('elementId')` instead of `document.getElementById()` for frequently accessed elements
 - **Input validation:** Use `U.validateText(str, field)` to enforce character limits
 - **Mention system:** Use `App.Mention.createInstance(opts)` — do NOT duplicate mention logic
-- **Firebase IDs:** Generated via `U.genId(prefix)` — format: `prefix + incrementingNumber`
+- **Firebase IDs:** Generated via `U.genId(prefix)` — format: `prefix_timestamp_random` (e.g., `ev_1771963448926_pbyzg`)
 
 ## Firebase
 - **Project:** senaryo-7e7fb
