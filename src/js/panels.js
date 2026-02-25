@@ -107,7 +107,13 @@ App.Panels = (function(){
     mentionChars.forEach(cid => { if(!ev.characters.includes(cid)) ev.characters.push(cid); });
     if(ev.sceneId) {
       const sc = S.getScene(ev.sceneId);
-      if(sc) sc.screenplay = screenplay;
+      if(sc) {
+        sc.screenplay = screenplay;
+        sc.title = ev.title;
+        sc.category = ev.category;
+        sc.episodeId = ev.episodeId;
+        sc.characters = ev.characters.slice();
+      }
     } else if(screenplay.trim()) {
       // Create new scene for this event
       const P = S.get();

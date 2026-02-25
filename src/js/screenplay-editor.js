@@ -674,10 +674,10 @@ App.ScreenplayEditor = (function(){
     S.snapshot();
     sc[field] = value;
 
-    // Sync category to corresponding timeline events
-    if (field === 'category') {
+    // Sync category and title to corresponding timeline events
+    if (field === 'category' || field === 'title') {
       const P = S.get();
-      P.events.filter(e => e.sceneId === sceneId).forEach(e => { e.category = value; });
+      P.events.filter(e => e.sceneId === sceneId).forEach(e => { e[field] = value; });
       S.markDirty(['scenes','events']);
     } else {
       S.markDirty('scenes');

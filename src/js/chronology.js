@@ -503,8 +503,16 @@ App.Chronology = (function(){
 
       S.snapshot();
       if(newDate) ev.storyDate = newDate;
-      if(newEpId !== ev.episodeId) ev.episodeId = newEpId;
-      S.markDirty('events');
+      if(newEpId !== ev.episodeId) {
+        ev.episodeId = newEpId;
+        if(ev.sceneId) {
+          var sc = S.getScene(ev.sceneId);
+          if(sc) sc.episodeId = newEpId;
+        }
+        S.markDirty(['events','scenes']);
+      } else {
+        S.markDirty('events');
+      }
       S.emit('change', { type:'ganttDrag', targetId: ev.id, targetName: ev.title });
 
       document.querySelectorAll('.gantt-row.drop-target').forEach(r => r.classList.remove('drop-target'));
