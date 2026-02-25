@@ -3681,7 +3681,8 @@ App.Interaction = (function(){
       if(sg) sg.classList.remove('show');
       drag = null;
       if(didMove) {
-        App.refresh();
+        S.markDirty(['events','scenes']);
+        S.emit('change', {type:'drag', targetId: ev ? ev.id : '', targetName: ev ? ev.title : ''});
       } else {
         setTimeout(() => App.refresh(), 300);
       }
