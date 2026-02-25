@@ -36,7 +36,7 @@ describe('App.Utils', () => {
   describe('genId() - ID generation', () => {
     it('generates an ID with given prefix', () => {
       const id = App.Utils.genId('test');
-      expect(id).toMatch(/^test\d+$/);
+      expect(id).toMatch(/^test_\d+_[a-z0-9]+$/);
     });
 
     it('generates unique sequential IDs', () => {
@@ -45,10 +45,13 @@ describe('App.Utils', () => {
       expect(id1).not.toBe(id2);
     });
 
-    it('increments the counter each call', () => {
-      App.Utils.setIdCounter(100);
-      expect(App.Utils.genId('p')).toBe('p100');
-      expect(App.Utils.genId('p')).toBe('p101');
+    it('generates IDs with timestamp and random suffix', () => {
+      const id = App.Utils.genId('p');
+      const parts = id.split('_');
+      expect(parts.length).toBe(3);
+      expect(parts[0]).toBe('p');
+      expect(Number(parts[1])).toBeGreaterThan(0);
+      expect(parts[2].length).toBeGreaterThan(0);
     });
   });
 

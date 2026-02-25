@@ -59,6 +59,7 @@ App.Panels = (function(){
           </div>
         </div>
         <div class="fg"><label>Bölüm</label><select id="dEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ev.episodeId===ep.id?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Hikaye Tarihi</label><input id="dStoryDate" value="${U.escHtml(ev.storyDate||'')}" placeholder="Örn: 2024 veya 2024-03-15"><div style="font-size:10px;color:var(--tx4);margin-top:2px;">(Boş bırakılırsa bölüm yılı kullanılır)</div></div>
         <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${U.escHtml(v.label)}</option>`).join('')}</select></div>
         <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
         <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
@@ -96,6 +97,7 @@ App.Panels = (function(){
     ev.description = U.validateText(document.getElementById('dD').value.trim(), 'description');
     ev.episodeId = document.getElementById('dEp').value;
     ev.category = document.getElementById('dC').value;
+    ev.storyDate = (document.getElementById('dStoryDate').value||'').trim() || null;
     ev.s = Math.max(0, parseInt(document.getElementById('dS').value) || 0);
     ev.dur = Math.max(60, parseInt(document.getElementById('dDur').value) || 120);
     ev.characters = [];
@@ -173,6 +175,7 @@ App.Panels = (function(){
       <div class="mb">
         <div class="fg"><label>Başlık</label><input id="nT" placeholder="Olay başlığı"></div>
         <div class="fg"><label>Bölüm</label><select id="nEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ep.id===defaultEp?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Hikaye Tarihi</label><input id="nStoryDate" placeholder="Örn: 2024 veya 2024-03-15"><div style="font-size:10px;color:var(--tx4);margin-top:2px;">(Boş bırakılırsa bölüm yılı kullanılır)</div></div>
         <div class="fg"><label>Kategori</label><select id="nC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}">${U.escHtml(v.label)}</option>`).join('')}</select></div>
         <div style="display:flex;gap:8px"><div class="fg" style="flex:1"><label>Başlangıç (dk)</label><input type="number" id="nS" value="0" min="0" max="${Math.floor(S.getEPDUR()/60)}"></div>
         <div class="fg" style="flex:1"><label>Süre (dk)</label><input type="number" id="nDur" value="3" min="1" max="${Math.floor(S.getEPDUR()/60)}"></div></div>
@@ -285,9 +288,10 @@ App.Panels = (function(){
       content: [{ type: 'action', text: desc }],
       screenplay: screenplay
     });
+    const storyDate = (document.getElementById('nStoryDate').value||'').trim() || null;
     P.events.push({
       id: evId, title: t, description: ozet, episodeId: epId, category: cat,
-      characters: ch, sceneId: scId, s: sVal, dur: durVal
+      characters: ch, sceneId: scId, s: sVal, dur: durVal, storyDate: storyDate
     });
     S.markDirty(['events','scenes']);
     S.emit('change', {type:'addEvent',targetId:evId,targetName:t});
@@ -299,7 +303,7 @@ App.Panels = (function(){
   function renderWarnPanel() {
     const warns = App.Analysis.getWarnings();
     const rp = U.$('rPanel');
-    const icons = { overflow:'⏱', dep:'⛓', overlap:'⊘', gap:'◌', charConflict:'👤', orphan:'🔗', cycle:'🔄', empty:'📝', duration:'⏱' };
+    const icons = { overflow:'⏱', dep:'⛓', overlap:'⊘', gap:'◌', charConflict:'👤', orphan:'🔗', cycle:'🔄', empty:'📝', duration:'⏱', chronoAge:'💀', chronoNegAge:'👶', chronoOrder:'📅', chronoFlashback:'⏪' };
     let h = `<div class="rpanel-hdr"><h3>⚠ Uyarılar <span class="badge">${warns.length}</span></h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div><div class="rpanel-body">`;
     if(!warns.length) h += '<div class="nw">✓ Sorun yok</div>';
     else warns.forEach((w,i) => {
@@ -350,7 +354,7 @@ App.Panels = (function(){
 
   function renderWarnContent() {
     const warns = App.Analysis.getWarnings();
-    const icons = { overflow:'⏱', dep:'⛓', overlap:'⊘', gap:'◌', charConflict:'👤', orphan:'🔗', cycle:'🔄', empty:'📝', duration:'⏱' };
+    const icons = { overflow:'⏱', dep:'⛓', overlap:'⊘', gap:'◌', charConflict:'👤', orphan:'🔗', cycle:'🔄', empty:'📝', duration:'⏱', chronoAge:'💀', chronoNegAge:'👶', chronoOrder:'📅', chronoFlashback:'⏪' };
     if(!warns.length) return '<div class="nw">✓ Sorun yok</div>';
     return warns.map((w,i) => `<div class="wi" onclick="App.Panels.toggleWarnHL(${i})">
       <div class="wt">${icons[w.tp]||'⚠'} ${U.escHtml(w.t)}</div><div class="wd">${U.escHtml(w.d)}</div>
@@ -407,6 +411,8 @@ App.Panels = (function(){
     let charsHtml = P.characters.map(c =>
       `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-chid="${c.id}">
         <input value="${U.escHtml(c.name)}" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" class="char-name-in">
+        <input type="number" value="${c.birthYear||''}" placeholder="Doğum" title="Doğum Yılı" style="width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;" class="char-birth-in">
+        <input type="number" value="${c.deathYear||''}" placeholder="Ölüm" title="Ölüm Yılı" style="width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;" class="char-death-in">
         <button class="btn btn-s" style="color:var(--red)" onclick="this.parentNode.remove()">✕</button>
       </div>`).join('');
 
@@ -421,7 +427,10 @@ App.Panels = (function(){
         </div>
         <div class="fg"><label>Karakterler</label>
           <div id="sChars">${charsHtml}</div>
-          <button class="btn btn-s" style="margin-top:4px" onclick="document.getElementById('sChars').insertAdjacentHTML('beforeend','<div style=\\'display:flex;align-items:center;gap:6px;margin-bottom:4px;\\' data-chid=\\'new_'+Date.now()+'\\'><input placeholder=\\'Yeni Karakter\\' style=\\'flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;\\' class=\\'char-name-in\\'><button class=\\'btn btn-s\\' style=\\'color:var(--red)\\' onclick=\\'this.parentNode.remove()\\'>✕</button></div>')">+ Karakter</button>
+          <button class="btn btn-s" style="margin-top:4px" onclick="document.getElementById('sChars').insertAdjacentHTML('beforeend','<div style=\\'display:flex;align-items:center;gap:6px;margin-bottom:4px;\\' data-chid=\\'new_'+Date.now()+'\\'><input placeholder=\\'Yeni Karakter\\' style=\\'flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;\\' class=\\'char-name-in\\'><input type=\\'number\\' placeholder=\\'Doğum\\' title=\\'Doğum Yılı\\' style=\\'width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;\\' class=\\'char-birth-in\\'><input type=\\'number\\' placeholder=\\'Ölüm\\' title=\\'Ölüm Yılı\\' style=\\'width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;\\' class=\\'char-death-in\\'><button class=\\'btn btn-s\\' style=\\'color:var(--red)\\' onclick=\\'this.parentNode.remove()\\'>✕</button></div>')">+ Karakter</button>
+        </div>
+        <div class="fg"><label>Bölüm Hikaye Yılları</label>
+          <div id="sEpYears">${P.episodes.map(ep=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-epid="${ep.id}"><span style="min-width:48px;font-size:11px;color:var(--tx2);font-weight:500;">${U.epLbl(ep.number)}</span><input type="number" value="${ep.storyYear||''}" placeholder="Hikaye Yılı" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" class="ep-year-in"></div>`).join('')}</div>
         </div>
         <div class="ai-config-section">
           <h4 style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--purple);">✦ AI Yapılandırması</h4>
@@ -469,13 +478,25 @@ App.Panels = (function(){
     const newChars = [];
     document.querySelectorAll('#sChars > div').forEach(row => {
       const nameIn = row.querySelector('.char-name-in');
+      const birthIn = row.querySelector('.char-birth-in');
+      const deathIn = row.querySelector('.char-death-in');
       const existingId = row.dataset.chid;
       if(nameIn && nameIn.value.trim()) {
         const id = (existingId && !existingId.startsWith('new_')) ? existingId : U.genId('ch');
-        newChars.push({ id, name: nameIn.value.trim(), color:'', notes:'' });
+        const existing = P.characters.find(c=>c.id===id);
+        const birthYear = birthIn && birthIn.value ? parseInt(birthIn.value) : null;
+        const deathYear = deathIn && deathIn.value ? parseInt(deathIn.value) : null;
+        newChars.push({ id, name: nameIn.value.trim(), color: existing?.color||'', notes: existing?.notes||'', birthYear, deathYear });
       }
     });
     P.characters = newChars;
+    // Episode story years
+    document.querySelectorAll('#sEpYears > div').forEach(row => {
+      const epId = row.dataset.epid;
+      const yearIn = row.querySelector('.ep-year-in');
+      const ep = P.episodes.find(e=>e.id===epId);
+      if(ep && yearIn) ep.storyYear = yearIn.value ? parseInt(yearIn.value) : null;
+    });
     // AI Settings
     if(App.AI) {
       const provVal = document.getElementById('sAIProvider')?.value;

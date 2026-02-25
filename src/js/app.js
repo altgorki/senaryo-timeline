@@ -2,20 +2,28 @@
 function getDemoProject() {
   const U = App.Utils;
   const CHARS = ['Sakal','Akın','Ayça','Hatice','Çağatay','Ayaz','Begüm','Mehmet','Aren','Tomris/Lakas','Asaf','Menderes','Doğan Albay','Tutak','Sangal','Tekin','Oktay Anar'];
-  const characters = CHARS.map(name => ({id:'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_'), name, color:'', notes:''}));
+  const charYears = {
+    'Sakal':{birthYear:1978,deathYear:null},'Akın':{birthYear:1996,deathYear:null},'Ayça':{birthYear:1998,deathYear:null},
+    'Hatice':{birthYear:1990,deathYear:null},'Çağatay':{birthYear:1995,deathYear:2024},'Ayaz':{birthYear:1983,deathYear:2024},
+    'Begüm':{birthYear:1997,deathYear:null},'Mehmet':{birthYear:1985,deathYear:2024},'Aren':{birthYear:1970,deathYear:null},
+    'Tomris/Lakas':{birthYear:1950,deathYear:null},'Asaf':{birthYear:1965,deathYear:null},'Menderes':{birthYear:1975,deathYear:null},
+    'Doğan Albay':{birthYear:1948,deathYear:2016},'Tutak':{birthYear:1960,deathYear:2024},'Sangal':{birthYear:1955,deathYear:2024},
+    'Tekin':{birthYear:1968,deathYear:null},'Oktay Anar':{birthYear:1972,deathYear:null}
+  };
+  const characters = CHARS.map(name => ({id:'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_'), name, color:'', notes:'', birthYear:(charYears[name]||{}).birthYear||null, deathYear:(charYears[name]||{}).deathYear||null}));
   const charId = name => 'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_');
   const episodes = [
-    {id:'ep1',number:1,title:'Uyanma',duration:2700,type:'normal',order:1},
-    {id:'ep2',number:2,title:'Masal',duration:2700,type:'normal',order:2},
-    {id:'ep3',number:3,title:'Sistemin Yüzü',duration:2700,type:'normal',order:3},
-    {id:'ep4',number:4,title:'İlk Darbe',duration:2700,type:'normal',order:4},
-    {id:'ep5',number:5,title:'Sangal Operasyonu',duration:2700,type:'normal',order:5},
-    {id:'ep6',number:6,title:'Tekin Holding',duration:2700,type:'normal',order:6},
-    {id:'ep7',number:7,title:'Sınav ve Çatlaklar',duration:2700,type:'normal',order:7},
-    {id:'ep8',number:8,title:'Kayıp',duration:2700,type:'normal',order:8},
-    {id:'ep9',number:9,title:'Yeniden Doğuş',duration:2700,type:'normal',order:9},
-    {id:'ep10',number:10,title:'Lakas (Final)',duration:2700,type:'normal',order:10},
-    {id:'epfb',number:'fb',title:'Flashback',duration:2700,type:'flashback',order:11}
+    {id:'ep1',number:1,title:'Uyanma',duration:2700,type:'normal',order:1,storyYear:2024},
+    {id:'ep2',number:2,title:'Masal',duration:2700,type:'normal',order:2,storyYear:2024},
+    {id:'ep3',number:3,title:'Sistemin Yüzü',duration:2700,type:'normal',order:3,storyYear:2024},
+    {id:'ep4',number:4,title:'İlk Darbe',duration:2700,type:'normal',order:4,storyYear:2024},
+    {id:'ep5',number:5,title:'Sangal Operasyonu',duration:2700,type:'normal',order:5,storyYear:2024},
+    {id:'ep6',number:6,title:'Tekin Holding',duration:2700,type:'normal',order:6,storyYear:2024},
+    {id:'ep7',number:7,title:'Sınav ve Çatlaklar',duration:2700,type:'normal',order:7,storyYear:2024},
+    {id:'ep8',number:8,title:'Kayıp',duration:2700,type:'normal',order:8,storyYear:2024},
+    {id:'ep9',number:9,title:'Yeniden Doğuş',duration:2700,type:'normal',order:9,storyYear:2024},
+    {id:'ep10',number:10,title:'Lakas (Final)',duration:2700,type:'normal',order:10,storyYear:2024},
+    {id:'epfb',number:'fb',title:'Flashback',duration:2700,type:'flashback',order:11,storyYear:null}
   ];
   const epMap = {1:'ep1',2:'ep2',3:'ep3',4:'ep4',5:'ep5',6:'ep6',7:'ep7',8:'ep8',9:'ep9',10:'ep10','fb':'epfb'};
   const raw = [
@@ -121,16 +129,16 @@ function getDemoProject() {
     {id:'e100',t:'Sakal: Gizli Karargah',d:'Devasa kitaplık.',ep:10,c:'organizasyon',ch:['Sakal','Begüm'],s:1470,dur:120},
     {id:'e101',t:'Son Yazı: Lakas İfşası',d:'Tomris Hanım.',ep:10,c:'organizasyon',ch:['Sakal','Tomris/Lakas'],s:1590,dur:120},
     {id:'e102',t:'Jenerik Sonrası: Mektup',d:'Diğer bölgelerdeki olaylar.',ep:10,c:'organizasyon',ch:['Tomris/Lakas','Doğan Albay'],s:1710,dur:120},
-    {id:'e103',t:'FB: 1974 Filipinler Kafesi',d:'Doğan ve Tomris tanışma.',ep:'fb',c:'flashback',ch:['Doğan Albay','Tomris/Lakas'],s:0,dur:180},
-    {id:'e104',t:'FB: 2008 Ayaz — Patlama',d:'Patlamış araba.',ep:'fb',c:'flashback',ch:['Ayaz'],s:180,dur:180},
-    {id:'e105',t:'FB: 2008 Ayaz — Valiye Saldırı',d:'Kafa atma.',ep:'fb',c:'flashback',ch:['Ayaz'],s:360,dur:150},
-    {id:'e106',t:'FB: 2011 Doğan — Kozmik Oda',d:'Belgeler, tutuklanma.',ep:'fb',c:'flashback',ch:['Doğan Albay'],s:510,dur:180},
-    {id:'e107',t:'FB: Hatice — Kocasını Öldürmesi',d:'Sessiz karar anı.',ep:'fb',c:'flashback',ch:['Hatice'],s:690,dur:180},
-    {id:'e108',t:'FB: 2016 Doğan — Cezaevi',d:'Mektup, intihar.',ep:'fb',c:'flashback',ch:['Doğan Albay','Ayaz'],s:870,dur:210}
+    {id:'e103',t:'FB: 1974 Filipinler Kafesi',d:'Doğan ve Tomris tanışma.',ep:'fb',c:'flashback',ch:['Doğan Albay','Tomris/Lakas'],s:0,dur:180,sd:'1974'},
+    {id:'e104',t:'FB: 2008 Ayaz — Patlama',d:'Patlamış araba.',ep:'fb',c:'flashback',ch:['Ayaz'],s:180,dur:180,sd:'2008'},
+    {id:'e105',t:'FB: 2008 Ayaz — Valiye Saldırı',d:'Kafa atma.',ep:'fb',c:'flashback',ch:['Ayaz'],s:360,dur:150,sd:'2008'},
+    {id:'e106',t:'FB: 2011 Doğan — Kozmik Oda',d:'Belgeler, tutuklanma.',ep:'fb',c:'flashback',ch:['Doğan Albay'],s:510,dur:180,sd:'2011'},
+    {id:'e107',t:'FB: Hatice — Kocasını Öldürmesi',d:'Sessiz karar anı.',ep:'fb',c:'flashback',ch:['Hatice'],s:690,dur:180,sd:'2015'},
+    {id:'e108',t:'FB: 2016 Doğan — Cezaevi',d:'Mektup, intihar.',ep:'fb',c:'flashback',ch:['Doğan Albay','Ayaz'],s:870,dur:210,sd:'2016'}
   ];
   const events = raw.map(r => ({
     id:r.id, title:r.t, description:r.d, episodeId:epMap[r.ep], sceneId:null,
-    category:r.c, characters:r.ch.map(charId), s:r.s, dur:r.dur
+    category:r.c, characters:r.ch.map(charId), s:r.s, dur:r.dur, storyDate:r.sd||null
   }));
   const rawCns = [
     {f:'e6',t:'e58',tp:'neden'},{f:'e36',t:'e44',tp:'neden'},{f:'e44',t:'e53',tp:'neden'},
@@ -196,17 +204,23 @@ App.setViewMode = function(mode) {
     tl.style.display = ''; // Keep visible — used as editor canvas
     document.body.classList.add('screenplay-editor-active');
     document.body.classList.remove('kartlar-active');
+    document.body.classList.remove('kronoloji-active');
+    if(App.Chronology.isMounted()) App.Chronology.unmount();
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
   } else if(mode === 'timeline') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Chronology.isMounted()) App.Chronology.unmount();
     document.body.classList.remove('kartlar-active');
+    document.body.classList.remove('kronoloji-active');
     App.Timeline.render();
   } else if(mode === 'kartlar') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Chronology.isMounted()) App.Chronology.unmount();
     document.body.classList.remove('screenplay-editor-active');
+    document.body.classList.remove('kronoloji-active');
     document.body.classList.add('kartlar-active');
     App.Corkboard.render();
   } else if(mode === 'iliskiler') {
@@ -214,11 +228,21 @@ App.setViewMode = function(mode) {
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     document.body.classList.remove('screenplay-editor-active');
     document.body.classList.remove('kartlar-active');
+    document.body.classList.remove('kronoloji-active');
     App.RelationshipMap.render();
+  } else if(mode === 'kronoloji') {
+    sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
+    if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    document.body.classList.remove('screenplay-editor-active');
+    document.body.classList.remove('kartlar-active');
+    document.body.classList.add('kronoloji-active');
+    App.Chronology.render();
   } else { // split
     sp.classList.add('open'); sp.style.display = ''; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Chronology.isMounted()) App.Chronology.unmount();
     document.body.classList.remove('kartlar-active');
+    document.body.classList.remove('kronoloji-active');
     App.Timeline.render();
   }
   // On mobile, adjust sp-panel max-height for split
@@ -243,7 +267,9 @@ App.refresh = function() {
   }
   App.Timeline.initFilter();
   App.Timeline.buildToolbar();
-  if(App._viewMode === 'kartlar') {
+  if(App._viewMode === 'kronoloji') {
+    App.Chronology.render();
+  } else if(App._viewMode === 'kartlar') {
     App.Corkboard.render();
   } else if(App._viewMode === 'iliskiler') {
     App.RelationshipMap.render();
@@ -281,7 +307,9 @@ App.refresh = function() {
         App.UI.updateStatusBar();
         return;
       }
-      if(App._viewMode === 'kartlar') {
+      if(App._viewMode === 'kronoloji') {
+        App.Chronology.render();
+      } else if(App._viewMode === 'kartlar') {
         App.Corkboard.render();
       } else if(App._viewMode === 'iliskiler') {
         if(!data || data.type !== 'relMapDrag') App.RelationshipMap.render();
