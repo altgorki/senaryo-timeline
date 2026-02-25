@@ -22,7 +22,7 @@ App.Screenplay = (function(){
         <div class="ep-tree-hdr" onclick="App.Screenplay.toggleEp('${ep.id}')">
           <span class="arrow${isOpen?' open':''}">▶</span>
           <div class="ep-info">
-            <span class="ep-num">${ep.number==='fb'?'FB':'Bölüm '+ep.number}</span>
+            <span class="ep-num">Bölüm ${ep.number}</span>
             <span class="ep-title">${U.escHtml(ep.title||'')}</span>
           </div>
           <span class="ep-meta">${sceneCount} sahne · ${U.s2t(totalDur)}</span>

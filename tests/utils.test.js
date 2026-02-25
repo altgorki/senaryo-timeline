@@ -211,8 +211,8 @@ describe('App.Utils', () => {
   });
 
   describe('epLbl() - episode label', () => {
-    it('returns FB for fb episode', () => {
-      expect(App.Utils.epLbl('fb')).toBe('FB');
+    it('returns B-prefixed label for any episode', () => {
+      expect(App.Utils.epLbl('fb')).toBe('Bfb');
     });
 
     it('returns B-prefixed label for other episodes', () => {

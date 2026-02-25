@@ -24,6 +24,7 @@ App.IO = (function(){
           migrateOldFormat(d);
           App.Projects.importToProject(S.get());
         } else if(d.meta && d.episodes) {
+          if(!d.version || d.version < 3) _migrateV3(d);
           App.Projects.importToProject(d);
         } else {
           App.UI.toast('Tanınmayan dosya formatı');
@@ -386,7 +387,8 @@ App.IO = (function(){
       karakter: { label: 'Karakter', color: '#3b82f6' },
       organizasyon: { label: 'Organizasyon', color: '#10b981' },
       sistem: { label: 'Sistem', color: '#f59e0b' },
-      flashback: { label: 'Flashback', color: '#a855f7' },
+      flashback: { label: 'Flashback', color: '#9c27b0' },
+      flashforward: { label: 'Flashforward', color: '#00bcd4' },
       ihanet: { label: 'İhanet', color: '#f97316' }
     };
 
@@ -579,14 +581,69 @@ App.IO = (function(){
     }
   }
 
+  // ── V3 Migration: Remove FB episode, convert dates to YYYY-MM-DD, add flashforward category ──
+  function _migrateV3(P) {
+    // 1. Find FB episode and move its events to the first normal episode
+    var fbEp = (P.episodes||[]).find(function(e){ return e.number === 'fb'; });
+    if(fbEp) {
+      var normalEps = P.episodes.filter(function(e){ return e.number !== 'fb'; });
+      var targetEp = normalEps.length ? normalEps[0] : null;
+      if(targetEp) {
+        (P.events||[]).forEach(function(ev) {
+          if(ev.episodeId === fbEp.id) {
+            ev.episodeId = targetEp.id;
+            if(!ev.category) ev.category = 'flashback';
+          }
+        });
+        (P.scenes||[]).forEach(function(sc) {
+          if(sc.episodeId === fbEp.id) sc.episodeId = targetEp.id;
+        });
+      }
+      P.episodes = P.episodes.filter(function(e){ return e.number !== 'fb'; });
+    }
+    // 2. Add flashforward category if missing
+    if(P.categories && !P.categories.flashforward) {
+      P.categories.flashforward = {label:'Flashforward',color:'#00bcd4'};
+    }
+    // 3. Update flashback color
+    if(P.categories && P.categories.flashback) {
+      P.categories.flashback.color = '#9c27b0';
+    }
+    // 4. Convert birthYear → birthDate, deathYear → deathDate
+    (P.characters||[]).forEach(function(ch) {
+      if(ch.birthYear != null && ch.birthDate == null) {
+        ch.birthDate = typeof ch.birthYear === 'number' ? ch.birthYear+'-01-01' : String(ch.birthYear);
+        delete ch.birthYear;
+      }
+      if(ch.deathYear != null && ch.deathDate == null) {
+        ch.deathDate = typeof ch.deathYear === 'number' ? ch.deathYear+'-01-01' : String(ch.deathYear);
+        delete ch.deathYear;
+      }
+    });
+    // 5. Convert episode storyYear → storyDate
+    (P.episodes||[]).forEach(function(ep) {
+      if(ep.storyYear != null && ep.storyDate == null) {
+        ep.storyDate = typeof ep.storyYear === 'number' ? ep.storyYear+'-01-01' : String(ep.storyYear);
+        delete ep.storyYear;
+      }
+    });
+    // 6. Convert event storyDate that is just a year to YYYY-01-01
+    (P.events||[]).forEach(function(ev) {
+      if(ev.storyDate && /^\d{4}$/.test(String(ev.storyDate))) {
+        ev.storyDate = ev.storyDate+'-01-01';
+      }
+    });
+    P.version = 3;
+  }
+
   function migrateOldFormat(d) {
     // Migrate from v7 flat format to new hierarchical format
     const oldEvs = d.events || [];
     const oldCns = d.connections || [];
-    const CATS = {operasyon:{label:'Operasyon',color:'#ef4444'},karakter:{label:'Karakter',color:'#3b82f6'},organizasyon:{label:'Organizasyon',color:'#10b981'},sistem:{label:'Sistem',color:'#f59e0b'},flashback:{label:'Flashback',color:'#a855f7'},ihanet:{label:'İhanet',color:'#f97316'}};
+    const CATS = {operasyon:{label:'Operasyon',color:'#ef4444'},karakter:{label:'Karakter',color:'#3b82f6'},organizasyon:{label:'Organizasyon',color:'#10b981'},sistem:{label:'Sistem',color:'#f59e0b'},flashback:{label:'Flashback',color:'#9c27b0'},flashforward:{label:'Flashforward',color:'#00bcd4'},ihanet:{label:'İhanet',color:'#f97316'}};
     // Collect unique episodes
     const epNums = [...new Set(oldEvs.map(e=>e.ep))].sort((a,b)=>{if(a==='fb')return 1;if(b==='fb')return -1;return a-b;});
-    const episodes = epNums.map((n,i) => ({ id:'ep_'+n, number:n, title:n==='fb'?'Flashback':'', duration:2700, type:'normal', order:i }));
+    const episodes = epNums.map((n,i) => ({ id:'ep_'+n, number: n==='fb' ? i+1 : n, title:'', duration:2700, type:'normal', order:i }));
     const epIdMap = {}; epNums.forEach(n => epIdMap[n] = 'ep_'+n);
     // Collect characters
     const charSet = new Set();
@@ -604,10 +661,12 @@ App.IO = (function(){
       id: U.genId('cn'), from: c.f, to: c.t, type: c.tp, description:'', strength:1
     }));
     const scenes = generateScenesFromEvents(events, episodes);
-    S.set({
+    var proj = {
       meta: { title: d.meta?.title || 'İçe Aktarılmış Proje', author:'', settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 } },
       categories: CATS, characters, episodes, scenes, events, connections
-    });
+    };
+    _migrateV3(proj);
+    S.set(proj);
     // Set ID counter high enough
     U.setIdCounter(300);
   }
@@ -727,5 +786,5 @@ App.IO = (function(){
     App.UI.toast(scenes.length+' sahne ayrıştırıldı');
   }
 
-  return { exportJSON, importJSON, handleAnyImport, loadDemo, handleDocx, migrateOldFormat };
+  return { exportJSON, importJSON, handleAnyImport, loadDemo, handleDocx, migrateOldFormat, migrateV3: _migrateV3 };
 })();

@@ -104,7 +104,7 @@ App.Timeline = (function(){
       const hdr = document.createElement('div');
       hdr.className = 'ep-hdr'; hdr.style.width = colW + 'px';
       const epDurTotal = colEvs.reduce((s,e) => Math.max(s, e.s+e.dur), 0);
-      hdr.innerHTML = `<div class="num">${ep.number==='fb'?'FB':ep.number}</div><div class="sub">${U.escHtml(ep.title||((ep.number==='fb')?'Flashback':'Bölüm'))}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
+      hdr.innerHTML = `<div class="num">${ep.number}</div><div class="sub">${U.escHtml(ep.title||'Bölüm')}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
       col.appendChild(hdr);
 
       const body = document.createElement('div');

@@ -46,7 +46,7 @@ App.Analysis = (function(){
 
     // Gaps
     P.episodes.forEach(ep => {
-      if(ep.number==='fb') return;
+      // All episodes checked (no fb skip)
       const re = P.events.filter(e=>e.episodeId===ep.id).sort((a,b)=>a.s-b.s);
       if(!re.length) return;
       let cur = 0;
@@ -91,47 +91,45 @@ App.Analysis = (function(){
     });
 
     // ── CHRONOLOGY WARNINGS ──
-    // chronoAge — character appears after death year
+    // chronoAge — character appears after death date
     P.characters.forEach(ch => {
-      if(!ch.deathYear) return;
+      if(!ch.deathDate) return;
       P.events.forEach(ev => {
         if(!(ev.characters||[]).includes(ch.id)) return;
-        const yr = _getEventYear(ev, P);
-        if(yr && yr > ch.deathYear) {
-          const ep = P.episodes.find(e=>e.id===ev.episodeId);
-          warns.push({ tp:'chronoAge', id:ev.id, t:'Ölüm Sonrası Görünme', d:`${ch.name} (ö.${ch.deathYear}) ${yr} yılındaki "${ev.title}" sahnesinde görünüyor.` });
+        const dt = _getEventDate(ev, P);
+        if(dt && dt > ch.deathDate) {
+          warns.push({ tp:'chronoAge', id:ev.id, t:'Ölüm Sonrası Görünme', d:`${ch.name} (ö.${U.formatDate(ch.deathDate)}) ${U.formatDate(dt)} tarihindeki "${ev.title}" sahnesinde görünüyor.` });
         }
       });
     });
 
-    // chronoNegAge — character appears before birth year
+    // chronoNegAge — character appears before birth date
     P.characters.forEach(ch => {
-      if(!ch.birthYear) return;
+      if(!ch.birthDate) return;
       P.events.forEach(ev => {
         if(!(ev.characters||[]).includes(ch.id)) return;
-        const yr = _getEventYear(ev, P);
-        if(yr && yr < ch.birthYear) {
-          warns.push({ tp:'chronoNegAge', id:ev.id, t:'Doğum Öncesi Görünme', d:`${ch.name} (d.${ch.birthYear}) ${yr} yılındaki "${ev.title}" sahnesinde görünüyor.` });
+        const dt = _getEventDate(ev, P);
+        if(dt && dt < ch.birthDate) {
+          warns.push({ tp:'chronoNegAge', id:ev.id, t:'Doğum Öncesi Görünme', d:`${ch.name} (d.${U.formatDate(ch.birthDate)}) ${U.formatDate(dt)} tarihindeki "${ev.title}" sahnesinde görünüyor.` });
         }
       });
     });
 
-    // chronoOrder — normal episodes storyYear order inconsistent with episode order
-    const normalEps = P.episodes.filter(ep=>ep.type!=='flashback'&&ep.storyYear).sort((a,b)=>a.order-b.order);
+    // chronoOrder — episodes storyDate order inconsistent with episode order
+    const normalEps = P.episodes.filter(ep=>ep.storyDate).sort((a,b)=>a.order-b.order);
     for(let i=1;i<normalEps.length;i++) {
-      if(normalEps[i].storyYear < normalEps[i-1].storyYear) {
-        warns.push({ tp:'chronoOrder', id:null, t:'Kronoloji Sırası Hatası', d:`${U.epLbl(normalEps[i-1].number)} (${normalEps[i-1].storyYear}) → ${U.epLbl(normalEps[i].number)} (${normalEps[i].storyYear}): Hikaye yılları bölüm sırasıyla tutarsız.` });
+      if(normalEps[i].storyDate < normalEps[i-1].storyDate) {
+        warns.push({ tp:'chronoOrder', id:null, t:'Kronoloji Sırası Hatası', d:`${U.epLbl(normalEps[i-1].number)} (${U.formatDate(normalEps[i-1].storyDate)}) → ${U.epLbl(normalEps[i].number)} (${U.formatDate(normalEps[i].storyDate)}): Hikaye tarihleri bölüm sırasıyla tutarsız.` });
       }
     }
 
-    // chronoFlashback — event storyDate year < episode storyYear but not in flashback category
+    // chronoFlashback — event storyDate < episode storyDate but not in flashback/flashforward category
     P.events.forEach(ev => {
       if(!ev.storyDate) return;
       const ep = P.episodes.find(e=>e.id===ev.episodeId);
-      if(!ep || !ep.storyYear) return;
-      const evYear = parseInt(ev.storyDate);
-      if(!isNaN(evYear) && evYear < ep.storyYear && ev.category !== 'flashback') {
-        warns.push({ tp:'chronoFlashback', id:ev.id, t:'Flashback Kategorisi Eksik', d:`"${ev.title}" (${evYear}) bölüm yılından (${ep.storyYear}) önce ama flashback kategorisinde değil.` });
+      if(!ep || !ep.storyDate) return;
+      if(ev.storyDate < ep.storyDate && ev.category !== 'flashback' && ev.category !== 'flashforward') {
+        warns.push({ tp:'chronoFlashback', id:ev.id, t:'Flashback Kategorisi Eksik', d:`"${ev.title}" (${U.formatDate(ev.storyDate)}) bölüm tarihinden (${U.formatDate(ep.storyDate)}) önce ama flashback/flashforward kategorisinde değil.` });
       }
     });
 
@@ -139,14 +137,11 @@ App.Analysis = (function(){
     return warns;
   }
 
-  // Helper: get the effective year of an event
-  function _getEventYear(ev, P) {
-    if(ev.storyDate) {
-      const parsed = parseInt(ev.storyDate);
-      if(!isNaN(parsed)) return parsed;
-    }
+  // Helper: get the effective date of an event (YYYY-MM-DD string)
+  function _getEventDate(ev, P) {
+    if(ev.storyDate) return ev.storyDate;
     const ep = P.episodes.find(e=>e.id===ev.episodeId);
-    return ep ? ep.storyYear || null : null;
+    return ep ? ep.storyDate || null : null;
   }
 
   function detectCycles() {
@@ -355,5 +350,5 @@ App.Analysis = (function(){
     return h;
   }
 
-  return { getWarnings, invalidateCache, getCriticalPath, getImpact, getCharacterData, getTempoData, renderConnections, renderTempo, renderCharacters, renderImpact, detectCycles, getEventYear: _getEventYear };
+  return { getWarnings, invalidateCache, getCriticalPath, getImpact, getCharacterData, getTempoData, renderConnections, renderTempo, renderCharacters, renderImpact, detectCycles, getEventDate: _getEventDate };
 })();

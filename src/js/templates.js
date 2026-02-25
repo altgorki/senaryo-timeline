@@ -228,7 +228,8 @@ App.Templates = (function(){
       karakter: { label: 'Karakter', color: '#3b82f6' },
       organizasyon: { label: 'Organizasyon', color: '#10b981' },
       sistem: { label: 'Sistem', color: '#f59e0b' },
-      flashback: { label: 'Flashback', color: '#a855f7' },
+      flashback: { label: 'Flashback', color: '#9c27b0' },
+      flashforward: { label: 'Flashforward', color: '#00bcd4' },
       ihanet: { label: 'İhanet', color: '#f97316' }
     };
 

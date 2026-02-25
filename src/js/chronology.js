@@ -1,17 +1,27 @@
-// ═══ CHRONOLOGY MODULE ═══
+// ═══ CHRONOLOGY MODULE — Gantt Chart ═══
 App.Chronology = (function(){
   const U = App.Utils;
   const S = App.Store;
   let _mounted = false;
+  let _zoom = 'auto'; // 'year' | 'month' | 'day' | 'auto'
   let _filterCharId = 'all';
-  let _selectedCell = null; // {charId, year}
+  let _filterCatId = 'all';
+  let _dragState = null;
+  let _hoveredBarId = null;
 
+  // ── PUBLIC API ──
   function isMounted() { return _mounted; }
 
   function unmount() {
     _mounted = false;
-    _selectedCell = null;
+    _dragState = null;
     _filterCharId = 'all';
+    _filterCatId = 'all';
+  }
+
+  function setZoom(z) {
+    _zoom = z;
+    if(_mounted) render();
   }
 
   function filterByCharacter(charId) {
@@ -19,57 +29,217 @@ App.Chronology = (function(){
     if(_mounted) render();
   }
 
-  // ── DATA ──
-  function _buildChronologyData() {
+  function filterByCategory(catId) {
+    _filterCatId = catId || 'all';
+    if(_mounted) render();
+  }
+
+  // ── DATE HELPERS ──
+  function _parseD(s) {
+    if(!s) return null;
+    return new Date(s + 'T00:00:00');
+  }
+
+  function _daysBetween(a, b) {
+    return Math.round((b - a) / 86400000);
+  }
+
+  function _addDays(d, n) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    return r;
+  }
+
+  function _fmtDate(d) {
+    if(typeof d === 'string') d = _parseD(d);
+    if(!d || isNaN(d)) return '';
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    return dd+'/'+mm+'/'+d.getFullYear();
+  }
+
+  function _toYMD(d) {
+    if(typeof d === 'string') return d;
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+dd;
+  }
+
+  // ── GET EFFECTIVE DATE ──
+  function _getEventDate(ev, P) {
+    if(ev.storyDate) return ev.storyDate;
+    const ep = P.episodes.find(e=>e.id===ev.episodeId);
+    return ep ? ep.storyDate || null : null;
+  }
+
+  // ── BUILD GANTT DATA ──
+  function _buildGanttData() {
     const P = S.get();
-    const getYear = App.Analysis.getEventYear;
+    const episodes = [...P.episodes].sort((a,b)=>a.order-b.order);
 
-    // Collect all unique years from episodes and events
-    const yearSet = new Set();
-    P.episodes.forEach(ep => { if(ep.storyYear) yearSet.add(ep.storyYear); });
-    P.events.forEach(ev => {
-      const yr = getYear(ev, P);
-      if(yr) yearSet.add(yr);
-    });
-    const years = [...yearSet].sort((a,b) => a - b);
-    if(!years.length) return { years:[], characters:[], cells:{}, warnings:[] };
+    // Collect all dated events grouped by episode
+    const rows = []; // { episode, events:[ {ev, date} ] }
+    const allDates = [];
 
-    // Filter characters
-    let chars = P.characters;
-    if(_filterCharId !== 'all') chars = chars.filter(c => c.id === _filterCharId);
+    episodes.forEach(ep => {
+      let epEvents = P.events.filter(e=>e.episodeId===ep.id);
 
-    // Build cells: charId -> year -> { age, events, warnings, isDeath }
-    const cells = {};
-    const warnings = App.Analysis.getWarnings();
-    const chronoWarnings = warnings.filter(w => w.tp && w.tp.startsWith('chrono'));
+      // Apply character filter
+      if(_filterCharId !== 'all') {
+        epEvents = epEvents.filter(e=>(e.characters||[]).includes(_filterCharId));
+      }
+      // Apply category filter
+      if(_filterCatId !== 'all') {
+        epEvents = epEvents.filter(e=>e.category===_filterCatId);
+      }
 
-    chars.forEach(ch => {
-      cells[ch.id] = {};
-      years.forEach(yr => {
-        const age = ch.birthYear ? yr - ch.birthYear : null;
-        const isDeath = ch.deathYear ? yr === ch.deathYear : false;
-        const isAfterDeath = ch.deathYear ? yr > ch.deathYear : false;
-        const isBeforeBirth = ch.birthYear ? yr < ch.birthYear : false;
-        // Find events for this character in this year
-        const evs = P.events.filter(ev => {
-          if(!(ev.characters||[]).includes(ch.id)) return false;
-          return getYear(ev, P) === yr;
-        });
-        // Find warnings for this character in this year's events
-        const cellWarnings = chronoWarnings.filter(w => {
-          if(!w.id) return false;
-          const ev = S.getEvent(w.id);
-          if(!ev) return false;
-          if(!(ev.characters||[]).includes(ch.id)) return false;
-          return getYear(ev, P) === yr;
-        });
-        if(evs.length || (age !== null && !isBeforeBirth)) {
-          cells[ch.id][yr] = { age, events: evs, warnings: cellWarnings, isDeath, isAfterDeath, isBeforeBirth };
+      const datedEvents = [];
+      epEvents.forEach(ev => {
+        const dt = _getEventDate(ev, P);
+        if(dt) {
+          datedEvents.push({ ev, date: dt });
+          allDates.push(dt);
+        } else {
+          // Tarihsiz olaylar bölüm tarihiyle gösterilecek
+          if(ep.storyDate) {
+            datedEvents.push({ ev, date: ep.storyDate });
+            allDates.push(ep.storyDate);
+          }
         }
       });
+
+      if(datedEvents.length > 0 || ep.storyDate) {
+        rows.push({ episode: ep, events: datedEvents.sort((a,b)=>a.date.localeCompare(b.date)) });
+      }
     });
 
-    return { years, characters: chars, cells, warnings: chronoWarnings };
+    if(!allDates.length) return null;
+
+    allDates.sort();
+    const minDate = allDates[0];
+    const maxDate = allDates[allDates.length - 1];
+
+    // Auto-detect zoom
+    let zoom = _zoom;
+    if(zoom === 'auto') {
+      const minD = _parseD(minDate), maxD = _parseD(maxDate);
+      const span = _daysBetween(minD, maxD);
+      if(span > 3650) zoom = 'year';
+      else if(span > 365) zoom = 'month';
+      else zoom = 'day';
+    }
+
+    // Build timeline grid
+    const grid = _buildGrid(minDate, maxDate, zoom);
+
+    // Get warnings
+    const warnings = App.Analysis.getWarnings();
+    const warnMap = {};
+    warnings.forEach(w => { if(w.id) { if(!warnMap[w.id]) warnMap[w.id] = []; warnMap[w.id].push(w); } });
+
+    return { rows, grid, zoom, minDate, maxDate, warnMap, warnings };
+  }
+
+  // ── BUILD GRID ──
+  function _buildGrid(minDate, maxDate, zoom) {
+    const minD = _parseD(minDate), maxD = _parseD(maxDate);
+    const grid = { headers: [], cells: [], totalWidth: 0, cellWidth: 0, dateToX: {} };
+
+    if(zoom === 'year') {
+      const minY = minD.getFullYear(), maxY = maxD.getFullYear();
+      const cellW = 80;
+      grid.cellWidth = cellW;
+      for(let y = minY; y <= maxY; y++) {
+        grid.headers.push({ label: String(y), span: 1 });
+        grid.cells.push({ date: y+'-01-01', x: (y-minY)*cellW, w: cellW, label: String(y) });
+      }
+      grid.totalWidth = (maxY - minY + 1) * cellW;
+      // dateToX: maps YYYY-MM-DD → pixel x
+      grid.dateToX = function(dateStr) {
+        const yr = parseInt(dateStr.split('-')[0]);
+        const d = _parseD(dateStr);
+        const startOfYear = new Date(yr, 0, 1);
+        const endOfYear = new Date(yr, 11, 31);
+        const frac = _daysBetween(startOfYear, d) / Math.max(1, _daysBetween(startOfYear, endOfYear));
+        return (yr - minY) * cellW + frac * cellW;
+      };
+    } else if(zoom === 'month') {
+      const cellW = 60;
+      grid.cellWidth = cellW;
+      let x = 0;
+      const startM = new Date(minD.getFullYear(), minD.getMonth(), 1);
+      const endM = new Date(maxD.getFullYear(), maxD.getMonth(), 1);
+      const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+      const yearHeaders = [];
+      let cur = new Date(startM);
+      let lastYearLabel = '';
+      let yearStart = 0, yearSpan = 0;
+
+      while(cur <= endM) {
+        const yl = String(cur.getFullYear());
+        if(yl !== lastYearLabel) {
+          if(lastYearLabel) yearHeaders.push({ label: lastYearLabel, span: yearSpan, x: yearStart });
+          lastYearLabel = yl; yearStart = x; yearSpan = 0;
+        }
+        yearSpan++;
+        const ml = months[cur.getMonth()];
+        grid.cells.push({ date: _toYMD(cur), x, w: cellW, label: ml });
+        x += cellW;
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      if(lastYearLabel) yearHeaders.push({ label: lastYearLabel, span: yearSpan, x: yearStart });
+      grid.headers = yearHeaders;
+      grid.totalWidth = x;
+
+      grid.dateToX = function(dateStr) {
+        const d = _parseD(dateStr);
+        const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const mEnd = new Date(d.getFullYear(), d.getMonth()+1, 0);
+        const frac = (d.getDate()-1) / mEnd.getDate();
+        // Find cell index for this month
+        const mStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';
+        const cell = grid.cells.find(c=>c.date===mStr);
+        if(!cell) {
+          // Before grid start
+          const first = grid.cells[0];
+          if(first) return first.x;
+          return 0;
+        }
+        return cell.x + frac * cellW;
+      };
+    } else { // day
+      const cellW = 28;
+      grid.cellWidth = cellW;
+      let x = 0;
+      const totalDays = _daysBetween(minD, maxD) + 1;
+      const monthHeaders = [];
+      let lastLabel = '', hdrStart = 0, hdrSpan = 0;
+      const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+
+      for(let i = 0; i < totalDays; i++) {
+        const d = _addDays(minD, i);
+        const label = months[d.getMonth()] + ' ' + d.getFullYear();
+        if(label !== lastLabel) {
+          if(lastLabel) monthHeaders.push({ label: lastLabel, span: hdrSpan, x: hdrStart });
+          lastLabel = label; hdrStart = x; hdrSpan = 0;
+        }
+        hdrSpan++;
+        grid.cells.push({ date: _toYMD(d), x, w: cellW, label: String(d.getDate()) });
+        x += cellW;
+      }
+      if(lastLabel) monthHeaders.push({ label: lastLabel, span: hdrSpan, x: hdrStart });
+      grid.headers = monthHeaders;
+      grid.totalWidth = x;
+
+      grid.dateToX = function(dateStr) {
+        const d = _parseD(dateStr);
+        const idx = _daysBetween(minD, d);
+        return Math.max(0, Math.min(idx * cellW, grid.totalWidth - cellW));
+      };
+    }
+
+    return grid;
   }
 
   // ── RENDER ──
@@ -77,174 +247,290 @@ App.Chronology = (function(){
     _mounted = true;
     const tlC = document.getElementById('tlC');
     if(!tlC) return;
-    const data = _buildChronologyData();
     const P = S.get();
+    const data = _buildGanttData();
 
-    // Count total warnings
-    const warnCount = data.warnings.length;
+    // Count warnings
+    const allWarnings = App.Analysis.getWarnings();
+    const warnCount = allWarnings.filter(w=>w.tp&&w.tp.startsWith('chrono')).length;
 
     let h = '';
-    // Toolbar
-    h += '<div class="kronoloji-toolbar">';
-    h += '<label style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500;">Karakter</label>';
-    h += '<select id="kronoCharFilter" onchange="App.Chronology.filterByCharacter(this.value)">';
-    h += '<option value="all"' + (_filterCharId==='all'?' selected':'') + '>Tümü (' + P.characters.length + ')</option>';
+    // ── Toolbar ──
+    h += '<div class="gantt-toolbar">';
+    // Zoom buttons
+    h += '<div class="gantt-zoom-group">';
+    h += '<span style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500;">Zoom</span>';
+    const effectiveZoom = data ? data.zoom : 'year';
+    ['year','month','day'].forEach(z => {
+      const labels = {year:'Yıl',month:'Ay',day:'Gün'};
+      const isActive = effectiveZoom === z && _zoom !== 'auto' ? ' active' : (_zoom === 'auto' && effectiveZoom === z ? ' active' : '');
+      h += '<button class="gantt-zoom-btn' + isActive + '" onclick="App.Chronology.setZoom(\'' + z + '\')">' + labels[z] + '</button>';
+    });
+    h += '</div>';
+    // Character filter
+    h += '<div class="gantt-filter-group">';
+    h += '<select class="gantt-filter-btn" onchange="App.Chronology.filterByCharacter(this.value)">';
+    h += '<option value="all"' + (_filterCharId==='all'?' selected':'') + '>Tüm Karakterler</option>';
     P.characters.forEach(c => {
       h += '<option value="' + c.id + '"' + (_filterCharId===c.id?' selected':'') + '>' + U.escHtml(c.name) + '</option>';
     });
     h += '</select>';
-    h += '<span style="font-size:11px;color:var(--tx3);">' + data.years.length + ' yıl</span>';
+    // Category filter
+    h += '<select class="gantt-filter-btn" onchange="App.Chronology.filterByCategory(this.value)">';
+    h += '<option value="all"' + (_filterCatId==='all'?' selected':'') + '>Tüm Kategoriler</option>';
+    Object.entries(P.categories).forEach(([k,v]) => {
+      h += '<option value="' + k + '"' + (_filterCatId===k?' selected':'') + '>' + U.escHtml(v.label) + '</option>';
+    });
+    h += '</select>';
+    h += '</div>';
+    // Warning count
     if(warnCount > 0) {
-      h += '<span class="badge" style="margin-left:8px;">' + warnCount + ' uyarı</span>';
+      h += '<span class="badge" style="margin-left:auto;">' + warnCount + ' uyarı</span>';
     }
     h += '</div>';
 
-    if(!data.years.length) {
-      h += '<div style="padding:40px;text-align:center;color:var(--tx3);font-size:13px;">Kronoloji verisi yok. Proje Ayarları\'ndan bölümlere hikaye yılı ve karakterlere doğum/ölüm yılı ekleyin.</div>';
+    // ── No data ──
+    if(!data) {
+      h += '<div class="gantt-no-data">Tarih bilgisi girilmemiş. Proje Ayarları\'ndan bölümlere hikaye tarihi ve karakterlere doğum/ölüm tarihi ekleyin.</div>';
       tlC.innerHTML = h;
       return;
     }
 
-    // Matrix table
-    h += '<div class="kronoloji-table-wrap">';
-    h += '<table class="kronoloji-table">';
+    const grid = data.grid;
+    const ROW_HEIGHT = 64;
+    const LABEL_WIDTH = 180;
+    const BAR_HEIGHT = 22;
+    const BAR_GAP = 4;
+    const BAR_MIN_WIDTH = 16;
 
-    // Header row
-    h += '<thead><tr><th class="kronoloji-char-cell kronoloji-corner">Karakter</th>';
-    data.years.forEach(yr => {
-      h += '<th class="kronoloji-year-hdr">' + yr + '</th>';
-    });
-    h += '</tr></thead>';
+    // ── Gantt Container ──
+    h += '<div class="gantt-container" id="ganttContainer">';
 
-    // Body rows
-    h += '<tbody>';
-    data.characters.forEach(ch => {
-      h += '<tr>';
-      // Character cell (sticky first column)
-      let charLabel = U.escHtml(ch.name);
-      let charSub = '';
-      if(ch.birthYear) {
-        charSub = '(' + ch.birthYear;
-        if(ch.deathYear) charSub += '–' + ch.deathYear;
-        charSub += ')';
-      }
-      h += '<td class="kronoloji-char-cell">';
-      h += '<div class="kronoloji-char-name">' + charLabel + '</div>';
-      if(charSub) h += '<div class="kronoloji-char-years">' + charSub + '</div>';
-      h += '</td>';
-
-      // Year cells
-      data.years.forEach(yr => {
-        const cell = (data.cells[ch.id] || {})[yr];
-        const isSelected = _selectedCell && _selectedCell.charId === ch.id && _selectedCell.year === yr;
-        let cls = 'kronoloji-cell';
-        if(isSelected) cls += ' active';
-        if(cell) {
-          if(cell.isAfterDeath) cls += ' death';
-          if(cell.isBeforeBirth) cls += ' before-birth';
-          if(cell.warnings.length) cls += ' warn';
-          if(cell.isDeath) cls += ' death-year';
-        }
-        const hasEvents = cell && cell.events.length > 0;
-        h += '<td class="' + cls + '"' + (hasEvents ? ' onclick="App.Chronology._onCellClick(\'' + ch.id + '\',' + yr + ')"' : '') + '>';
-        if(cell) {
-          // Age display
-          if(cell.age !== null && !cell.isBeforeBirth) {
-            h += '<div class="kronoloji-age">' + cell.age;
-            if(cell.isDeath) h += '†';
-            h += '</div>';
-          }
-          // Event dots (colored by category)
-          if(cell.events.length > 0) {
-            h += '<div class="kronoloji-dots">';
-            cell.events.forEach(ev => {
-              const cat = P.categories[ev.category];
-              const color = cat ? U.sanitizeColor(cat.color) : 'var(--tx3)';
-              h += '<span class="kronoloji-dot" style="background:' + color + ';" title="' + U.escHtml(ev.title) + '"></span>';
-            });
-            h += '</div>';
-          }
-          // Warning icon
-          if(cell.warnings.length > 0) {
-            h += '<div class="kronoloji-warn" title="' + cell.warnings.length + ' uyarı">⚠</div>';
-          }
-        }
-        h += '</td>';
+    // ── Header (sticky top) ──
+    h += '<div class="gantt-header" style="padding-left:' + LABEL_WIDTH + 'px;">';
+    // Top header row (years in month mode, months in day mode)
+    if(grid.headers.length && data.zoom !== 'year') {
+      h += '<div class="gantt-header-top" style="width:' + grid.totalWidth + 'px;">';
+      grid.headers.forEach(hdr => {
+        h += '<div class="gantt-header-year" style="left:' + hdr.x + 'px;width:' + (hdr.span * grid.cellWidth) + 'px;">' + hdr.label + '</div>';
       });
-      h += '</tr>';
+      h += '</div>';
+    }
+    // Bottom header row (individual cells)
+    h += '<div class="gantt-header-bottom" style="width:' + grid.totalWidth + 'px;">';
+    grid.cells.forEach(cell => {
+      h += '<div class="gantt-header-cell" style="left:' + cell.x + 'px;width:' + cell.w + 'px;">' + cell.label + '</div>';
     });
-    h += '</tbody></table></div>';
+    h += '</div>';
+    h += '</div>'; // /gantt-header
+
+    // ── Rows ──
+    h += '<div class="gantt-rows">';
+    data.rows.forEach((row, rowIdx) => {
+      const ep = row.episode;
+      const evCount = row.events.length;
+      // Calculate row height based on stacked bars
+      const stackMap = {};
+      row.events.forEach(item => {
+        const key = item.date;
+        if(!stackMap[key]) stackMap[key] = 0;
+        stackMap[key]++;
+      });
+      const maxStack = Math.max(1, ...Object.values(stackMap));
+      const rowH = Math.max(ROW_HEIGHT, maxStack * (BAR_HEIGHT + BAR_GAP) + 16);
+
+      h += '<div class="gantt-row" data-epid="' + ep.id + '" data-rowidx="' + rowIdx + '" style="height:' + rowH + 'px;">';
+
+      // Row label (sticky left)
+      h += '<div class="gantt-row-label" style="width:' + LABEL_WIDTH + 'px;">';
+      h += '<div class="gantt-row-title">B' + ep.number + ' — ' + U.escHtml(ep.title||'') + '</div>';
+      if(ep.storyDate) h += '<div class="gantt-row-date">' + _fmtDate(ep.storyDate) + '</div>';
+      h += '<div class="gantt-row-count">' + evCount + ' olay</div>';
+      h += '</div>';
+
+      // Row content area (bars)
+      h += '<div class="gantt-row-content" style="width:' + grid.totalWidth + 'px;height:' + rowH + 'px;">';
+
+      // Vertical grid lines
+      grid.cells.forEach(cell => {
+        h += '<div class="gantt-grid-line" style="left:' + cell.x + 'px;"></div>';
+      });
+
+      // Bars
+      const stackCounters = {};
+      row.events.forEach(item => {
+        const ev = item.ev;
+        const dt = item.date;
+        const x = grid.dateToX(dt);
+        const cat = P.categories[ev.category];
+        const catColor = cat ? U.sanitizeColor(cat.color) : '#888';
+        const isFlashback = ev.category === 'flashback';
+        const isFlashforward = ev.category === 'flashforward';
+
+        // Stack position
+        const stackKey = dt.substring(0, data.zoom === 'year' ? 4 : (data.zoom === 'month' ? 7 : 10));
+        if(!stackCounters[stackKey]) stackCounters[stackKey] = 0;
+        const stackIdx = stackCounters[stackKey]++;
+        const top = 8 + stackIdx * (BAR_HEIGHT + BAR_GAP);
+
+        // Bar width
+        const barW = Math.max(BAR_MIN_WIDTH, grid.cellWidth - 4);
+
+        // CSS classes
+        let barCls = 'gantt-bar';
+        if(isFlashback) barCls += ' flashback';
+        if(isFlashforward) barCls += ' flashforward';
+
+        // Warnings
+        const evWarns = data.warnMap[ev.id] || [];
+        const hasWarn = evWarns.length > 0;
+        if(hasWarn) barCls += ' has-warn';
+
+        // Truncate title for bar label
+        const label = ev.title.length > 20 ? ev.title.substring(0,18) + '…' : ev.title;
+
+        h += '<div class="' + barCls + '" data-evid="' + ev.id + '" data-epid="' + ep.id + '"';
+        h += ' style="left:' + x + 'px;top:' + top + 'px;width:' + barW + 'px;height:' + BAR_HEIGHT + 'px;background:' + catColor + ';"';
+        h += ' title="' + U.escHtml(ev.title) + ' (' + _fmtDate(dt) + ')"';
+        h += '>';
+        if(hasWarn) h += '<span class="warn-icon">⚠</span>';
+        h += '<span class="gantt-bar-label">' + U.escHtml(label) + '</span>';
+        h += '</div>';
+      });
+
+      h += '</div>'; // /gantt-row-content
+      h += '</div>'; // /gantt-row
+    });
+    h += '</div>'; // /gantt-rows
+    h += '</div>'; // /gantt-container
 
     tlC.innerHTML = h;
 
-    // If a cell is selected, show detail in right panel
-    if(_selectedCell) _showCellDetail(_selectedCell.charId, _selectedCell.year);
+    // ── Event Listeners ──
+    _attachEventListeners();
   }
 
-  function _onCellClick(charId, year) {
-    if(_selectedCell && _selectedCell.charId === charId && _selectedCell.year === year) {
-      _selectedCell = null;
-      App.Panels.closeAll();
-    } else {
-      _selectedCell = { charId, year };
-      _showCellDetail(charId, year);
-    }
-    render();
-  }
+  // ── EVENT LISTENERS ──
+  function _attachEventListeners() {
+    const container = document.getElementById('ganttContainer');
+    if(!container) return;
 
-  function _showCellDetail(charId, year) {
-    const P = S.get();
-    const ch = P.characters.find(c => c.id === charId);
-    if(!ch) return;
-    const getYear = App.Analysis.getEventYear;
-    const evs = P.events.filter(ev => {
-      if(!(ev.characters||[]).includes(charId)) return false;
-      return getYear(ev, P) === year;
+    // Click on bar → open edit panel
+    container.addEventListener('click', function(e) {
+      const bar = e.target.closest('.gantt-bar');
+      if(bar && !_dragState) {
+        const evId = bar.dataset.evid;
+        if(evId) App.Panels.openEditEvent(evId);
+      }
     });
 
-    const rp = document.getElementById('rPanel');
-    rp.classList.add('open');
-    let h = '<div class="rpanel-hdr"><h3>' + U.escHtml(ch.name) + ' — ' + year + '</h3><button class="close-btn" onclick="App.Panels.closeAll();App.Chronology._clearSelection()">✕</button></div>';
-    h += '<div class="rpanel-body" style="padding:14px;">';
-    // Age info
-    if(ch.birthYear) {
-      const age = year - ch.birthYear;
-      h += '<div style="font-size:12px;color:var(--tx2);margin-bottom:12px;">Yaş: <b>' + age + '</b>';
-      if(ch.deathYear && year === ch.deathYear) h += ' <span style="color:var(--red);">(Ölüm yılı)</span>';
-      if(ch.deathYear && year > ch.deathYear) h += ' <span style="color:var(--red);">⚠ Ölüm sonrası!</span>';
-      h += '</div>';
-    }
-    // Events list
-    if(!evs.length) {
-      h += '<div style="color:var(--tx3);font-size:12px;">Bu yılda olay yok.</div>';
-    } else {
-      h += '<div style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500;margin-bottom:8px;">' + evs.length + ' olay</div>';
-      evs.forEach(ev => {
-        const ep = P.episodes.find(e=>e.id===ev.episodeId);
-        const cat = P.categories[ev.category];
-        const catColor = cat ? U.sanitizeColor(cat.color) : 'var(--tx3)';
-        h += '<div style="padding:8px 0;border-bottom:1px solid var(--brd);cursor:pointer;" onclick="App.Panels.openEditEvent(\'' + ev.id + '\')">';
-        h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
-        h += '<span style="width:8px;height:8px;border-radius:50%;background:' + catColor + ';flex-shrink:0;"></span>';
-        h += '<span style="font-size:12px;font-weight:500;">' + U.escHtml(ev.title) + '</span>';
-        h += '</div>';
-        h += '<div style="font-size:11px;color:var(--tx3);">' + U.epLbl(ep?ep.number:'?');
-        if(ev.storyDate) h += ' · Tarih: ' + U.escHtml(ev.storyDate);
-        if(cat) h += ' · ' + U.escHtml(cat.label);
-        h += '</div>';
-        if(ev.description) h += '<div style="font-size:11px;color:var(--tx4);margin-top:4px;">' + U.escHtml(ev.description) + '</div>';
-        h += '</div>';
-      });
-    }
-    h += '</div>';
-    rp.innerHTML = h;
-    App.Panels.setCurrentPanel('corkboard'); // reuse a generic panel slot
+    // Drag & Drop
+    container.addEventListener('pointerdown', function(e) {
+      const bar = e.target.closest('.gantt-bar');
+      if(!bar) return;
+      const evId = bar.dataset.evid;
+      if(!evId) return;
+
+      const rect = bar.getBoundingClientRect();
+      _dragState = {
+        evId,
+        epId: bar.dataset.epid,
+        startX: e.clientX,
+        startY: e.clientY,
+        barLeft: bar.offsetLeft,
+        barTop: bar.offsetTop,
+        moved: false,
+        bar
+      };
+
+      bar.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    container.addEventListener('pointermove', function(e) {
+      if(!_dragState) return;
+      const dx = e.clientX - _dragState.startX;
+      const dy = e.clientY - _dragState.startY;
+
+      if(!_dragState.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
+      _dragState.moved = true;
+
+      _dragState.bar.classList.add('dragging');
+      _dragState.bar.style.left = (_dragState.barLeft + dx) + 'px';
+      _dragState.bar.style.top = (_dragState.barTop + dy) + 'px';
+
+      // Highlight target row
+      const rows = container.querySelectorAll('.gantt-row');
+      rows.forEach(row => row.classList.remove('drop-target'));
+      const targetRow = _getRowAtY(container, e.clientY);
+      if(targetRow) targetRow.classList.add('drop-target');
+    });
+
+    container.addEventListener('pointerup', function(e) {
+      if(!_dragState) return;
+      const ds = _dragState;
+      _dragState = null;
+
+      ds.bar.classList.remove('dragging');
+
+      if(!ds.moved) return; // was just a click
+
+      const P = S.get();
+      const ev = S.getEvent(ds.evId);
+      if(!ev) return;
+
+      const data = _buildGanttData();
+      if(!data) return;
+      const grid = data.grid;
+
+      // Calculate new date from pixel position
+      const contentEl = ds.bar.closest('.gantt-row-content');
+      if(!contentEl) return;
+      const contentRect = contentEl.getBoundingClientRect();
+      const newX = e.clientX - contentRect.left + contentEl.scrollLeft;
+
+      // Find nearest grid cell
+      const newDate = _xToDate(grid, newX);
+
+      // Check if dropped on a different row (episode change)
+      const targetRow = _getRowAtY(document.getElementById('ganttContainer'), e.clientY);
+      let newEpId = ev.episodeId;
+      if(targetRow && targetRow.dataset.epid) {
+        newEpId = targetRow.dataset.epid;
+      }
+
+      // Apply changes
+      S.snapshot();
+      if(newDate) ev.storyDate = newDate;
+      if(newEpId !== ev.episodeId) ev.episodeId = newEpId;
+      S.markDirty('events');
+      S.emit('change', { type:'ganttDrag', targetId: ev.id, targetName: ev.title });
+
+      // Clean up
+      document.querySelectorAll('.gantt-row.drop-target').forEach(r => r.classList.remove('drop-target'));
+    });
   }
 
-  function _clearSelection() {
-    _selectedCell = null;
-    if(_mounted) render();
+  function _getRowAtY(container, clientY) {
+    const rows = container.querySelectorAll('.gantt-row');
+    for(const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if(clientY >= rect.top && clientY <= rect.bottom) return row;
+    }
+    return null;
   }
 
-  return { render, filterByCharacter, unmount, isMounted, _onCellClick, _clearSelection };
+  function _xToDate(grid, x) {
+    // Find the closest cell
+    let closest = null;
+    let minDist = Infinity;
+    grid.cells.forEach(cell => {
+      const mid = cell.x + cell.w / 2;
+      const dist = Math.abs(x - mid);
+      if(dist < minDist) { minDist = dist; closest = cell; }
+    });
+    return closest ? closest.date : null;
+  }
+
+  return { render, unmount, isMounted, setZoom, filterByCharacter, filterByCategory, _onCellClick: function(){}, _clearSelection: function(){} };
 })();

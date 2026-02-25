@@ -34,7 +34,7 @@ App.Projects = (function(){
     const displayName = user.displayName || user.email.split('@')[0];
 
     const emptyData = {
-      categories: { operasyon:{label:'Operasyon',color:'#ef4444'}, karakter:{label:'Karakter',color:'#3b82f6'}, organizasyon:{label:'Organizasyon',color:'#10b981'}, sistem:{label:'Sistem',color:'#f59e0b'}, flashback:{label:'Flashback',color:'#a855f7'}, ihanet:{label:'İhanet',color:'#f97316'} },
+      categories: { operasyon:{label:'Operasyon',color:'#ef4444'}, karakter:{label:'Karakter',color:'#3b82f6'}, organizasyon:{label:'Organizasyon',color:'#10b981'}, sistem:{label:'Sistem',color:'#f59e0b'}, flashback:{label:'Flashback',color:'#9c27b0'}, flashforward:{label:'Flashforward',color:'#00bcd4'}, ihanet:{label:'İhanet',color:'#f97316'} },
       characters: {}, episodes: {}, scenes: {}, events: {}, connections: {}, characterRelationships: {}, reviewComments: {}
     };
 

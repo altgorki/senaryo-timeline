@@ -39,7 +39,7 @@ App.ScreenplayEditor = (function(){
       // Episode divider
       _elements.push({
         id: 'epd_' + ep.id, divider: true, dividerType: 'episode',
-        episodeId: ep.id, text: (ep.number === 'fb' ? 'FLASHBACK' : 'BÖLÜM ' + ep.number) + (ep.title ? ' — ' + ep.title : '')
+        episodeId: ep.id, text: 'BÖLÜM ' + ep.number + (ep.title ? ' — ' + ep.title : '')
       });
 
       const scenes = S.getScenes(ep.id);

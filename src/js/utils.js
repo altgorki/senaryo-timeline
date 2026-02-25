@@ -22,7 +22,7 @@ App.Utils = (function(){
   };
   const debounce = (fn,ms) => { let t; return (...a) => { clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
   const snap = (val, grid) => grid > 0 ? Math.round(val/grid)*grid : val;
-  const epLbl = e => e==='fb'?'FB':'B'+e;
+  const epLbl = e => 'B'+e;
   const deepClone = o => JSON.parse(JSON.stringify(o));
   // ── Input Validation ──
   const LIMITS = { title:200, description:5000, screenplay:50000, characterName:50, color:20 };
@@ -47,5 +47,11 @@ App.Utils = (function(){
   }
   function clearDomCache() { for(const k in _domCache) delete _domCache[k]; }
 
-  return { s2t, s2px, px2s, genId, setIdCounter, clamp, escHtml, sanitizeColor, debounce, snap, epLbl, deepClone, LIMITS, validateText, $, clearDomCache };
+  // ── Date Helpers ──
+  const formatDate = d => { if(!d || typeof d !== 'string') return ''; const p = d.split('-'); if(p.length===3) return p[2]+'/'+p[1]+'/'+p[0]; return d; };
+  const parseDate = d => { if(!d) return null; if(d instanceof Date) return d; return new Date(d+'T00:00:00'); };
+  const calcAge = (birth, ref) => { if(!birth||!ref) return null; const b=parseDate(birth),r=parseDate(ref); if(!b||!r||isNaN(b)||isNaN(r)) return null; let a=r.getFullYear()-b.getFullYear(); if(r.getMonth()<b.getMonth()||(r.getMonth()===b.getMonth()&&r.getDate()<b.getDate())) a--; return a; };
+  const yearFromDate = d => { if(!d) return null; if(typeof d==='number') return d; const p=String(d).split('-'); return parseInt(p[0])||null; };
+
+  return { s2t, s2px, px2s, genId, setIdCounter, clamp, escHtml, sanitizeColor, debounce, snap, epLbl, deepClone, LIMITS, validateText, $, clearDomCache, formatDate, parseDate, calcAge, yearFromDate };
 })();

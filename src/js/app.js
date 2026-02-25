@@ -2,32 +2,31 @@
 function getDemoProject() {
   const U = App.Utils;
   const CHARS = ['Sakal','Akın','Ayça','Hatice','Çağatay','Ayaz','Begüm','Mehmet','Aren','Tomris/Lakas','Asaf','Menderes','Doğan Albay','Tutak','Sangal','Tekin','Oktay Anar'];
-  const charYears = {
-    'Sakal':{birthYear:1978,deathYear:null},'Akın':{birthYear:1996,deathYear:null},'Ayça':{birthYear:1998,deathYear:null},
-    'Hatice':{birthYear:1990,deathYear:null},'Çağatay':{birthYear:1995,deathYear:2024},'Ayaz':{birthYear:1983,deathYear:2024},
-    'Begüm':{birthYear:1997,deathYear:null},'Mehmet':{birthYear:1985,deathYear:2024},'Aren':{birthYear:1970,deathYear:null},
-    'Tomris/Lakas':{birthYear:1950,deathYear:null},'Asaf':{birthYear:1965,deathYear:null},'Menderes':{birthYear:1975,deathYear:null},
-    'Doğan Albay':{birthYear:1948,deathYear:2016},'Tutak':{birthYear:1960,deathYear:2024},'Sangal':{birthYear:1955,deathYear:2024},
-    'Tekin':{birthYear:1968,deathYear:null},'Oktay Anar':{birthYear:1972,deathYear:null}
+  const charDates = {
+    'Sakal':{birthDate:'1978-03-15',deathDate:null},'Akın':{birthDate:'1996-07-22',deathDate:null},'Ayça':{birthDate:'1998-11-03',deathDate:null},
+    'Hatice':{birthDate:'1990-05-10',deathDate:null},'Çağatay':{birthDate:'1995-09-18',deathDate:'2024-06-20'},'Ayaz':{birthDate:'1983-01-25',deathDate:'2024-04-12'},
+    'Begüm':{birthDate:'1997-12-01',deathDate:null},'Mehmet':{birthDate:'1985-08-14',deathDate:'2024-05-30'},'Aren':{birthDate:'1970-04-07',deathDate:null},
+    'Tomris/Lakas':{birthDate:'1950-06-20',deathDate:null},'Asaf':{birthDate:'1965-02-28',deathDate:null},'Menderes':{birthDate:'1975-10-11',deathDate:null},
+    'Doğan Albay':{birthDate:'1948-09-05',deathDate:'2016-03-17'},'Tutak':{birthDate:'1960-07-30',deathDate:'2024-02-15'},'Sangal':{birthDate:'1955-12-25',deathDate:'2024-03-08'},
+    'Tekin':{birthDate:'1968-11-19',deathDate:null},'Oktay Anar':{birthDate:'1972-06-14',deathDate:null}
   };
-  const characters = CHARS.map(name => ({id:'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_'), name, color:'', notes:'', birthYear:(charYears[name]||{}).birthYear||null, deathYear:(charYears[name]||{}).deathYear||null}));
+  const characters = CHARS.map(name => ({id:'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_'), name, color:'', notes:'', birthDate:(charDates[name]||{}).birthDate||null, deathDate:(charDates[name]||{}).deathDate||null}));
   const charId = name => 'ch_'+name.replace(/[^a-zA-ZçğıöşüÇĞİÖŞÜ0-9]/g,'_');
   const episodes = [
-    {id:'ep1',number:1,title:'Uyanma',duration:2700,type:'normal',order:1,storyYear:2024},
-    {id:'ep2',number:2,title:'Masal',duration:2700,type:'normal',order:2,storyYear:2024},
-    {id:'ep3',number:3,title:'Sistemin Yüzü',duration:2700,type:'normal',order:3,storyYear:2024},
-    {id:'ep4',number:4,title:'İlk Darbe',duration:2700,type:'normal',order:4,storyYear:2024},
-    {id:'ep5',number:5,title:'Sangal Operasyonu',duration:2700,type:'normal',order:5,storyYear:2024},
-    {id:'ep6',number:6,title:'Tekin Holding',duration:2700,type:'normal',order:6,storyYear:2024},
-    {id:'ep7',number:7,title:'Sınav ve Çatlaklar',duration:2700,type:'normal',order:7,storyYear:2024},
-    {id:'ep8',number:8,title:'Kayıp',duration:2700,type:'normal',order:8,storyYear:2024},
-    {id:'ep9',number:9,title:'Yeniden Doğuş',duration:2700,type:'normal',order:9,storyYear:2024},
-    {id:'ep10',number:10,title:'Lakas (Final)',duration:2700,type:'normal',order:10,storyYear:2024},
-    {id:'epfb',number:'fb',title:'Flashback',duration:2700,type:'flashback',order:11,storyYear:null}
+    {id:'ep1',number:1,title:'Uyanma',duration:2700,type:'normal',order:1,storyDate:'2024-01-15'},
+    {id:'ep2',number:2,title:'Masal',duration:2700,type:'normal',order:2,storyDate:'2024-01-22'},
+    {id:'ep3',number:3,title:'Sistemin Yüzü',duration:2700,type:'normal',order:3,storyDate:'2024-01-29'},
+    {id:'ep4',number:4,title:'İlk Darbe',duration:2700,type:'normal',order:4,storyDate:'2024-02-05'},
+    {id:'ep5',number:5,title:'Sangal Operasyonu',duration:2700,type:'normal',order:5,storyDate:'2024-02-12'},
+    {id:'ep6',number:6,title:'Tekin Holding',duration:2700,type:'normal',order:6,storyDate:'2024-02-19'},
+    {id:'ep7',number:7,title:'Sınav ve Çatlaklar',duration:2700,type:'normal',order:7,storyDate:'2024-02-26'},
+    {id:'ep8',number:8,title:'Kayıp',duration:2700,type:'normal',order:8,storyDate:'2024-03-04'},
+    {id:'ep9',number:9,title:'Yeniden Doğuş',duration:2700,type:'normal',order:9,storyDate:'2024-03-11'},
+    {id:'ep10',number:10,title:'Lakas (Final)',duration:2700,type:'normal',order:10,storyDate:'2024-03-18'}
   ];
-  const epMap = {1:'ep1',2:'ep2',3:'ep3',4:'ep4',5:'ep5',6:'ep6',7:'ep7',8:'ep8',9:'ep9',10:'ep10','fb':'epfb'};
+  const epMap = {1:'ep1',2:'ep2',3:'ep3',4:'ep4',5:'ep5',6:'ep6',7:'ep7',8:'ep8',9:'ep9',10:'ep10'};
   const raw = [
-    {id:'e1',t:'Flashforward: İzbe Bina',d:'Kaos, silah sesleri, patlama.',ep:1,c:'sistem',ch:[],s:0,dur:120},
+    {id:'e1',t:'Flashforward: İzbe Bina',d:'Kaos, silah sesleri, patlama.',ep:1,c:'flashforward',ch:[],s:0,dur:120},
     {id:'e2',t:'Akın: Sabah Rutini',d:'Alarm, tıraş, modern kölelik teması.',ep:1,c:'karakter',ch:['Akın'],s:120,dur:150},
     {id:'e3',t:'Akın: Trafik ve Plaza',d:'Trafikte sıkışma, plazaya giriş.',ep:1,c:'karakter',ch:['Akın'],s:270,dur:90},
     {id:'e4',t:'Kafede Begüm ile Tanışma',d:'Masada Demir Ökçe kitabı.',ep:1,c:'karakter',ch:['Akın','Begüm','Ayaz'],s:360,dur:120},
@@ -129,12 +128,12 @@ function getDemoProject() {
     {id:'e100',t:'Sakal: Gizli Karargah',d:'Devasa kitaplık.',ep:10,c:'organizasyon',ch:['Sakal','Begüm'],s:1470,dur:120},
     {id:'e101',t:'Son Yazı: Lakas İfşası',d:'Tomris Hanım.',ep:10,c:'organizasyon',ch:['Sakal','Tomris/Lakas'],s:1590,dur:120},
     {id:'e102',t:'Jenerik Sonrası: Mektup',d:'Diğer bölgelerdeki olaylar.',ep:10,c:'organizasyon',ch:['Tomris/Lakas','Doğan Albay'],s:1710,dur:120},
-    {id:'e103',t:'FB: 1974 Filipinler Kafesi',d:'Doğan ve Tomris tanışma.',ep:'fb',c:'flashback',ch:['Doğan Albay','Tomris/Lakas'],s:0,dur:180,sd:'1974'},
-    {id:'e104',t:'FB: 2008 Ayaz — Patlama',d:'Patlamış araba.',ep:'fb',c:'flashback',ch:['Ayaz'],s:180,dur:180,sd:'2008'},
-    {id:'e105',t:'FB: 2008 Ayaz — Valiye Saldırı',d:'Kafa atma.',ep:'fb',c:'flashback',ch:['Ayaz'],s:360,dur:150,sd:'2008'},
-    {id:'e106',t:'FB: 2011 Doğan — Kozmik Oda',d:'Belgeler, tutuklanma.',ep:'fb',c:'flashback',ch:['Doğan Albay'],s:510,dur:180,sd:'2011'},
-    {id:'e107',t:'FB: Hatice — Kocasını Öldürmesi',d:'Sessiz karar anı.',ep:'fb',c:'flashback',ch:['Hatice'],s:690,dur:180,sd:'2015'},
-    {id:'e108',t:'FB: 2016 Doğan — Cezaevi',d:'Mektup, intihar.',ep:'fb',c:'flashback',ch:['Doğan Albay','Ayaz'],s:870,dur:210,sd:'2016'}
+    {id:'e103',t:'FB: 1974 Filipinler Kafesi',d:'Doğan ve Tomris tanışma.',ep:10,c:'flashback',ch:['Doğan Albay','Tomris/Lakas'],s:1830,dur:180,sd:'1974-06-15'},
+    {id:'e104',t:'FB: 2008 Ayaz — Patlama',d:'Patlamış araba.',ep:8,c:'flashback',ch:['Ayaz'],s:1140,dur:180,sd:'2008-03-22'},
+    {id:'e105',t:'FB: 2008 Ayaz — Valiye Saldırı',d:'Kafa atma.',ep:8,c:'flashback',ch:['Ayaz'],s:1320,dur:150,sd:'2008-09-10'},
+    {id:'e106',t:'FB: 2011 Doğan — Kozmik Oda',d:'Belgeler, tutuklanma.',ep:10,c:'flashback',ch:['Doğan Albay'],s:2010,dur:180,sd:'2011-07-20'},
+    {id:'e107',t:'FB: Hatice — Kocasını Öldürmesi',d:'Sessiz karar anı.',ep:9,c:'flashback',ch:['Hatice'],s:1290,dur:180,sd:'2015-11-03'},
+    {id:'e108',t:'FB: 2016 Doğan — Cezaevi',d:'Mektup, intihar.',ep:10,c:'flashback',ch:['Doğan Albay','Ayaz'],s:2190,dur:210,sd:'2016-03-15'}
   ];
   const events = raw.map(r => ({
     id:r.id, title:r.t, description:r.d, episodeId:epMap[r.ep], sceneId:null,
@@ -158,7 +157,7 @@ function getDemoProject() {
   const connections = rawCns.map((c,i) => ({id:'cn'+i, from:c.f, to:c.t, type:c.tp, description:'', strength:1}));
   return {
     meta: { title:'SAKAL', author:'', settings:{ episodeDuration:2700, pixelsPerSecond:0.5, snapGrid:10 } },
-    categories: {operasyon:{label:'Operasyon',color:'#ef4444'},karakter:{label:'Karakter',color:'#3b82f6'},organizasyon:{label:'Organizasyon',color:'#10b981'},sistem:{label:'Sistem',color:'#f59e0b'},flashback:{label:'Flashback',color:'#a855f7'},ihanet:{label:'İhanet',color:'#f97316'}},
+    categories: {operasyon:{label:'Operasyon',color:'#ef4444'},karakter:{label:'Karakter',color:'#3b82f6'},organizasyon:{label:'Organizasyon',color:'#10b981'},sistem:{label:'Sistem',color:'#f59e0b'},flashback:{label:'Flashback',color:'#9c27b0'},flashforward:{label:'Flashforward',color:'#00bcd4'},ihanet:{label:'İhanet',color:'#f97316'}},
     characters, episodes, scenes: generateScenesFromEvents(events, episodes), events, connections
   };
 }

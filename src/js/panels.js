@@ -59,7 +59,7 @@ App.Panels = (function(){
           </div>
         </div>
         <div class="fg"><label>Bölüm</label><select id="dEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ev.episodeId===ep.id?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
-        <div class="fg"><label>Hikaye Tarihi</label><input id="dStoryDate" value="${U.escHtml(ev.storyDate||'')}" placeholder="Örn: 2024 veya 2024-03-15"><div style="font-size:10px;color:var(--tx4);margin-top:2px;">(Boş bırakılırsa bölüm yılı kullanılır)</div></div>
+        <div class="fg"><label>Hikaye Tarihi</label><input type="date" id="dStoryDate" value="${U.escHtml(ev.storyDate||'')}"><div style="font-size:10px;color:var(--tx4);margin-top:2px;">(Boş bırakılırsa bölüm tarihi kullanılır)</div></div>
         <div class="fg"><label>Kategori</label><select id="dC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}"${ev.category===k?' selected':''}>${U.escHtml(v.label)}</option>`).join('')}</select></div>
         <div class="fg"><label>Başlangıç (sn)</label><input type="number" id="dS" value="${Math.round(ev.s)}" min="0" max="${S.getEPDUR()}"></div>
         <div class="fg"><label>Süre (sn)</label><input type="number" id="dDur" value="${Math.round(ev.dur)}" min="60"></div>
@@ -175,7 +175,7 @@ App.Panels = (function(){
       <div class="mb">
         <div class="fg"><label>Başlık</label><input id="nT" placeholder="Olay başlığı"></div>
         <div class="fg"><label>Bölüm</label><select id="nEp">${P.episodes.map(ep=>`<option value="${ep.id}"${ep.id===defaultEp?' selected':''}>${U.epLbl(ep.number)}</option>`).join('')}</select></div>
-        <div class="fg"><label>Hikaye Tarihi</label><input id="nStoryDate" placeholder="Örn: 2024 veya 2024-03-15"><div style="font-size:10px;color:var(--tx4);margin-top:2px;">(Boş bırakılırsa bölüm yılı kullanılır)</div></div>
+        <div class="fg"><label>Hikaye Tarihi</label><input type="date" id="nStoryDate"><div style="font-size:10px;color:var(--tx4);margin-top:2px;">(Boş bırakılırsa bölüm tarihi kullanılır)</div></div>
         <div class="fg"><label>Kategori</label><select id="nC">${Object.entries(P.categories).map(([k,v])=>`<option value="${k}">${U.escHtml(v.label)}</option>`).join('')}</select></div>
         <div style="display:flex;gap:8px"><div class="fg" style="flex:1"><label>Başlangıç (dk)</label><input type="number" id="nS" value="0" min="0" max="${Math.floor(S.getEPDUR()/60)}"></div>
         <div class="fg" style="flex:1"><label>Süre (dk)</label><input type="number" id="nDur" value="3" min="1" max="${Math.floor(S.getEPDUR()/60)}"></div></div>
@@ -411,8 +411,8 @@ App.Panels = (function(){
     let charsHtml = P.characters.map(c =>
       `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-chid="${c.id}">
         <input value="${U.escHtml(c.name)}" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" class="char-name-in">
-        <input type="number" value="${c.birthYear||''}" placeholder="Doğum" title="Doğum Yılı" style="width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;" class="char-birth-in">
-        <input type="number" value="${c.deathYear||''}" placeholder="Ölüm" title="Ölüm Yılı" style="width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;" class="char-death-in">
+        <input type="date" value="${c.birthDate||''}" placeholder="Doğum" title="Doğum Tarihi" style="width:120px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;" class="char-birth-in">
+        <input type="date" value="${c.deathDate||''}" placeholder="Ölüm" title="Ölüm Tarihi" style="width:120px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;" class="char-death-in">
         <button class="btn btn-s" style="color:var(--red)" onclick="this.parentNode.remove()">✕</button>
       </div>`).join('');
 
@@ -427,10 +427,10 @@ App.Panels = (function(){
         </div>
         <div class="fg"><label>Karakterler</label>
           <div id="sChars">${charsHtml}</div>
-          <button class="btn btn-s" style="margin-top:4px" onclick="document.getElementById('sChars').insertAdjacentHTML('beforeend','<div style=\\'display:flex;align-items:center;gap:6px;margin-bottom:4px;\\' data-chid=\\'new_'+Date.now()+'\\'><input placeholder=\\'Yeni Karakter\\' style=\\'flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;\\' class=\\'char-name-in\\'><input type=\\'number\\' placeholder=\\'Doğum\\' title=\\'Doğum Yılı\\' style=\\'width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;\\' class=\\'char-birth-in\\'><input type=\\'number\\' placeholder=\\'Ölüm\\' title=\\'Ölüm Yılı\\' style=\\'width:68px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;\\' class=\\'char-death-in\\'><button class=\\'btn btn-s\\' style=\\'color:var(--red)\\' onclick=\\'this.parentNode.remove()\\'>✕</button></div>')">+ Karakter</button>
+          <button class="btn btn-s" style="margin-top:4px" onclick="document.getElementById('sChars').insertAdjacentHTML('beforeend','<div style=\\'display:flex;align-items:center;gap:6px;margin-bottom:4px;\\' data-chid=\\'new_'+Date.now()+'\\'><input placeholder=\\'Yeni Karakter\\' style=\\'flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;\\' class=\\'char-name-in\\'><input type=\\'date\\' title=\\'Doğum Tarihi\\' style=\\'width:120px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;\\' class=\\'char-birth-in\\'><input type=\\'date\\' title=\\'Ölüm Tarihi\\' style=\\'width:120px;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:11px;font-family:inherit;\\' class=\\'char-death-in\\'><button class=\\'btn btn-s\\' style=\\'color:var(--red)\\' onclick=\\'this.parentNode.remove()\\'>✕</button></div>')">+ Karakter</button>
         </div>
-        <div class="fg"><label>Bölüm Hikaye Yılları</label>
-          <div id="sEpYears">${P.episodes.map(ep=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-epid="${ep.id}"><span style="min-width:48px;font-size:11px;color:var(--tx2);font-weight:500;">${U.epLbl(ep.number)}</span><input type="number" value="${ep.storyYear||''}" placeholder="Hikaye Yılı" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" class="ep-year-in"></div>`).join('')}</div>
+        <div class="fg"><label>Bölüm Hikaye Tarihleri</label>
+          <div id="sEpYears">${P.episodes.map(ep=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" data-epid="${ep.id}"><span style="min-width:48px;font-size:11px;color:var(--tx2);font-weight:500;">${U.epLbl(ep.number)}</span><input type="date" value="${ep.storyDate||''}" style="flex:1;padding:4px 6px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx);border-radius:4px;font-size:12px;font-family:inherit;" class="ep-year-in"></div>`).join('')}</div>
         </div>
         <div class="ai-config-section">
           <h4 style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--purple);">✦ AI Yapılandırması</h4>
@@ -484,9 +484,9 @@ App.Panels = (function(){
       if(nameIn && nameIn.value.trim()) {
         const id = (existingId && !existingId.startsWith('new_')) ? existingId : U.genId('ch');
         const existing = P.characters.find(c=>c.id===id);
-        const birthYear = birthIn && birthIn.value ? parseInt(birthIn.value) : null;
-        const deathYear = deathIn && deathIn.value ? parseInt(deathIn.value) : null;
-        newChars.push({ id, name: nameIn.value.trim(), color: existing?.color||'', notes: existing?.notes||'', birthYear, deathYear });
+        const birthDate = birthIn && birthIn.value ? birthIn.value : null;
+        const deathDate = deathIn && deathIn.value ? deathIn.value : null;
+        newChars.push({ id, name: nameIn.value.trim(), color: existing?.color||'', notes: existing?.notes||'', birthDate, deathDate });
       }
     });
     P.characters = newChars;
@@ -495,7 +495,7 @@ App.Panels = (function(){
       const epId = row.dataset.epid;
       const yearIn = row.querySelector('.ep-year-in');
       const ep = P.episodes.find(e=>e.id===epId);
-      if(ep && yearIn) ep.storyYear = yearIn.value ? parseInt(yearIn.value) : null;
+      if(ep && yearIn) ep.storyDate = yearIn.value || null;
     });
     // AI Settings
     if(App.AI) {

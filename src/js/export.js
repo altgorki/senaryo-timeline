@@ -23,7 +23,7 @@ App.Export = (function(){
 
     let episodeOpts = '<option value="all">Tam Proje</option>';
     P.episodes.forEach(ep => {
-      episodeOpts += '<option value="' + ep.id + '">' + U.escHtml(ep.number === 'fb' ? 'Flashback' : 'Bölüm ' + ep.number + (ep.title ? ' — ' + ep.title : '')) + '</option>';
+      episodeOpts += '<option value="' + ep.id + '">' + U.escHtml('Bölüm ' + ep.number + (ep.title ? ' — ' + ep.title : '')) + '</option>';
     });
 
     App.UI.openModal(
@@ -107,7 +107,7 @@ App.Export = (function(){
 
     let globalSceneNum = 0;
     episodes.forEach(ep => {
-      blocks.push({ type: 'episode-header', text: (ep.number === 'fb' ? 'FLASHBACK' : 'BÖLÜM ' + ep.number) + (ep.title ? ' — ' + ep.title : '') });
+      blocks.push({ type: 'episode-header', text: 'BÖLÜM ' + ep.number + (ep.title ? ' — ' + ep.title : '') });
 
       const scenes = S.getScenes(ep.id);
       scenes.forEach(sc => {

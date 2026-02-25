@@ -619,33 +619,58 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .cork-add-scene-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.05);}
 .corkboard-grid.drag-over{background:rgba(59,130,246,.03);border-radius:var(--radius);}
 
-/* ── CHRONOLOGY / KRONOLOJI ── */
-.kronoloji-active #tlA{cursor:default;overflow:auto;}
+/* ── CHRONOLOGY / GANTT CHART ── */
+.kronoloji-active #tlA{cursor:default;overflow:hidden;}
 .kronoloji-active #tlC{display:flex;flex-direction:column;align-items:stretch;height:100%;transform:none!important;}
-.kronoloji-toolbar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--brd);flex-shrink:0;}
-.kronoloji-toolbar select{padding:4px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx2);font-size:12px;font-family:inherit;cursor:pointer;outline:none;}
-.kronoloji-table-wrap{flex:1;overflow:auto;position:relative;}
-.kronoloji-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;}
-.kronoloji-table thead{position:sticky;top:0;z-index:12;}
-.kronoloji-table th{background:var(--bg2);border-bottom:2px solid var(--brd);padding:8px 12px;font-size:11px;font-weight:600;color:var(--tx2);text-align:center;white-space:nowrap;}
-.kronoloji-corner{text-align:left!important;min-width:140px;}
-.kronoloji-year-hdr{min-width:80px;}
-.kronoloji-char-cell{position:sticky;left:0;z-index:10;background:var(--bg2);border-right:1px solid var(--brd);border-bottom:1px solid var(--brd);padding:8px 12px;min-width:140px;max-width:180px;vertical-align:top;}
-.kronoloji-char-name{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.kronoloji-char-years{font-size:10px;color:var(--tx3);margin-top:2px;}
-.kronoloji-cell{border-bottom:1px solid var(--brd);border-right:1px solid rgba(42,42,58,.3);padding:6px 8px;text-align:center;vertical-align:top;min-width:80px;transition:background .12s;cursor:default;}
-.kronoloji-cell:hover{background:var(--bg3);}
-.kronoloji-cell.active{background:var(--bg4);box-shadow:inset 0 0 0 2px var(--blue);}
-.kronoloji-cell.death{background:rgba(239,68,68,.06);}
-.kronoloji-cell.death-year{background:rgba(239,68,68,.12);}
-.kronoloji-cell.before-birth{background:rgba(255,255,255,.02);}
-.kronoloji-cell.warn{background:rgba(249,115,22,.08);}
-.kronoloji-age{font-size:14px;font-weight:700;color:var(--tx);line-height:1.2;}
-.kronoloji-cell.death .kronoloji-age{color:var(--red);opacity:.5;}
-.kronoloji-cell.death-year .kronoloji-age{color:var(--red);}
-.kronoloji-dots{display:flex;justify-content:center;gap:3px;margin-top:4px;flex-wrap:wrap;}
-.kronoloji-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
-.kronoloji-warn{font-size:12px;margin-top:2px;color:var(--orange);}
+
+.gantt-toolbar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--brd);flex-shrink:0;flex-wrap:wrap;}
+.gantt-zoom-group{display:flex;align-items:center;gap:4px;}
+.gantt-zoom-btn{padding:4px 10px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx3);font-size:11px;font-family:inherit;cursor:pointer;transition:all .12s;}
+.gantt-zoom-btn:hover{border-color:var(--blue);color:var(--tx);}
+.gantt-zoom-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.gantt-filter-group{display:flex;align-items:center;gap:6px;}
+.gantt-filter-btn{padding:4px 8px;border-radius:4px;border:1px solid var(--brd);background:var(--bg3);color:var(--tx2);font-size:12px;font-family:inherit;cursor:pointer;outline:none;}
+.gantt-no-data{padding:40px;text-align:center;color:var(--tx3);font-size:13px;}
+
+.gantt-container{flex:1;overflow:auto;position:relative;}
+
+/* Header */
+.gantt-header{position:sticky;top:0;z-index:12;background:var(--bg2);}
+.gantt-header-top{position:relative;height:22px;border-bottom:1px solid var(--brd);}
+.gantt-header-year{position:absolute;top:0;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--tx);border-right:1px solid var(--brd);box-sizing:border-box;}
+.gantt-header-bottom{position:relative;height:24px;border-bottom:2px solid var(--brd);}
+.gantt-header-cell{position:absolute;top:0;height:24px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--tx3);border-right:1px solid rgba(42,42,58,.3);box-sizing:border-box;}
+
+/* Rows */
+.gantt-rows{position:relative;}
+.gantt-row{display:flex;border-bottom:1px solid var(--brd);position:relative;transition:background .12s;}
+.gantt-row:hover{background:rgba(255,255,255,.02);}
+.gantt-row.drop-target{background:rgba(59,130,246,.08);box-shadow:inset 0 0 0 1px var(--blue);}
+
+.gantt-row-label{position:sticky;left:0;z-index:10;background:var(--bg2);border-right:1px solid var(--brd);padding:8px 12px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;gap:2px;}
+.gantt-row-title{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gantt-row-date{font-size:10px;color:var(--tx3);}
+.gantt-row-count{font-size:10px;color:var(--tx4);}
+
+.gantt-row-content{position:relative;flex-shrink:0;}
+
+/* Grid lines */
+.gantt-grid-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(42,42,58,.15);pointer-events:none;}
+
+/* Bars */
+.gantt-bar{position:absolute;border-radius:4px;cursor:grab;display:flex;align-items:center;gap:4px;padding:0 6px;overflow:hidden;font-size:10px;color:#fff;font-weight:500;white-space:nowrap;z-index:5;transition:opacity .12s,box-shadow .12s;touch-action:none;user-select:none;}
+.gantt-bar:hover{box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:6;}
+.gantt-bar.flashback{border:2px dashed #9c27b0;background:rgba(156,39,176,.6)!important;}
+.gantt-bar.flashforward{border:2px dashed #00bcd4;background:rgba(0,188,212,.6)!important;}
+.gantt-bar.dragging{opacity:.7;z-index:100;cursor:grabbing;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.gantt-bar.has-warn .warn-icon{color:#ff9800;font-size:11px;flex-shrink:0;}
+.gantt-bar-label{overflow:hidden;text-overflow:ellipsis;}
+
+/* Flashback/Flashforward indicators for other views */
+.timeline-bar.flashback{border:2px dashed #9c27b0;}
+.timeline-bar.flashforward{border:2px dashed #00bcd4;}
+.card.flashback{border-top:3px solid #9c27b0;}
+.card.flashforward{border-top:3px solid #00bcd4;}
 
 /* ── IMPORT PROGRESS ── */
 .import-progress{padding:20px;text-align:center;}
