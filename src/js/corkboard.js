@@ -74,6 +74,9 @@ App.Corkboard = (function(){
       html += '<div class="nw" style="padding:20px;grid-column:1/-1;">Bu bölümde sahne yok.</div>';
     }
 
+    // + Sahne Ekle button
+    html += '<div class="cork-add-scene-btn" data-ep-id="' + ep.id + '" onclick="App.Panels.openAddEvent(\'' + ep.id + '\')">+ Sahne Ekle</div>';
+
     html += '</div></div>';
     return html;
   }
@@ -138,6 +141,32 @@ App.Corkboard = (function(){
       card.addEventListener('click', _onCardClick);
       card.addEventListener('dblclick', _onCardDblClick);
     });
+    // Grid container drop support (for drops between cards or into empty areas)
+    var grids = document.querySelectorAll('.corkboard-grid');
+    grids.forEach(function(grid) {
+      grid.addEventListener('dragover', function(e) {
+        if (!_draggedId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-over');
+      });
+      grid.addEventListener('dragleave', function(e) {
+        if (!e.relatedTarget || !this.contains(e.relatedTarget)) {
+          this.classList.remove('drag-over');
+        }
+      });
+      grid.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        var sourceId = _draggedId;
+        if (!sourceId) return;
+        // If drop is on the grid itself (not on a card), append to end of this section
+        var section = this.closest('.corkboard-section');
+        if (!section) return;
+        var targetEpId = section.dataset.epId;
+        _moveSceneToEpisodeEnd(sourceId, targetEpId);
+      });
+    });
   }
 
   function _onDragStart(e) {
@@ -147,33 +176,49 @@ App.Corkboard = (function(){
     e.dataTransfer.setData('text/plain', _draggedId);
   }
 
-  function _onDragEnd(e) {
+  function _onDragEnd() {
     this.classList.remove('dragging');
     _draggedId = null;
     _dragOverId = null;
-    // Remove all placeholders
+    _clearPlaceholders();
+  }
+
+  function _clearPlaceholders() {
     document.querySelectorAll('.cork-card-placeholder').forEach(function(el) { el.remove(); });
-    document.querySelectorAll('.cork-card.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+    document.querySelectorAll('.cork-card.drag-over-before,.cork-card.drag-over-after').forEach(function(el) {
+      el.classList.remove('drag-over-before', 'drag-over-after');
+    });
+    document.querySelectorAll('.corkboard-grid.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
   }
 
   function _onDragOver(e) {
+    if (!_draggedId) return;
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     var targetId = this.dataset.sceneId;
     if (targetId === _draggedId) return;
-    // Only allow drop within same episode
-    var draggedCard = document.querySelector('.cork-card[data-scene-id="' + _draggedId + '"]');
-    if (!draggedCard) return;
-    if (draggedCard.dataset.epId !== this.dataset.epId) return;
+
+    // Visual feedback: show placeholder before or after based on mouse position
+    _clearPlaceholders();
+    var rect = this.getBoundingClientRect();
+    var midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      this.classList.add('drag-over-before');
+    } else {
+      this.classList.add('drag-over-after');
+    }
     _dragOverId = targetId;
   }
 
-  function _onDragLeave(e) {
-    // nothing special needed
+  function _onDragLeave() {
+    this.classList.remove('drag-over-before', 'drag-over-after');
   }
 
   function _onDrop(e) {
     e.preventDefault();
+    e.stopPropagation();
+    _clearPlaceholders();
     var targetId = this.dataset.sceneId;
     var sourceId = _draggedId;
     if (!sourceId || sourceId === targetId) return;
@@ -182,26 +227,80 @@ App.Corkboard = (function(){
     var srcScene = P.scenes.find(function(s) { return s.id === sourceId; });
     var tgtScene = P.scenes.find(function(s) { return s.id === targetId; });
     if (!srcScene || !tgtScene) return;
-    if (srcScene.episodeId !== tgtScene.episodeId) return;
 
-    // Reorder scenes within episode
-    var epScenes = P.scenes.filter(function(s) { return s.episodeId === srcScene.episodeId; });
+    // Determine insert position based on mouse Y
+    var rect = this.getBoundingClientRect();
+    var insertAfter = e.clientY >= rect.top + rect.height / 2;
+
+    S.snapshot();
+
+    // Cross-episode move: update episodeId
+    var crossEpisode = srcScene.episodeId !== tgtScene.episodeId;
+    if (crossEpisode) {
+      var oldEpId = srcScene.episodeId;
+      srcScene.episodeId = tgtScene.episodeId;
+      // Also update linked event's episodeId
+      var ev = (P.events || []).find(function(e) { return e.sceneId === srcScene.id; });
+      if (ev) ev.episodeId = tgtScene.episodeId;
+      // Re-order old episode scenes
+      var oldEpScenes = P.scenes.filter(function(s) { return s.episodeId === oldEpId; });
+      oldEpScenes.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+      oldEpScenes.forEach(function(s, i) { s.order = i + 1; });
+    }
+
+    // Reorder scenes within target episode
+    var epScenes = P.scenes.filter(function(s) { return s.episodeId === tgtScene.episodeId && s.id !== srcScene.id; });
     epScenes.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
 
-    var srcIdx = epScenes.indexOf(srcScene);
     var tgtIdx = epScenes.indexOf(tgtScene);
-    if (srcIdx < 0 || tgtIdx < 0) return;
-
-    // Move source to target position
-    S.snapshot();
-    epScenes.splice(srcIdx, 1);
-    epScenes.splice(tgtIdx, 0, srcScene);
+    if (tgtIdx < 0) tgtIdx = epScenes.length - 1;
+    var insertIdx = insertAfter ? tgtIdx + 1 : tgtIdx;
+    epScenes.splice(insertIdx, 0, srcScene);
 
     // Update orders
     epScenes.forEach(function(s, i) { s.order = i + 1; });
 
-    S.markDirty(['scenes']);
+    S.markDirty(['scenes', 'events']);
     S.emit('change', { type: 'reorderScenes' });
+
+    if (crossEpisode) {
+      var ep = (P.episodes || []).find(function(ep) { return ep.id === tgtScene.episodeId; });
+      App.UI.toast('"' + (srcScene.title || 'Sahne') + '" → ' + App.Utils.epLbl(ep ? ep.number : '?'));
+    }
+
+    _draggedId = null;
+    _dragOverId = null;
+  }
+
+  function _moveSceneToEpisodeEnd(sourceId, targetEpId) {
+    var P = S.get();
+    var srcScene = P.scenes.find(function(s) { return s.id === sourceId; });
+    if (!srcScene) return;
+    if (srcScene.episodeId === targetEpId) return; // Already in target, no-op for grid drop in same episode
+
+    S.snapshot();
+
+    var oldEpId = srcScene.episodeId;
+    srcScene.episodeId = targetEpId;
+    // Also update linked event
+    var ev = (P.events || []).find(function(e) { return e.sceneId === srcScene.id; });
+    if (ev) ev.episodeId = targetEpId;
+
+    // Re-order old episode
+    var oldEpScenes = P.scenes.filter(function(s) { return s.episodeId === oldEpId; });
+    oldEpScenes.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+    oldEpScenes.forEach(function(s, i) { s.order = i + 1; });
+
+    // Add to end of target episode
+    var newEpScenes = P.scenes.filter(function(s) { return s.episodeId === targetEpId; });
+    newEpScenes.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+    newEpScenes.forEach(function(s, i) { s.order = i + 1; });
+
+    S.markDirty(['scenes', 'events']);
+    S.emit('change', { type: 'reorderScenes' });
+
+    var ep = (P.episodes || []).find(function(ep) { return ep.id === targetEpId; });
+    App.UI.toast('"' + (srcScene.title || 'Sahne') + '" → ' + App.Utils.epLbl(ep ? ep.number : '?'));
 
     _draggedId = null;
     _dragOverId = null;

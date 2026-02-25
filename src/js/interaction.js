@@ -17,6 +17,7 @@ App.Interaction = (function(){
     // Wheel zoom
     area.addEventListener('wheel', e => {
       if(App.ScreenplayEditor && App.ScreenplayEditor.isActive()) return;
+      if(App._viewMode === 'kartlar') return;
       if(e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const d = e.deltaY > 0 ? -0.1 : 0.1;
@@ -57,6 +58,7 @@ App.Interaction = (function(){
     // Mouse down
     area.addEventListener('mousedown', e => {
       if(App.ScreenplayEditor && App.ScreenplayEditor.isActive()) return;
+      if(App._viewMode === 'kartlar') return;
       if(e.button !== 0) return;
       if(e.target.closest('.evb')) {
         e.preventDefault();

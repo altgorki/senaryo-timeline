@@ -195,25 +195,30 @@ App.setViewMode = function(mode) {
     sp.classList.add('open'); sp.style.display = '';
     tl.style.display = ''; // Keep visible — used as editor canvas
     document.body.classList.add('screenplay-editor-active');
+    document.body.classList.remove('kartlar-active');
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
   } else if(mode === 'timeline') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    document.body.classList.remove('kartlar-active');
     App.Timeline.render();
   } else if(mode === 'kartlar') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     document.body.classList.remove('screenplay-editor-active');
+    document.body.classList.add('kartlar-active');
     App.Corkboard.render();
   } else if(mode === 'iliskiler') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     document.body.classList.remove('screenplay-editor-active');
+    document.body.classList.remove('kartlar-active');
     App.RelationshipMap.render();
   } else { // split
     sp.classList.add('open'); sp.style.display = ''; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    document.body.classList.remove('kartlar-active');
     App.Timeline.render();
   }
   // On mobile, adjust sp-panel max-height for split
