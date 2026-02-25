@@ -1,134 +1,98 @@
-# Senaryo Timeline — Flashback/Flashforward Yeniden Tasarım + Gantt Kronoloji
+# Senaryo Timeline — Cross-View Tam Senkronizasyon
 
-## Tarih: 2026-02-25
+## Tarih: 2026-02-26
 
 ## Son Commitler
 
 ```
-c8704ad  Gantt kronoloji: boş günleri kaldır, hücre ve barları büyüt
-f72a5f3  Flashback/flashforward yeniden tasarım + Gantt kronoloji görünümü
+e0300bc  CLAUDE.md genId format düzelt, playwright bağımlılığı ekle
+7197240  Cross-view senkronizasyon: event↔scene alanlarını tam eşitle
 ```
 
-Önceki commit: `9471d05` (Puppeteer test bağımlılığını kaldır)
+Önceki commit: `f81488d` (latest.md güncelle: Gantt kronoloji oturumu özeti)
 
 ---
 
 ## Bu Oturumda Yapılanlar
 
-### 1. FB (Flashback) Bölümü Tamamen Kaldırıldı
+### Problem: Cross-View Senkronizasyon Eksikliği
 
-Eski sistemde flashback olayları ayrı bir "FB" bölümünde yaşıyordu. Artık:
-- FB bölümü yok — flashback olayları anlatıldıkları normal bölüme taşındı
-- Flashback bir **kategori** olarak korunuyor (mor `#9c27b0`)
-- Yeni **flashforward** kategorisi eklendi (cyan `#00bcd4`)
+Event ve Scene arasında çift yönlü alan senkronizasyonu eksikti. Her view farklı veri kaynağından okuyordu:
 
-**Etkilenen dosyalar:** `store.js`, `projects.js`, `templates.js`, `app.js`
+| View | Veri Kaynağı |
+|------|-------------|
+| Timeline + Kronoloji | `event.category`, `event.title`, `event.episodeId` |
+| Senaryo + Kartlar | `scene.category`, `scene.title`, `scene.episodeId` |
 
-### 2. Veri Göçü — migrateV3
+Değişiklik yapılan yerlerde bu iki alan her zaman senkronize edilmiyordu. Örneğin Timeline'da kategori değiştirince Senaryo'da eski kategori görünüyordu.
 
-Eski projelerin otomatik dönüşümü için `io.js`'ye `_migrateV3()` fonksiyonu eklendi:
-1. FB bölümünü bulup olaylarını ilk normal bölüme taşır
-2. `birthYear` → `birthDate` (sayı → `"YYYY-01-01"` string)
-3. `deathYear` → `deathDate` (aynı dönüşüm)
-4. `storyYear` → `storyDate` (aynı dönüşüm)
-5. Flashforward kategorisini ekler
-6. `P.version = 3` set eder
+### Fix 1: panels.js — saveEvent() Event→Scene Tam Senkronizasyon
 
-Import/load sırasında versiyon kontrolü: `if(!P.version || P.version < 3) _migrateV3(P)`
+**Dosya:** `src/js/panels.js`, satır 108-110
 
-### 3. Tarih Format Genişletme (Yıl → YYYY-MM-DD)
+Eskiden sadece `sc.screenplay` güncelleniyordu. Artık tüm ortak alanlar senkronize:
 
-Tüm tarih alanları tam formata genişletildi:
+```javascript
+if(ev.sceneId) {
+  const sc = S.getScene(ev.sceneId);
+  if(sc) {
+    sc.screenplay = screenplay;
+    sc.title = ev.title;
+    sc.category = ev.category;
+    sc.episodeId = ev.episodeId;
+    sc.characters = ev.characters.slice();
+  }
+}
+```
 
-| Alan | Eski | Yeni |
-|------|------|------|
-| `character.birthYear` | `1978` (number) | `character.birthDate` = `"1978-03-15"` (string) |
-| `character.deathYear` | `2024` (number) | `character.deathDate` = `"2024-06-20"` (string) |
-| `episode.storyYear` | `2024` (number) | `episode.storyDate` = `"2024-01-15"` (string) |
-| `event.storyDate` | `"1974"` (yıl string) | `event.storyDate` = `"1974-06-15"` (tam tarih) |
+### Fix 2: screenplay-editor.js — saveSceneMeta() Title Senkronizasyonu
 
-**Proje Ayarları'nda** tüm inputlar `type="date"` olarak güncellendi (panels.js).
+**Dosya:** `src/js/screenplay-editor.js`, satır 677-684
 
-### 4. FB Referansları Temizlendi (~8 dosya)
+Eskiden sadece `category` event'e senkronize ediliyordu. Artık `title` da:
 
-`ep.number === 'fb'` special case'leri kaldırıldı:
-- `timeline.js` — Episode header
-- `screenplay.js` — Episode label
-- `screenplay-editor.js` — Episode divider
-- `export.js` — Options dropdown + block header (2 yer)
-- `analysis.js` — Gaps check skip, chronology warnings
-- `panels.js` — Settings modal inputları
-- `utils.js` — `epLbl()` FB special case
+```javascript
+if (field === 'category' || field === 'title') {
+  const P = S.get();
+  P.events.filter(e => e.sceneId === sceneId).forEach(e => { e[field] = value; });
+  S.markDirty(['scenes','events']);
+} else {
+  S.markDirty('scenes');
+}
+```
 
-### 5. Kronoloji Uyarıları Tarih Bazlı
+### Fix 3: chronology.js — Gantt Drag Scene EpisodeId Senkronizasyonu
 
-`analysis.js`'deki tüm kronoloji uyarıları tarih karşılaştırmasına geçirildi:
-- `_getEventYear()` → `_getEventDate()` — YYYY-MM-DD string döndürür
-- `chronoAge`: karakter ölüm **tarihinden** sonra olay
-- `chronoNegAge`: karakter doğum **tarihinden** önce olay
-- `chronoOrder`: bölüm `storyDate` sırası vs `order` sırası
-- `chronoFlashback`: olayın tarihi bölüm tarihinden küçükse ve **flashback/flashforward** değilse
+**Dosya:** `src/js/chronology.js`, satır 504-507
 
-### 6. Gantt Chart Kronoloji (chronology.js — Tam Yeniden Yazım)
+Eskiden Gantt'ta bölüm değişikliği sadece event'e yazılıyordu. Artık bağlı sahne de güncellenir:
 
-Eski karakter×yıl matris tablosu yerine Gantt chart:
+```javascript
+if(newEpId !== ev.episodeId) {
+  ev.episodeId = newEpId;
+  if(ev.sceneId) {
+    var sc = S.getScene(ev.sceneId);
+    if(sc) sc.episodeId = newEpId;
+  }
+  S.markDirty(['events','scenes']);
+} else {
+  S.markDirty('events');
+}
+```
 
-**Yapı:**
-- Satırlar = bölümler (sol kenar sticky)
-- Sütunlar = tarih ekseni (sadece olay olan tarihler gösteriliyor)
-- Barlar = olaylar (kategori renginde)
+### Test Sonuçları — Playwright 21/21 PASS
 
-**Özellikler:**
-- **Zoom:** Yıl / Ay / Gün (varsayılan: Gün)
-- **Filtreler:** Karakter dropdown + Kategori dropdown
-- **Boş periyotlar atlanıyor** — sadece olay olan yıl/ay/gün gösteriliyor
-- **Flashback barlar:** mor arka plan + kesikli kenarlık
-- **Flashforward barlar:** cyan arka plan + kesikli kenarlık
-- **Uyarı ikonu:** bar üzerinde ⚠ gösteriliyor
-- **Bar tıklama:** sağ panelde olay düzenleme açılır
-- **Hover tooltip:** olay adı + tarih
+Canlı sitede (https://senaryo-7e7fb.web.app) otomatik test:
 
-**Boyutlar (gün modu):**
-- Hücre genişliği: 200px (tam tarih okunabilir)
-- Bar yüksekliği: 28px, font: 12px
-- Tam başlık gösteriliyor (truncation yok)
-- Label genişliği: 200px
+| Test | Senaryo | Assertions | Sonuç |
+|------|---------|-----------|-------|
+| Test 1 | Timeline'da kategori değiştir → Senaryo, Kartlar kontrol | 6 | PASS |
+| Test 2 | Timeline'da başlık değiştir → Senaryo, Kartlar kontrol | 6 | PASS |
+| Test 3 | Senaryo editöründe başlık değiştir → Timeline, Kartlar kontrol | 5 | PASS |
+| Test 4 | Kronoloji'de sürükle (bölüm değiştir) → Kartlar, Senaryo kontrol | 4 | PASS |
+| **Toplam** | | **21** | **21/21 PASS** |
 
-### 7. Gantt Drag & Drop
-
-- **Yatay sürükleme:** olay tarihini değiştirir (`ev.storyDate` güncellenir)
-- **Dikey sürükleme:** olayı başka bölüme taşır (`ev.episodeId` güncellenir)
-- Drop hedef bölüm satırı highlight edilir
-- `Store.snapshot()` + `markDirty()` + `emit('change')` ile tüm view'lar senkron
-
-### 8. Cross-View Senkronizasyon
-
-Mevcut `Store.on('change')` mekanizması Gantt değişikliklerini otomatik yayar:
-- Gantt'ta drag → Timeline/Senaryo/Kartlar güncellenir
-- Timeline'da değişiklik → Gantt güncellenir
-- Panel'de olay düzenle → tüm view'lar güncellenir
-
-### 9. CSS Stilleri
-
-- `.kronoloji-*` stilleri → `.gantt-*` olarak yeniden yazıldı
-- `.gantt-toolbar`, `.gantt-zoom-btn`, `.gantt-filter-btn`
-- `.gantt-container`, `.gantt-header`, `.gantt-rows`, `.gantt-row`, `.gantt-bar`
-- `.gantt-scroll-body` — scroll düzeltmesi (inline-block + min-width)
-- Flashback/flashforward göstergeleri diğer view'lar için de eklendi
-
-### 10. Demo Proje Güncellendi (app.js)
-
-- FB bölümü kaldırıldı, 10 normal bölüm
-- 6 FB olayı (e103-e108) normal bölümlere dağıtıldı (`category:'flashback'`)
-- e1 ("Flashforward: İzbe Bina") → `category:'flashforward'`
-- Tüm `storyYear` → `storyDate` (YYYY-MM-DD)
-- Tüm `birthYear`/`deathYear` → `birthDate`/`deathDate` (YYYY-MM-DD)
-- Kategorilere `flashforward` eklendi, `flashback` rengi güncellendi
-
-### 11. Test Güncelleme
-
-- `epLbl('fb')` testi güncellendi (artık `'Bfb'` döndürür, `'FB'` değil)
-- 92/92 test geçiyor
+Unit testler: **92/92 PASS** (vitest)
 
 ---
 
@@ -136,22 +100,26 @@ Mevcut `Store.on('change')` mekanizması Gantt değişikliklerini otomatik yayar
 
 | Dosya | Değişiklik |
 |-------|-----------|
-| `src/js/store.js` | flashforward kategori + flashback renk güncelleme |
-| `src/js/projects.js` | Default kategorilere flashforward ekleme |
-| `src/js/templates.js` | Tüm şablon kategorilerini güncelleme |
-| `src/js/utils.js` | epLbl fb kaldırma + formatDate/parseDate/calcAge/yearFromDate |
-| `src/js/io.js` | _migrateV3 + import/migration güncelleme |
-| `src/js/app.js` | Demo veri: FB kaldırma, tarih dönüşüm, flashforward |
-| `src/js/chronology.js` | Tam yeniden yazım: Gantt chart + drag & drop |
-| `src/js/analysis.js` | Tarih bazlı uyarılar, _getEventDate |
-| `src/js/panels.js` | Date inputlar, birthDate/deathDate/storyDate |
-| `src/js/timeline.js` | FB special case kaldırma |
-| `src/js/screenplay.js` | FB special case kaldırma |
-| `src/js/screenplay-editor.js` | FB special case kaldırma |
-| `src/js/export.js` | FB special case kaldırma (2 yer) |
-| `src/css/styles.css` | Gantt stilleri, scroll fix, fb/ff göstergeleri |
-| `tests/utils.test.js` | epLbl testi güncelleme |
+| `src/js/panels.js` | saveEvent: title, category, episodeId, characters → scene sync |
+| `src/js/screenplay-editor.js` | saveSceneMeta: title değişikliği → event sync |
+| `src/js/chronology.js` | Gantt drag: episodeId → bağlı scene sync |
+| `CLAUDE.md` | genId format dokümantasyonu düzeltme |
+| `package.json` | playwright bağımlılığı ekleme |
 | `public/index.html` | Build output |
+
+---
+
+## Cross-View Sync Kuralı
+
+Gelecekte yeni alan eklendiğinde bu kural uygulanmalı:
+
+| Değişiklik Noktası | Dosya | Yön |
+|---------------------|-------|-----|
+| Timeline edit paneli | `panels.js` saveEvent() | Event → Scene |
+| Senaryo editör header | `screenplay-editor.js` saveSceneMeta() | Scene → Event |
+| Gantt drag & drop | `chronology.js` | Event → Scene |
+
+**Ortak alanlar:** `title`, `category`, `episodeId`, `characters`
 
 ---
 
@@ -159,16 +127,11 @@ Mevcut `Store.on('change')` mekanizması Gantt değişikliklerini otomatik yayar
 
 | Özellik | Durum |
 |---------|-------|
-| FB bölümü kaldırıldı | ✅ |
-| Flashforward kategorisi | ✅ |
-| Tarih formatı YYYY-MM-DD | ✅ |
-| migrateV3 (eski proje göçü) | ✅ |
-| Gantt kronoloji (gün detayı) | ✅ |
-| Gantt drag & drop | ✅ |
-| Boş günler/aylar/yıllar atlanıyor | ✅ |
-| Cross-view senkronizasyon | ✅ |
-| Kronoloji uyarıları (tarih bazlı) | ✅ |
-| Tüm testler (92/92) | ✅ |
+| Event→Scene sync (panels.js) | ✅ |
+| Scene→Event sync (screenplay-editor.js) | ✅ |
+| Gantt drag sync (chronology.js) | ✅ |
+| Playwright testler (21/21) | ✅ |
+| Unit testler (92/92) | ✅ |
 | Build başarılı | ✅ |
 | Firebase deploy | ✅ |
 
@@ -180,7 +143,7 @@ Mevcut `Store.on('change')` mekanizması Gantt değişikliklerini otomatik yayar
 
 ```bash
 git pull origin main
-npm install          # Bağımlılıklar (vitest vb.)
+npm install          # Bağımlılıklar (vitest, playwright vb.)
 npm test             # 92 test geçmeli
 node scripts/build.js  # public/index.html oluşturur
 firebase deploy      # Deploy et
