@@ -1,215 +1,178 @@
-# Senaryo Timeline — Bug Fix & Test Oturumu
+# Senaryo Timeline — Flashback/Flashforward Yeniden Tasarım + Gantt Kronoloji
 
-## Tarih: 2026-02-20
+## Tarih: 2026-02-25
 
-## Son Commit
+## Son Commitler
 
 ```
-a351b0e  Firebase permission hatalarını düzelt ve proje yönetimi buglarını gider
+c8704ad  Gantt kronoloji: boş günleri kaldır, hücre ve barları büyüt
+f72a5f3  Flashback/flashforward yeniden tasarım + Gantt kronoloji görünümü
 ```
 
-Önceki commit: `9495fb6` (Auth sistemi + Firebase RTDB proje yönetimi)
+Önceki commit: `9471d05` (Puppeteer test bağımlılığını kaldır)
 
 ---
 
 ## Bu Oturumda Yapılanlar
 
-### 1. Proje Oluşturma Permission Hatası Düzeltildi (KRİTİK)
+### 1. FB (Flashback) Bölümü Tamamen Kaldırıldı
 
-**Sorun:** `create()` ve `importToProject()` fonksiyonları 3 adımlı sıralı `.set()` çağrısı yapıyordu:
-1. `projects/{id}/owner` → uid yaz
-2. `projects/{id}/members/{uid}` → rol yaz
-3. `data` + `meta` + `userProjects` → multi-path update
+Eski sistemde flashback olayları ayrı bir "FB" bölümünde yaşıyordu. Artık:
+- FB bölümü yok — flashback olayları anlatıldıkları normal bölüme taşındı
+- Flashback bir **kategori** olarak korunuyor (mor `#9c27b0`)
+- Yeni **flashforward** kategorisi eklendi (cyan `#00bcd4`)
 
-Adım 2'de Firebase kuralı `root.child('projects/'+$projectId+'/owner').val() === auth.uid` kontrolü yapıyordu ama Adım 1'deki owner henüz commit olmamıştı — Firebase ayrı `.set()` çağrılarında "read-your-writes" garantisi vermiyor.
+**Etkilenen dosyalar:** `store.js`, `projects.js`, `templates.js`, `app.js`
 
-**Çözüm:** 3 adımlı sıralı yazma yerine **tek atomik multi-path update** kullanıldı. Tüm path'ler (`owner`, `members`, `meta`, `data`, `userProjects`) tek `firebase.database().ref().update(updates)` çağrısıyla yazılıyor.
+### 2. Veri Göçü — migrateV3
 
-**Etkilenen fonksiyonlar:**
-- `App.Projects.create()` — satır ~1096
-- `App.Projects.importToProject()` — satır ~1372
+Eski projelerin otomatik dönüşümü için `io.js`'ye `_migrateV3()` fonksiyonu eklendi:
+1. FB bölümünü bulup olaylarını ilk normal bölüme taşır
+2. `birthYear` → `birthDate` (sayı → `"YYYY-01-01"` string)
+3. `deathYear` → `deathDate` (aynı dönüşüm)
+4. `storyYear` → `storyDate` (aynı dönüşüm)
+5. Flashforward kategorisini ekler
+6. `P.version = 3` set eder
 
-### 2. Firebase Kuralları Güncellendi
+Import/load sırasında versiyon kontrolü: `if(!P.version || P.version < 3) _migrateV3(P)`
 
-**newData bazlı kontroller eklendi** — multi-path update'te Firebase her path'in kuralını ayrı değerlendirir ama `newData` ile yazılacak veriyi görebilir:
+### 3. Tarih Format Genişletme (Yıl → YYYY-MM-DD)
 
-- `members/.write` → `newData.parent().child('owner').val() === auth.uid` eklendi
-- `data/.write` → `newData.parent().child('owner').val() === auth.uid` eklendi
-- `meta/.write` → `newData.parent().child('owner').val() === auth.uid` eklendi
+Tüm tarih alanları tam formata genişletildi:
 
-**$projectId düzeyinde `.write` kuralı eklendi** — proje silme için:
-```
-".write": "auth != null && data.exists() && data.child('owner').val() === auth.uid && !newData.exists()"
-```
-Bu kural sadece proje sahibinin projeyi silmesine (null yazma) izin verir. Yeni proje oluşturmayı bozmaz çünkü `data.exists()` yeni projede false döner.
+| Alan | Eski | Yeni |
+|------|------|------|
+| `character.birthYear` | `1978` (number) | `character.birthDate` = `"1978-03-15"` (string) |
+| `character.deathYear` | `2024` (number) | `character.deathDate` = `"2024-06-20"` (string) |
+| `episode.storyYear` | `2024` (number) | `episode.storyDate` = `"2024-01-15"` (string) |
+| `event.storyDate` | `"1974"` (yıl string) | `event.storyDate` = `"1974-06-15"` (tam tarih) |
 
-### 3. Proje Silme Bugı Düzeltildi
+**Proje Ayarları'nda** tüm inputlar `type="date"` olarak güncellendi (panels.js).
 
-**Sorun:** `deleteProject()` fonksiyonu `projects/{projectId} = null` yazıyordu ama `$projectId` düzeyinde `.write` kuralı yoktu. Firebase bu yazma işlemini sessizce reddediyordu (`.catch()` handler da yoktu).
+### 4. FB Referansları Temizlendi (~8 dosya)
 
-**Çözüm:**
-- Firebase kurallarına `$projectId` düzeyinde `.write` eklendi (yukarıda)
-- `deleteProject()` fonksiyonuna `.catch(err => App.UI.toast('Silme hatası: ' + err.message))` eklendi
+`ep.number === 'fb'` special case'leri kaldırıldı:
+- `timeline.js` — Episode header
+- `screenplay.js` — Episode label
+- `screenplay-editor.js` — Episode divider
+- `export.js` — Options dropdown + block header (2 yer)
+- `analysis.js` — Gaps check skip, chronology warnings
+- `panels.js` — Settings modal inputları
+- `utils.js` — `epLbl()` FB special case
 
-### 4. Ctrl+S Toast Eklendi
+### 5. Kronoloji Uyarıları Tarih Bazlı
 
-**Sorun:** Kaydet butonu "Kaydedildi" toast'ı gösteriyordu ama Ctrl+S kısayolu göstermiyordu.
+`analysis.js`'deki tüm kronoloji uyarıları tarih karşılaştırmasına geçirildi:
+- `_getEventYear()` → `_getEventDate()` — YYYY-MM-DD string döndürür
+- `chronoAge`: karakter ölüm **tarihinden** sonra olay
+- `chronoNegAge`: karakter doğum **tarihinden** önce olay
+- `chronoOrder`: bölüm `storyDate` sırası vs `order` sırası
+- `chronoFlashback`: olayın tarihi bölüm tarihinden küçükse ve **flashback/flashforward** değilse
 
-**Çözüm:** Ctrl+S handler'ına `App.UI.toast('Kaydedildi')` eklendi.
+### 6. Gantt Chart Kronoloji (chronology.js — Tam Yeniden Yazım)
 
-### 5. Firebase Yapılandırma Dosyaları Eklendi
+Eski karakter×yıl matris tablosu yerine Gantt chart:
 
-- `database.rules.json` — güncel kurallar
-- `firebase.json` — database rules dosya yolunu tanımlar
-- `.firebaserc` — proje ID'si: `senaryo-7e7fb`
+**Yapı:**
+- Satırlar = bölümler (sol kenar sticky)
+- Sütunlar = tarih ekseni (sadece olay olan tarihler gösteriliyor)
+- Barlar = olaylar (kategori renginde)
 
-Bu dosyalar sayesinde diğer PC'den `firebase deploy --only database` ile kurallar deploy edilebilir.
+**Özellikler:**
+- **Zoom:** Yıl / Ay / Gün (varsayılan: Gün)
+- **Filtreler:** Karakter dropdown + Kategori dropdown
+- **Boş periyotlar atlanıyor** — sadece olay olan yıl/ay/gün gösteriliyor
+- **Flashback barlar:** mor arka plan + kesikli kenarlık
+- **Flashforward barlar:** cyan arka plan + kesikli kenarlık
+- **Uyarı ikonu:** bar üzerinde ⚠ gösteriliyor
+- **Bar tıklama:** sağ panelde olay düzenleme açılır
+- **Hover tooltip:** olay adı + tarih
 
-### 6. Email Case Sensitivity (Zaten Düzelmiş)
+**Boyutlar (gün modu):**
+- Hücre genişliği: 200px (tam tarih okunabilir)
+- Bar yüksekliği: 28px, font: 12px
+- Tam başlık gösteriliyor (truncation yok)
+- Label genişliği: 200px
 
-Plan'da `sendInvite()`'da `.toLowerCase()` eksik deniyordu ama incelemede satır 1299'da email zaten lowercase yapılıyordu. Ek değişiklik gerekmedi.
+### 7. Gantt Drag & Drop
 
-### 7. Firebase Hosting Eklendi
+- **Yatay sürükleme:** olay tarihini değiştirir (`ev.storyDate` güncellenir)
+- **Dikey sürükleme:** olayı başka bölüme taşır (`ev.episodeId` güncellenir)
+- Drop hedef bölüm satırı highlight edilir
+- `Store.snapshot()` + `markDirty()` + `emit('change')` ile tüm view'lar senkron
 
-- `firebase.json`'a `hosting` yapılandırması eklendi (`"public": "public"`)
-- `public/` dizini oluşturuldu, sadece `index.html` kopyalandı
-- `.gitignore`'a `.firebase/` eklendi (cache dizini)
-- Deploy edildi: **https://senaryo-7e7fb.web.app**
+### 8. Cross-View Senkronizasyon
 
-**Not:** `index.html` düzenlendiğinde `public/index.html` de güncellenmelidir (veya deploy öncesi kopyalanmalıdır).
+Mevcut `Store.on('change')` mekanizması Gantt değişikliklerini otomatik yayar:
+- Gantt'ta drag → Timeline/Senaryo/Kartlar güncellenir
+- Timeline'da değişiklik → Gantt güncellenir
+- Panel'de olay düzenle → tüm view'lar güncellenir
+
+### 9. CSS Stilleri
+
+- `.kronoloji-*` stilleri → `.gantt-*` olarak yeniden yazıldı
+- `.gantt-toolbar`, `.gantt-zoom-btn`, `.gantt-filter-btn`
+- `.gantt-container`, `.gantt-header`, `.gantt-rows`, `.gantt-row`, `.gantt-bar`
+- `.gantt-scroll-body` — scroll düzeltmesi (inline-block + min-width)
+- Flashback/flashforward göstergeleri diğer view'lar için de eklendi
+
+### 10. Demo Proje Güncellendi (app.js)
+
+- FB bölümü kaldırıldı, 10 normal bölüm
+- 6 FB olayı (e103-e108) normal bölümlere dağıtıldı (`category:'flashback'`)
+- e1 ("Flashforward: İzbe Bina") → `category:'flashforward'`
+- Tüm `storyYear` → `storyDate` (YYYY-MM-DD)
+- Tüm `birthYear`/`deathYear` → `birthDate`/`deathDate` (YYYY-MM-DD)
+- Kategorilere `flashforward` eklendi, `flashback` rengi güncellendi
+
+### 11. Test Güncelleme
+
+- `epLbl('fb')` testi güncellendi (artık `'Bfb'` döndürür, `'FB'` değil)
+- 92/92 test geçiyor
 
 ---
 
-## Yapılmayan / Kontrol Edilmemiş
+## Dosya Değişiklik Özeti
 
-- Gerçek iki kullanıcı arasında davet testi (email ile davet gönder → ikinci kullanıcı giriş yapsın → davet otomatik kabul)
-- Viewer (readonly) modunun gerçek testi
-- Real-time işbirliği testi (iki tarayıcıda aynı proje açık)
-- Büyük veri ile performans testi
-
----
-
-## Kapsamlı Test Sonuçları (Playwright — Otomatik)
-
-23/24 test geçti. Tek kalan (DemoTimeline) yanlış CSS selector'dan kaynaklanan false negative — screenshot'ta timeline doğru görünüyor.
-
-### Geçen Testler:
-- **Auth:** Kayıt ol, giriş yap, çıkış yap, tekrar giriş, hatalı giriş, kısa şifre, boş alan
-- **CRUD:** Proje oluştur, aç, kaydet (Ctrl+S + buton), geri dön, sil
-- **Editör:** Bölüm ekle, olay ekle, modal açma/kapama
-- **Görünümler:** Senaryo/Timeline/Bölünmüş view değiştirme
-- **Zoom:** In/out
-- **Paylaşım:** Modal açma, boş email doğrulaması
-- **Undo/Redo:** Crash yok
-- **Navigasyon:** Projeler ↔ Editör, veri kalıcılığı
-- **Demo:** 108 olay ile demo proje yükleme, gösterim
-- **Silme:** Proje silme + toast
-- **Güvenlik:** Sıfır PERMISSION_DENIED hatası
+| Dosya | Değişiklik |
+|-------|-----------|
+| `src/js/store.js` | flashforward kategori + flashback renk güncelleme |
+| `src/js/projects.js` | Default kategorilere flashforward ekleme |
+| `src/js/templates.js` | Tüm şablon kategorilerini güncelleme |
+| `src/js/utils.js` | epLbl fb kaldırma + formatDate/parseDate/calcAge/yearFromDate |
+| `src/js/io.js` | _migrateV3 + import/migration güncelleme |
+| `src/js/app.js` | Demo veri: FB kaldırma, tarih dönüşüm, flashforward |
+| `src/js/chronology.js` | Tam yeniden yazım: Gantt chart + drag & drop |
+| `src/js/analysis.js` | Tarih bazlı uyarılar, _getEventDate |
+| `src/js/panels.js` | Date inputlar, birthDate/deathDate/storyDate |
+| `src/js/timeline.js` | FB special case kaldırma |
+| `src/js/screenplay.js` | FB special case kaldırma |
+| `src/js/screenplay-editor.js` | FB special case kaldırma |
+| `src/js/export.js` | FB special case kaldırma (2 yer) |
+| `src/css/styles.css` | Gantt stilleri, scroll fix, fb/ff göstergeleri |
+| `tests/utils.test.js` | epLbl testi güncelleme |
+| `public/index.html` | Build output |
 
 ---
 
-## Mevcut Durum — Her Şey Çalışıyor
+## Mevcut Durum
 
 | Özellik | Durum |
 |---------|-------|
-| Auth (kayıt/giriş/çıkış) | ✅ |
-| Proje oluşturma | ✅ (permission hatası düzeltildi) |
-| Proje açma/kaydetme | ✅ |
-| Proje silme | ✅ (kural + catch eklendi) |
-| Demo proje yükleme | ✅ |
-| JSON import | ✅ (multi-path update) |
-| Bölüm/olay ekleme | ✅ |
-| View switching | ✅ |
-| Paylaşım modalı | ✅ |
-| Ctrl+S kaydet | ✅ (toast eklendi) |
-| Real-time listeners | ✅ |
-| Presence sistemi | ✅ |
-| Firebase kuralları | ✅ (deploy edildi) |
-| Firebase Hosting | ✅ (https://senaryo-7e7fb.web.app) |
+| FB bölümü kaldırıldı | ✅ |
+| Flashforward kategorisi | ✅ |
+| Tarih formatı YYYY-MM-DD | ✅ |
+| migrateV3 (eski proje göçü) | ✅ |
+| Gantt kronoloji (gün detayı) | ✅ |
+| Gantt drag & drop | ✅ |
+| Boş günler/aylar/yıllar atlanıyor | ✅ |
+| Cross-view senkronizasyon | ✅ |
+| Kronoloji uyarıları (tarih bazlı) | ✅ |
+| Tüm testler (92/92) | ✅ |
+| Build başarılı | ✅ |
+| Firebase deploy | ✅ |
 
----
-
-## Firebase Kuralları (Güncel — deploy edilmiş)
-
-```json
-{
-  "rules": {
-    "users": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
-      }
-    },
-    "projects": {
-      "$projectId": {
-        ".read": "auth != null && (data.child('members/' + auth.uid).exists() || data.child('owner').val() === auth.uid)",
-        ".write": "auth != null && data.exists() && data.child('owner').val() === auth.uid && !newData.exists()",
-        "data": {
-          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
-        },
-        "meta": {
-          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner' || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'editor')"
-        },
-        "owner": {
-          ".write": "auth != null && !data.exists()"
-        },
-        "members": {
-          ".read": "auth != null && (data.parent().child('members/' + auth.uid).exists() || data.parent().child('owner').val() === auth.uid)",
-          ".write": "auth != null && (root.child('projects/' + $projectId + '/owner').val() === auth.uid || newData.parent().child('owner').val() === auth.uid || root.child('projects/' + $projectId + '/members/' + auth.uid + '/role').val() === 'owner')"
-        },
-        "presence": {
-          "$uid": {
-            ".write": "auth != null && $uid === auth.uid && (root.child('projects/' + $projectId + '/members/' + auth.uid).exists() || root.child('projects/' + $projectId + '/owner').val() === auth.uid)"
-          }
-        }
-      }
-    },
-    "userProjects": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        "$projectId": {
-          ".write": "auth != null"
-        }
-      }
-    },
-    "invitations": {
-      "$invId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
-    },
-    "emailIndex": {
-      "$email": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
-    }
-  }
-}
-```
-
----
-
-## Veritabanı Yapısı
-
-```
-/users/{uid}/profile: { displayName, email, createdAt }
-/userProjects/{uid}/{projectId}: { role, title, updatedAt }
-/projects/{projectId}/
-    meta: { title, author, settings, createdAt, updatedAt }
-    owner: "uid"
-    members/{uid}: { role, email, displayName, addedAt }
-    data/
-      categories: { ... }
-      characters: { key: {...}, ... }
-      episodes: { key: {...}, ... }
-      scenes: { key: {...}, ... }
-      events: { key: {...}, ... }
-      connections: { key: {...}, ... }
-    presence/{uid}: { name, color, lastSeen }
-/invitations/{invId}: { projectId, projectTitle, invitedEmail, invitedBy, invitedByName, role, status, createdAt }
-/emailIndex/{sanitizedEmail}/{invId}: true
-```
+**Canlı URL:** https://senaryo-7e7fb.web.app
 
 ---
 
@@ -217,18 +180,8 @@ Plan'da `sendInvite()`'da `.toLowerCase()` eksik deniyordu ama incelemede satır
 
 ```bash
 git pull origin main
-npm install -g firebase-tools   # Firebase CLI yoksa
-firebase login                  # Giriş yap
-firebase deploy --only database # Kuralları deploy et (zaten deploy edildi ama emin olmak için)
+npm install          # Bağımlılıklar (vitest vb.)
+npm test             # 92 test geçmeli
+node scripts/build.js  # public/index.html oluşturur
+firebase deploy      # Deploy et
 ```
-
-### Hosting Deploy
-
-```bash
-cp index.html public/index.html  # Ana dosyayı public'e kopyala
-firebase deploy --only hosting   # Hosting'i deploy et
-```
-
-**Canlı URL:** https://senaryo-7e7fb.web.app
-
-Tüm değişiklikler `index.html` içinde. Firebase kuralları hem `database.rules.json` dosyasında hem de `index.html` içindeki yorum bloğunda mevcut.
