@@ -5,7 +5,7 @@ App.IO = (function(){
 
   function exportJSON() {
     const P = S.get();
-    const data = { ...P, meta: { ...P.meta, exportVersion: '2.0', date: new Date().toISOString() } };
+    const data = { ...P, meta: { ...P.meta, exportVersion: '2.1', date: new Date().toISOString() } };
     const b = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b);

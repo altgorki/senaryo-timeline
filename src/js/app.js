@@ -201,6 +201,11 @@ App.setViewMode = function(mode) {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     App.Timeline.render();
+  } else if(mode === 'iliskiler') {
+    sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
+    if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    document.body.classList.remove('screenplay-editor-active');
+    App.RelationshipMap.render();
   } else { // split
     sp.classList.add('open'); sp.style.display = ''; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
@@ -228,7 +233,9 @@ App.refresh = function() {
   }
   App.Timeline.initFilter();
   App.Timeline.buildToolbar();
-  if(App.ScreenplayEditor.isActive()) {
+  if(App._viewMode === 'iliskiler') {
+    App.RelationshipMap.render();
+  } else if(App.ScreenplayEditor.isActive()) {
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
   } else {
@@ -262,7 +269,9 @@ App.refresh = function() {
         App.UI.updateStatusBar();
         return;
       }
-      if(App.ScreenplayEditor.isActive()) {
+      if(App._viewMode === 'iliskiler') {
+        if(!data || data.type !== 'relMapDrag') App.RelationshipMap.render();
+      } else if(App.ScreenplayEditor.isActive()) {
         App.Screenplay.render();
         if(!fromEditor) {
           App.ScreenplayEditor.buildFromState();
@@ -275,7 +284,7 @@ App.refresh = function() {
       App.UI.updateStatusBar();
       if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
       if(document.getElementById('rPanel').classList.contains('open')) {
-        if(!_isEditing) {
+        if(!_isEditing && App.Panels.getCurrentPanel() !== 'relmap') {
           App.Panels.renderPanel();
         }
       }

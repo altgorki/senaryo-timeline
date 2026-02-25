@@ -35,7 +35,7 @@ App.Projects = (function(){
 
     const emptyData = {
       categories: { operasyon:{label:'Operasyon',color:'#ef4444'}, karakter:{label:'Karakter',color:'#3b82f6'}, organizasyon:{label:'Organizasyon',color:'#10b981'}, sistem:{label:'Sistem',color:'#f59e0b'}, flashback:{label:'Flashback',color:'#a855f7'}, ihanet:{label:'İhanet',color:'#f97316'} },
-      characters: {}, episodes: {}, scenes: {}, events: {}, connections: {}
+      characters: {}, episodes: {}, scenes: {}, events: {}, connections: {}, characterRelationships: {}, reviewComments: {}
     };
 
     const updates = {};
@@ -74,7 +74,9 @@ App.Projects = (function(){
         episodes: _keyedToArray(data.episodes).sort((a,b) => a.order - b.order),
         scenes: _keyedToArray(data.scenes),
         events: _keyedToArray(data.events),
-        connections: _keyedToArray(data.connections)
+        connections: _keyedToArray(data.connections),
+        characterRelationships: _keyedToArray(data.characterRelationships),
+        reviewComments: _keyedToArray(data.reviewComments)
       };
       S.set(P);
       _syncIdCounter();
@@ -103,6 +105,8 @@ App.Projects = (function(){
     if(dirty.has('scenes')) dataUpdate.scenes = _arrayToKeyed(P.scenes);
     if(dirty.has('events')) dataUpdate.events = _arrayToKeyed(P.events);
     if(dirty.has('connections')) dataUpdate.connections = _arrayToKeyed(P.connections);
+    if(dirty.has('characterRelationships')) dataUpdate.characterRelationships = _arrayToKeyed(P.characterRelationships);
+    if(dirty.has('reviewComments')) dataUpdate.reviewComments = _arrayToKeyed(P.reviewComments);
     if(Object.keys(dataUpdate).length) {
       ref.child('data').update(dataUpdate);
     }
@@ -115,7 +119,7 @@ App.Projects = (function(){
   function _setupProjectListeners(projectId) {
     _teardownProjectListeners();
     const ref = firebase.database().ref('projects/' + projectId + '/data');
-    ['categories','characters','episodes','scenes','events','connections'].forEach(col => {
+    ['categories','characters','episodes','scenes','events','connections','characterRelationships','reviewComments'].forEach(col => {
       const colRef = ref.child(col);
       const fn = colRef.on('value', snap => {
         if(_remoteChangeInProgress) return;
@@ -327,7 +331,9 @@ App.Projects = (function(){
       episodes: _arrayToKeyed(data.episodes || []),
       scenes: _arrayToKeyed(data.scenes || []),
       events: _arrayToKeyed(data.events || []),
-      connections: _arrayToKeyed(data.connections || [])
+      connections: _arrayToKeyed(data.connections || []),
+      characterRelationships: _arrayToKeyed(data.characterRelationships || []),
+      reviewComments: _arrayToKeyed(data.reviewComments || [])
     };
 
     const updates = {};
@@ -388,6 +394,8 @@ App.Projects = (function(){
     P.episodes.forEach(e => { maxNum = Math.max(maxNum, extractNum(e.id)); });
     P.characters.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
     P.connections.forEach(c => { maxNum = Math.max(maxNum, extractNum(c.id)); });
+    (P.characterRelationships||[]).forEach(r => { maxNum = Math.max(maxNum, extractNum(r.id)); });
+    (P.reviewComments||[]).forEach(r => { maxNum = Math.max(maxNum, extractNum(r.id)); });
     U.setIdCounter(maxNum + 1);
   }
 

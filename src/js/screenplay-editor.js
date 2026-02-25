@@ -300,6 +300,11 @@ App.ScreenplayEditor = (function(){
       return;
     }
 
+    // Review mode: intercept delete/backspace
+    if ((e.key === 'Backspace' || e.key === 'Delete') && App.Review && App.Review.isReviewMode()) {
+      if (App.Review.interceptDelete(e, el)) return;
+    }
+
     // Backspace on empty → delete element, focus previous
     if (e.key === 'Backspace' && !el.textContent.trim()) {
       e.preventDefault();
@@ -341,6 +346,10 @@ App.ScreenplayEditor = (function(){
   function onInput(e) {
     const el = e.target.closest('.sp-el');
     if (!el) return;
+    // Review mode interception
+    if (App.Review && App.Review.isReviewMode()) {
+      App.Review.interceptInput(e, el);
+    }
     const elId = el.dataset.id;
     const idx = _elements.findIndex(x => x.id === elId);
     if (idx < 0) return;

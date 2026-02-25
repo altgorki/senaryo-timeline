@@ -37,10 +37,13 @@ const JS_FILES = [
   'interaction.js',
   'panels.js',
   'analysis.js',
+  'relationship-map.js',
   'changelog.js',
   'notes.js',
   'ai.js',
   'io.js',
+  'export.js',
+  'review.js',
   'sync.js',
   'app.js'
 ];

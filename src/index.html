@@ -70,6 +70,7 @@
       <button class="view-mode" data-vm="screenplay" onclick="App.setViewMode('screenplay')">Senaryo</button>
       <button class="view-mode active" data-vm="split" onclick="App.setViewMode('split')">Bölünmüş</button>
       <button class="view-mode" data-vm="timeline" onclick="App.setViewMode('timeline')">Timeline</button>
+      <button class="view-mode" data-vm="iliskiler" onclick="App.setViewMode('iliskiler')">İlişkiler</button>
     </div>
     <div class="sync-bar" id="syncBar">
       <span class="sync-dot connected" id="syncDot"></span>
@@ -95,6 +96,8 @@
       <button class="btn" onclick="App.Timeline.zoomReset()">Sığdır</button>
       <div class="sep"></div>
       <button class="btn" onclick="document.getElementById('fIn').click()">↑ Yükle</button>
+      <button class="btn" onclick="App.Export.openExportModal()">↓ Dışa Aktar</button>
+      <button class="btn" id="reviewToggleBtn" onclick="App.Review.toggleReviewMode()" title="İnceleme Modu (Track Changes)">İnceleme</button>
       <button class="btn" onclick="App.Panels.openSettings()" aria-label="Ayarlar">⚙</button>
       <button class="btn btn-p" onclick="App.Panels.openAddEvent()">+ Olay</button>
       <input type="file" id="fIn" accept=".json" style="display:none" onchange="App.IO.importJSON(event)">
@@ -124,6 +127,7 @@
     <button class="btn btn-s" onclick="App.Panels.togglePanel('changelog')">📋 Günlük</button>
     <button class="btn btn-s" onclick="App.Panels.togglePanel('notes')">📌 Notlar</button>
     <button class="btn btn-s" onclick="App.Panels.togglePanel('ai')" style="background:linear-gradient(135deg,#a855f7,#3b82f6);border-color:transparent;color:#fff;">✦ AI Asistan</button>
+    <button class="btn btn-s" onclick="App.Panels.togglePanel('review')">✎ İnceleme</button>
   </div>
 
   <div class="main-wrap">

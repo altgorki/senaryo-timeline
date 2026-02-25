@@ -536,10 +536,22 @@ App.Screenplay = (function(){
   function initMentionListeners() {
     const sp = U.$('spEpisodes');
     sp.addEventListener('input', e => {
-      if(e.target.closest('.scene-screenplay')) handleMentionInput(e);
+      if(e.target.closest('.scene-screenplay')) {
+        // Review mode interception
+        if(App.Review && App.Review.isReviewMode()) {
+          App.Review.interceptInput(e, e.target.closest('.scene-screenplay'));
+        }
+        handleMentionInput(e);
+      }
     });
     sp.addEventListener('keydown', e => {
-      if(e.target.closest('.scene-screenplay')) handleMentionKeydown(e);
+      if(e.target.closest('.scene-screenplay')) {
+        // Review mode: intercept delete/backspace
+        if((e.key === 'Backspace' || e.key === 'Delete') && App.Review && App.Review.isReviewMode()) {
+          if(App.Review.interceptDelete(e, e.target.closest('.scene-screenplay'))) return;
+        }
+        handleMentionKeydown(e);
+      }
     });
     sp.addEventListener('blur', e => {
       const el = e.target.closest('.scene-screenplay');

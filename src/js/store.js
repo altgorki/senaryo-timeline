@@ -21,7 +21,9 @@ App.Store = (function(){
     episodes: [],
     scenes: [],
     events: [],
-    connections: []
+    connections: [],
+    characterRelationships: [],
+    reviewComments: []
   };
 
   // Event bus
@@ -33,7 +35,7 @@ App.Store = (function(){
   function markDirty(col) { if(Array.isArray(col)) col.forEach(function(c){ _dirty.add(c); }); else _dirty.add(col); }
   function getDirty() { return new Set(_dirty); }
   function clearDirty() { _dirty.clear(); }
-  function markAllDirty() { ['events','scenes','episodes','connections','characters','categories'].forEach(function(c){ _dirty.add(c); }); }
+  function markAllDirty() { ['events','scenes','episodes','connections','characters','categories','characterRelationships','reviewComments'].forEach(function(c){ _dirty.add(c); }); }
 
   // Snapshot for undo
   function snapshot() {
@@ -93,7 +95,20 @@ App.Store = (function(){
   // Character helpers
   function getCharacters() { return project.characters; }
   function addCharacter(ch) { snapshot(); project.characters.push(ch); markDirty('characters'); emit('change',{type:'addChar',targetName:ch.name||''}); }
-  function removeCharacter(id) { snapshot(); const _n=(project.characters.find(c=>c.id===id)||{}).name||''; project.characters=project.characters.filter(c=>c.id!==id); markDirty('characters'); emit('change',{type:'removeChar',targetName:_n}); }
+  function removeCharacter(id) { snapshot(); const _n=(project.characters.find(c=>c.id===id)||{}).name||''; project.characters=project.characters.filter(c=>c.id!==id); project.characterRelationships=project.characterRelationships.filter(r=>r.from!==id&&r.to!==id); markDirty(['characters','characterRelationships']); emit('change',{type:'removeChar',targetName:_n}); }
+  function updateCharacter(id, data) { snapshot(); const ch=project.characters.find(c=>c.id===id); if(ch) Object.assign(ch,data); markDirty('characters'); emit('change',{type:'updateChar',targetId:id,targetName:(ch&&ch.name)||''}); }
+
+  // Character Relationship helpers
+  function getCharacterRelationships(charId) { return charId ? project.characterRelationships.filter(r=>r.from===charId||r.to===charId) : project.characterRelationships; }
+  function addCharacterRelationship(rel) { snapshot(); project.characterRelationships.push(rel); markDirty('characterRelationships'); emit('change',{type:'addCharRel'}); }
+  function updateCharacterRelationship(id, data) { snapshot(); const r=project.characterRelationships.find(x=>x.id===id); if(r) Object.assign(r,data); markDirty('characterRelationships'); emit('change',{type:'updateCharRel',targetId:id}); }
+  function removeCharacterRelationship(id) { snapshot(); project.characterRelationships=project.characterRelationships.filter(r=>r.id!==id); markDirty('characterRelationships'); emit('change',{type:'removeCharRel',targetId:id}); }
+
+  // Review Comment helpers
+  function getReviewComments(sceneId) { return sceneId ? project.reviewComments.filter(r=>r.sceneId===sceneId) : project.reviewComments; }
+  function addReviewComment(rc) { snapshot(); project.reviewComments.push(rc); markDirty('reviewComments'); emit('change',{type:'addReviewComment'}); }
+  function updateReviewComment(id, data) { snapshot(); const r=project.reviewComments.find(x=>x.id===id); if(r) Object.assign(r,data); markDirty('reviewComments'); emit('change',{type:'updateReviewComment',targetId:id}); }
+  function removeReviewComment(id) { snapshot(); project.reviewComments=project.reviewComments.filter(r=>r.id!==id); markDirty('reviewComments'); emit('change',{type:'removeReviewComment',targetId:id}); }
 
   // Category helpers
   function getCategories() { return project.categories; }
@@ -110,7 +125,9 @@ App.Store = (function(){
     getScenes, getScene, addScene, updateScene, removeScene,
     getEvents, getEvent, addEvent, updateEvent, removeEvent,
     getConnections, addConnection, removeConnection,
-    getCharacters, addCharacter, removeCharacter,
+    getCharacters, addCharacter, removeCharacter, updateCharacter,
+    getCharacterRelationships, addCharacterRelationship, updateCharacterRelationship, removeCharacterRelationship,
+    getReviewComments, addReviewComment, updateReviewComment, removeReviewComment,
     getCategories, addCategory, removeCategory, batch
   };
 })();

@@ -29,6 +29,8 @@ App.Panels = (function(){
     else if(currentPanel === 'changelog') App.Changelog.renderPanel();
     else if(currentPanel === 'notes') { App.Notes.setPanelOpen(true); App.Notes.renderPanel(); }
     else if(currentPanel === 'ai') { if(App.AI) App.AI.renderPanel(); }
+    else if(currentPanel === 'review') { if(App.Review) App.Review.renderReviewPanel(); }
+    else if(currentPanel === 'relmap') { /* keep existing relmap panel content */ }
     else { rp.classList.remove('open'); }
   }
 
@@ -332,6 +334,7 @@ App.Panels = (function(){
       <button class="rtab${analysisTab==='tempo'?' active':''}" onclick="App.Panels.setAnalysisTab('tempo')">Tempo</button>
       <button class="rtab${analysisTab==='chars'?' active':''}" onclick="App.Panels.setAnalysisTab('chars')">Karakterler</button>
       <button class="rtab${analysisTab==='impact'?' active':''}" onclick="App.Panels.setAnalysisTab('impact')">Etki</button>
+      <button class="rtab${analysisTab==='relations'?' active':''}" onclick="App.Panels.setAnalysisTab('relations')">İlişkiler</button>
     </div>`;
     h += '<div class="rpanel-body">';
     if(analysisTab === 'warn') h += renderWarnContent();
@@ -339,6 +342,7 @@ App.Panels = (function(){
     else if(analysisTab === 'tempo') h += App.Analysis.renderTempo();
     else if(analysisTab === 'chars') h += App.Analysis.renderCharacters();
     else if(analysisTab === 'impact') h += App.Analysis.renderImpact();
+    else if(analysisTab === 'relations') h += _renderRelationsAnalysis();
     h += '</div>';
     rp.innerHTML = h;
   }
@@ -354,6 +358,41 @@ App.Panels = (function(){
 
   function setAnalysisTab(tab) { analysisTab = tab; renderPanel(); }
   function isImpactActive() { return currentPanel === 'analysis' && analysisTab === 'impact'; }
+
+  function _renderRelationsAnalysis() {
+    const P = S.get();
+    const chars = P.characters;
+    const rels = P.characterRelationships || [];
+    if(!rels.length) return '<div class="nw">Henüz karakter ilişkisi yok.<br>İlişkiler görünümünden ekleyin.</div>';
+    let h = '<div style="padding:14px;">';
+    // Summary
+    h += '<div style="font-size:12px;color:var(--tx2);margin-bottom:12px;">' + rels.length + ' ilişki, ' + chars.length + ' karakter</div>';
+    // Type distribution
+    const types = {};
+    rels.forEach(r => { types[r.type || 'diğer'] = (types[r.type || 'diğer'] || 0) + 1; });
+    h += '<div style="margin-bottom:12px;">';
+    Object.entries(types).forEach(([t, c]) => {
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px;">';
+      h += '<span style="flex:1;color:var(--tx);">' + U.escHtml(t) + '</span>';
+      h += '<span style="color:var(--tx3);">' + c + '</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+    // Most connected characters
+    const charCounts = {};
+    rels.forEach(r => { charCounts[r.from] = (charCounts[r.from] || 0) + 1; charCounts[r.to] = (charCounts[r.to] || 0) + 1; });
+    const sorted = Object.entries(charCounts).sort((a,b) => b[1] - a[1]);
+    h += '<div style="font-size:10px;color:var(--tx3);text-transform:uppercase;font-weight:500;margin-bottom:6px;">En bağlantılı karakterler</div>';
+    sorted.slice(0, 10).forEach(([cid, count]) => {
+      const ch = chars.find(c => c.id === cid);
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px;">';
+      h += '<span style="flex:1;color:var(--tx);">' + U.escHtml(ch ? ch.name : cid) + '</span>';
+      h += '<span style="color:var(--tx3);">' + count + ' ilişki</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+    return h;
+  }
 
   // ── SETTINGS ──
   function openSettings() {
@@ -452,5 +491,8 @@ App.Panels = (function(){
     App.UI.toast('Ayarlar kaydedildi');
   }
 
-  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, insertEditMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive };
+  function getCurrentPanel() { return currentPanel; }
+  function setCurrentPanel(name) { currentPanel = name; }
+
+  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, insertEditMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive, getCurrentPanel, setCurrentPanel };
 })();
