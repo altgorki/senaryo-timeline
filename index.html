@@ -1979,7 +1979,6 @@ App.Timeline = (function(){
 
         bl.addEventListener('mouseenter', () => {
           if(App.Interaction && App.Interaction.isDragging()) return;
-          hlRel(ev.id);
           const chNames = (ev.characters||[]).map(cid => { const ch = P.characters.find(c=>c.id===cid); return ch?ch.name:cid; });
           App.UI.showTooltip(`<div class="tt">${U.escHtml(ev.title)}</div><div class="td">${U.escHtml(ev.description||'')}</div>
             <div class="tm">${U.epLbl(P.episodes.find(e=>e.id===ev.episodeId)?.number||'?')} | ${U.s2t(ev.s)}–${U.s2t(ev.s+ev.dur)} (${Math.round(ev.dur/60)}dk)</div>
@@ -1987,7 +1986,7 @@ App.Timeline = (function(){
         });
         bl.addEventListener('mouseleave', () => {
           if(App.Interaction && App.Interaction.isDragging()) return;
-          clrHL(); App.UI.hideTooltip();
+          App.UI.hideTooltip();
         });
         bl.addEventListener('contextmenu', (e) => { e.preventDefault(); App.Interaction.showEventContext(e, ev.id); });
 
