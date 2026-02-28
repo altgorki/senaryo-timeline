@@ -260,6 +260,10 @@ App.Corkboard = (function(){
     // Update orders
     epScenes.forEach(function(s, i) { s.order = i + 1; });
 
+    // Sync event start times from new scene order
+    S.syncEventStartFromSceneOrder(tgtScene.episodeId);
+    if (crossEpisode) S.syncEventStartFromSceneOrder(oldEpId);
+
     S.markDirty(['scenes', 'events']);
     S.emit('change', { type: 'reorderScenes' });
 
@@ -295,6 +299,10 @@ App.Corkboard = (function(){
     var newEpScenes = P.scenes.filter(function(s) { return s.episodeId === targetEpId; });
     newEpScenes.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
     newEpScenes.forEach(function(s, i) { s.order = i + 1; });
+
+    // Sync event start times from new scene order
+    S.syncEventStartFromSceneOrder(targetEpId);
+    S.syncEventStartFromSceneOrder(oldEpId);
 
     S.markDirty(['scenes', 'events']);
     S.emit('change', { type: 'reorderScenes' });

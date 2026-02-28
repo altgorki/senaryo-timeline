@@ -200,8 +200,13 @@ App.Interaction = (function(){
       document.querySelectorAll('.ep-body').forEach(b => b.classList.remove('drop-target'));
       const sg = document.getElementById('snapGuide');
       if(sg) sg.classList.remove('show');
+      const origEp = drag.origEp;
       drag = null;
       if(didMove) {
+        if(ev) {
+          S.syncSceneOrderFromEvents(ev.episodeId);
+          if(origEp && origEp !== ev.episodeId) S.syncSceneOrderFromEvents(origEp);
+        }
         S.markDirty(['events','scenes']);
         S.emit('change', {type:'drag', targetId: ev ? ev.id : '', targetName: ev ? ev.title : ''});
       } else {

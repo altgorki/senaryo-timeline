@@ -119,6 +119,37 @@ App.Store = (function(){
   // Batch update without multiple snapshots
   function batch(fn) { snapshot(); fn(); markAllDirty(); emit('change',{type:'batch'}); }
 
+  // ── Cross-view order sync ──
+
+  // Event.s sırasına göre scene.order'ı yeniden hesapla
+  function syncSceneOrderFromEvents(epId) {
+    if(!epId) return;
+    var evs = project.events.filter(function(e){ return e.episodeId === epId && e.sceneId; });
+    evs.sort(function(a,b){ return a.s - b.s; });
+    var ord = 1;
+    var assigned = {};
+    evs.forEach(function(e){
+      var sc = project.scenes.find(function(s){ return s.id === e.sceneId; });
+      if(sc && !assigned[sc.id]) { sc.order = ord++; assigned[sc.id] = true; }
+    });
+    // Orphan scenes (no linked event) go to the end
+    project.scenes.filter(function(s){ return s.episodeId === epId && !assigned[s.id]; })
+      .sort(function(a,b){ return (a.order||0) - (b.order||0); })
+      .forEach(function(s){ s.order = ord++; });
+  }
+
+  // Scene.order sırasına göre event.s'i yeniden dağıt
+  function syncEventStartFromSceneOrder(epId) {
+    if(!epId) return;
+    var scenes = project.scenes.filter(function(s){ return s.episodeId === epId; });
+    scenes.sort(function(a,b){ return (a.order||0) - (b.order||0); });
+    var t = 0;
+    scenes.forEach(function(sc){
+      var ev = project.events.find(function(e){ return e.sceneId === sc.id && e.episodeId === epId; });
+      if(ev) { ev.s = t; t += ev.dur + 10; }
+    });
+  }
+
   return {
     on, emit, snapshot, undo, redo, get, set, getPPS, getEPDUR, getEPPX, getSnap, setSnap,
     markDirty, getDirty, clearDirty, markAllDirty,
@@ -129,6 +160,7 @@ App.Store = (function(){
     getCharacters, addCharacter, removeCharacter, updateCharacter,
     getCharacterRelationships, addCharacterRelationship, updateCharacterRelationship, removeCharacterRelationship,
     getReviewComments, addReviewComment, updateReviewComment, removeReviewComment,
-    getCategories, addCategory, removeCategory, batch
+    getCategories, addCategory, removeCategory, batch,
+    syncSceneOrderFromEvents, syncEventStartFromSceneOrder
   };
 })();

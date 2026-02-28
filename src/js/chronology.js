@@ -504,11 +504,14 @@ App.Chronology = (function(){
       S.snapshot();
       if(newDate) ev.storyDate = newDate;
       if(newEpId !== ev.episodeId) {
+        var oldEpId = ev.episodeId;
         ev.episodeId = newEpId;
         if(ev.sceneId) {
           var sc = S.getScene(ev.sceneId);
           if(sc) sc.episodeId = newEpId;
         }
+        S.syncSceneOrderFromEvents(newEpId);
+        S.syncSceneOrderFromEvents(oldEpId);
         S.markDirty(['events','scenes']);
       } else {
         S.markDirty('events');

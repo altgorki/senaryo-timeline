@@ -100,6 +100,7 @@ App.Panels = (function(){
     ev.storyDate = (document.getElementById('dStoryDate').value||'').trim() || null;
     ev.s = Math.max(0, parseInt(document.getElementById('dS').value) || 0);
     ev.dur = Math.max(60, parseInt(document.getElementById('dDur').value) || 120);
+    S.syncSceneOrderFromEvents(ev.episodeId);
     ev.characters = [];
     document.querySelectorAll('#rPanel .chcb input:checked').forEach(cb => ev.characters.push(cb.value));
     // Save screenplay text

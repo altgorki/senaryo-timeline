@@ -487,6 +487,37 @@ App.Store = (function(){
   // Batch update without multiple snapshots
   function batch(fn) { snapshot(); fn(); markAllDirty(); emit('change',{type:'batch'}); }
 
+  // ── Cross-view order sync ──
+
+  // Event.s sırasına göre scene.order'ı yeniden hesapla
+  function syncSceneOrderFromEvents(epId) {
+    if(!epId) return;
+    var evs = project.events.filter(function(e){ return e.episodeId === epId && e.sceneId; });
+    evs.sort(function(a,b){ return a.s - b.s; });
+    var ord = 1;
+    var assigned = {};
+    evs.forEach(function(e){
+      var sc = project.scenes.find(function(s){ return s.id === e.sceneId; });
+      if(sc && !assigned[sc.id]) { sc.order = ord++; assigned[sc.id] = true; }
+    });
+    // Orphan scenes (no linked event) go to the end
+    project.scenes.filter(function(s){ return s.episodeId === epId && !assigned[s.id]; })
+      .sort(function(a,b){ return (a.order||0) - (b.order||0); })
+      .forEach(function(s){ s.order = ord++; });
+  }
+
+  // Scene.order sırasına göre event.s'i yeniden dağıt
+  function syncEventStartFromSceneOrder(epId) {
+    if(!epId) return;
+    var scenes = project.scenes.filter(function(s){ return s.episodeId === epId; });
+    scenes.sort(function(a,b){ return (a.order||0) - (b.order||0); });
+    var t = 0;
+    scenes.forEach(function(sc){
+      var ev = project.events.find(function(e){ return e.sceneId === sc.id && e.episodeId === epId; });
+      if(ev) { ev.s = t; t += ev.dur + 10; }
+    });
+  }
+
   return {
     on, emit, snapshot, undo, redo, get, set, getPPS, getEPDUR, getEPPX, getSnap, setSnap,
     markDirty, getDirty, clearDirty, markAllDirty,
@@ -497,7 +528,8 @@ App.Store = (function(){
     getCharacters, addCharacter, removeCharacter, updateCharacter,
     getCharacterRelationships, addCharacterRelationship, updateCharacterRelationship, removeCharacterRelationship,
     getReviewComments, addReviewComment, updateReviewComment, removeReviewComment,
-    getCategories, addCategory, removeCategory, batch
+    getCategories, addCategory, removeCategory, batch,
+    syncSceneOrderFromEvents, syncEventStartFromSceneOrder
   };
 })();
 
@@ -3678,8 +3710,13 @@ App.Interaction = (function(){
       document.querySelectorAll('.ep-body').forEach(b => b.classList.remove('drop-target'));
       const sg = document.getElementById('snapGuide');
       if(sg) sg.classList.remove('show');
+      const origEp = drag.origEp;
       drag = null;
       if(didMove) {
+        if(ev) {
+          S.syncSceneOrderFromEvents(ev.episodeId);
+          if(origEp && origEp !== ev.episodeId) S.syncSceneOrderFromEvents(origEp);
+        }
         S.markDirty(['events','scenes']);
         S.emit('change', {type:'drag', targetId: ev ? ev.id : '', targetName: ev ? ev.title : ''});
       } else {
@@ -3922,6 +3959,7 @@ App.Panels = (function(){
     ev.storyDate = (document.getElementById('dStoryDate').value||'').trim() || null;
     ev.s = Math.max(0, parseInt(document.getElementById('dS').value) || 0);
     ev.dur = Math.max(60, parseInt(document.getElementById('dDur').value) || 120);
+    S.syncSceneOrderFromEvents(ev.episodeId);
     ev.characters = [];
     document.querySelectorAll('#rPanel .chcb input:checked').forEach(cb => ev.characters.push(cb.value));
     // Save screenplay text
@@ -6664,6 +6702,10 @@ App.Corkboard = (function(){
     // Update orders
     epScenes.forEach(function(s, i) { s.order = i + 1; });
 
+    // Sync event start times from new scene order
+    S.syncEventStartFromSceneOrder(tgtScene.episodeId);
+    if (crossEpisode) S.syncEventStartFromSceneOrder(oldEpId);
+
     S.markDirty(['scenes', 'events']);
     S.emit('change', { type: 'reorderScenes' });
 
@@ -6699,6 +6741,10 @@ App.Corkboard = (function(){
     var newEpScenes = P.scenes.filter(function(s) { return s.episodeId === targetEpId; });
     newEpScenes.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
     newEpScenes.forEach(function(s, i) { s.order = i + 1; });
+
+    // Sync event start times from new scene order
+    S.syncEventStartFromSceneOrder(targetEpId);
+    S.syncEventStartFromSceneOrder(oldEpId);
 
     S.markDirty(['scenes', 'events']);
     S.emit('change', { type: 'reorderScenes' });
@@ -7334,11 +7380,14 @@ App.Chronology = (function(){
       S.snapshot();
       if(newDate) ev.storyDate = newDate;
       if(newEpId !== ev.episodeId) {
+        var oldEpId = ev.episodeId;
         ev.episodeId = newEpId;
         if(ev.sceneId) {
           var sc = S.getScene(ev.sceneId);
           if(sc) sc.episodeId = newEpId;
         }
+        S.syncSceneOrderFromEvents(newEpId);
+        S.syncSceneOrderFromEvents(oldEpId);
         S.markDirty(['events','scenes']);
       } else {
         S.markDirty('events');
