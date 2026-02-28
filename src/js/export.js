@@ -340,17 +340,24 @@ App.Export = (function(){
 
   function _ensureJsPDF(callback) {
     if(_jsPDFLoaded && typeof jspdf !== 'undefined') { callback(); return; }
-    var script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
-    script.crossOrigin = 'anonymous';
-    script.onload = function() {
-      _jsPDFLoaded = true;
-      callback();
-    };
-    script.onerror = function() {
-      App.UI.toast('jsPDF yüklenemedi. İnternet bağlantınızı kontrol edin.');
-    };
-    document.head.appendChild(script);
+    var urls = [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'
+    ];
+    var idx = 0;
+    function tryLoad() {
+      if(idx >= urls.length) { App.UI.toast('jsPDF yüklenemedi. İnternet bağlantınızı kontrol edin.'); return; }
+      var script = document.createElement('script');
+      script.src = urls[idx];
+      script.crossOrigin = 'anonymous';
+      script.onload = function() {
+        if(typeof jspdf !== 'undefined') { _jsPDFLoaded = true; callback(); }
+        else { idx++; tryLoad(); }
+      };
+      script.onerror = function() { idx++; tryLoad(); };
+      document.head.appendChild(script);
+    }
+    tryLoad();
   }
 
   // ══════════════════════════════════════
