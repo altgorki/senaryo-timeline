@@ -264,6 +264,10 @@ App.refresh = function() {
     document.getElementById('projTitle').textContent = App.Store.get().meta.title;
     return;
   }
+  // Ensure scene order matches event.s before rendering any view
+  var _P = App.Store.get();
+  (_P.episodes || []).forEach(function(ep) { App.Store.syncSceneOrderFromEvents(ep.id); });
+
   App.Timeline.initFilter();
   App.Timeline.buildToolbar();
   if(App._viewMode === 'kronoloji') {
