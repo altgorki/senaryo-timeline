@@ -880,8 +880,15 @@ App.Store = (function(){
     emit('change', {type:'redo'});
   }
 
+  // Dirty tracking
+  let _dirty = new Set();
+  function markDirty(col) { if(Array.isArray(col)) col.forEach(function(c){ _dirty.add(c); }); else _dirty.add(col); }
+  function getDirty() { return new Set(_dirty); }
+  function clearDirty() { _dirty.clear(); }
+  function markAllDirty() { ['events','scenes','episodes','connections','characters','categories'].forEach(function(c){ _dirty.add(c); }); }
+
   function get() { return project; }
-  function set(p) { project = p; emit('change', {type:'set'}); }
+  function set(p) { project = p; markAllDirty(); emit('change', {type:'set'}); }
   function getPPS() { return project.meta.settings.pixelsPerSecond; }
   function getEPDUR() { return project.meta.settings.episodeDuration; }
   function getEPPX() { return getEPDUR() * getPPS(); }
@@ -957,6 +964,7 @@ App.Store = (function(){
 
   return {
     on, emit, snapshot, undo, redo, get, set, getPPS, getEPDUR, getEPPX, getSnap, setSnap,
+    markDirty, getDirty, clearDirty, markAllDirty,
     getEpisodeIds, getEpisode, addEpisode, updateEpisode, removeEpisode,
     getScenes, getScene, addScene, updateScene, removeScene,
     getEvents, getEvent, addEvent, updateEvent, removeEvent,
