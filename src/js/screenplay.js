@@ -19,7 +19,7 @@ App.Screenplay = (function(){
       const sceneCount = scenes.length;
       const totalDur = P.events.filter(e=>e.episodeId===ep.id).reduce((s,e)=>s+e.dur,0);
       h += `<div class="ep-tree">
-        <div class="ep-tree-hdr" onclick="App.Screenplay.toggleEp('${ep.id}')">
+        <div class="ep-tree-hdr" onclick="App.Screenplay.toggleEp('${ep.id}')" oncontextmenu="event.preventDefault();App.Screenplay.showEpMenu(event,'${ep.id}')">
           <span class="arrow${isOpen?' open':''}">▶</span>
           <div class="ep-info">
             <span class="ep-num">Bölüm ${ep.number}</span>
@@ -650,5 +650,30 @@ App.Screenplay = (function(){
 
   function getActiveSceneId() { return activeSceneId; }
 
-  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline, formatScreenplayHTML, getActiveSceneId };
+  function showEpMenu(e, epId) {
+    e.preventDefault(); e.stopPropagation();
+    var ep = S.getEpisode(epId); if(!ep) return;
+    App.UI.showContextMenu(e.clientX, e.clientY, [
+      { id:'edit', icon:'✏️', label:'Yeniden Adlandır', action: function(){
+        var newTitle = prompt('Bölüm adı:', ep.title||'');
+        if(newTitle !== null) S.updateEpisode(epId, { title: U.validateText(newTitle, 'title') });
+      }},
+      'sep',
+      { id:'del', icon:'🗑', label:'Bölümü Sil', danger:true, action: function(){ deleteEpisode(epId); } }
+    ]);
+  }
+
+  function deleteEpisode(epId) {
+    var P = S.get();
+    if(P.episodes.length <= 1) { App.UI.toast('Son bölüm silinemez'); return; }
+    var ep = S.getEpisode(epId); if(!ep) return;
+    var sceneCount = S.getScenes(epId).length;
+    var eventCount = P.events.filter(function(e){ return e.episodeId===epId; }).length;
+    var msg = '"Bölüm ' + ep.number + '"' + (sceneCount ? ' ve içindeki ' + sceneCount + ' sahne, ' + eventCount + ' olay' : '') + ' silinecek. Devam?';
+    if(!confirm(msg)) return;
+    S.removeEpisode(epId);
+    App.UI.toast('Bölüm silindi');
+  }
+
+  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, deleteEpisode, showEpMenu, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline, formatScreenplayHTML, getActiveSceneId };
 })();

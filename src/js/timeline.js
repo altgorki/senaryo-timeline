@@ -105,6 +105,7 @@ App.Timeline = (function(){
       hdr.className = 'ep-hdr'; hdr.style.width = colW + 'px';
       const epDurTotal = colEvs.reduce((s,e) => Math.max(s, e.s+e.dur), 0);
       hdr.innerHTML = `<div class="num">${ep.number}</div><div class="sub">${U.escHtml(ep.title||'Bölüm')}</div><div class="dur">${U.s2t(EPDUR)}</div>`;
+      hdr.addEventListener('contextmenu', function(e) { e.preventDefault(); App.Screenplay.showEpMenu(e, ep.id); });
       col.appendChild(hdr);
 
       const body = document.createElement('div');

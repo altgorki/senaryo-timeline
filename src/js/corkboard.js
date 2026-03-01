@@ -141,6 +141,16 @@ App.Corkboard = (function(){
       card.addEventListener('click', _onCardClick);
       card.addEventListener('dblclick', _onCardDblClick);
     });
+    // Episode section title contextmenu
+    var sectionTitles = document.querySelectorAll('.corkboard-section-title');
+    sectionTitles.forEach(function(el) {
+      el.addEventListener('contextmenu', function(e) {
+        var section = el.closest('.corkboard-section');
+        if (!section) return;
+        e.preventDefault();
+        App.Screenplay.showEpMenu(e, section.dataset.epId);
+      });
+    });
     // Grid container drop support (for drops between cards or into empty areas)
     var grids = document.querySelectorAll('.corkboard-grid');
     grids.forEach(function(grid) {
