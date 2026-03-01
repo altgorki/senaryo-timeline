@@ -1,5 +1,6 @@
 // ═══ UI MODULE ═══
 App.UI = (function(){
+  const U = App.Utils;
   // --- Accessibility: focus trap state ---
   var _previouslyFocusedEl = null;
   var _focusTrapHandler = null;
