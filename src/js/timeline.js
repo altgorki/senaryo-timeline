@@ -56,19 +56,18 @@ App.Timeline = (function(){
       return;
     }
 
-    // Lane calc for each episode
+    // Auto-resolve overlapping events: shift start times so no overlap
+    let _overlapFixed = false;
     P.episodes.forEach(ep => {
       const rowEvs = P.events.filter(e => e.episodeId === ep.id).sort((a,b) => a.s - b.s);
-      const lanes = [];
+      let endTime = 0;
       rowEvs.forEach(ev => {
-        let lane = 0;
-        for(; lane < lanes.length; lane++) { if(ev.s >= lanes[lane]) break; }
-        if(lane >= lanes.length) lanes.push(0);
-        lanes[lane] = ev.s + ev.dur;
-        ev._lane = lane;
+        if(ev.s < endTime) { ev.s = endTime; _overlapFixed = true; }
+        endTime = ev.s + ev.dur;
+        ev._lane = 0; ev._laneCount = 1;
       });
-      rowEvs.forEach(ev => ev._laneCount = Math.max(lanes.length, 1));
     });
+    if(_overlapFixed) S.markDirty('events');
 
     // Ruler (vertical, left column)
     const maxMin = Math.ceil(EPDUR / 60);
