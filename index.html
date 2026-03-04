@@ -5987,7 +5987,7 @@ App.Characters = (function(){
   }
   var _colorPalette = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#f97316','#06b6d4','#ec4899','#8b5cf6','#14b8a6','#e11d48','#84cc16'];
   function _randomColor() { return _colorPalette[Math.floor(Math.random() * _colorPalette.length)]; }
-  function addCharacter() { var id = U.genId('ch'); S.addCharacter({ id: id, name: 'Yeni Karakter', color: _randomColor(), role: '', notes: '', birthDate: null, deathDate: null }); _selectedCharId = id; render(); _showCharacterDetail(id); }
+  function addCharacter() { var id = U.genId('ch'); App.Panels.setCurrentPanel('charDetail'); S.addCharacter({ id: id, name: 'Yeni Karakter', color: _randomColor(), role: '', notes: '', birthDate: null, deathDate: null }); _selectedCharId = id; render(); _showCharacterDetail(id); }
   function _formatDuration(totalSec) { if (!totalSec) return '0:00'; var m = Math.floor(totalSec / 60); var s = totalSec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   function _truncName(name, max) { if (!name) return '?'; return name.length > max ? name.substring(0, max - 1) + '\u2026' : name; }
 
@@ -6063,6 +6063,7 @@ App.Characters = (function(){
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Rol</label><select id="charDetailRole" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;"><option value=""' + (!ch.role ? ' selected' : '') + '>Belirtilmemi\u015f</option><option value="Ana"' + (ch.role === 'Ana' ? ' selected' : '') + '>Ana</option><option value="Yan"' + (ch.role === 'Yan' ? ' selected' : '') + '>Yan</option><option value="Fig\u00fcran"' + (ch.role === 'Figüran' ? ' selected' : '') + '>Fig\u00fcran</option></select></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Do\u011fum Tarihi</label><input type="date" id="charDetailBirth" value="' + (ch.birthDate || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">\u00d6l\u00fcm Tarihi</label><input type="date" id="charDetailDeath" value="' + (ch.deathDate || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Karakter Analizi</label><textarea id="charDetailAnalysis" rows="3" placeholder="Karakterin motivasyonu, iç çatışması, dönüşüm yayı..." style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;resize:vertical;">' + U.escHtml(ch.analysis || '') + '</textarea></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Notlar</label><textarea id="charDetailNotes" rows="3" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;resize:vertical;">' + U.escHtml(ch.notes || '') + '</textarea></div>';
     html += '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn btn-p" onclick="App.Characters.saveCharacterDetail(\'' + charId + '\')">Kaydet</button><button class="btn btn-d" onclick="App.Characters.deleteCharacter(\'' + charId + '\')">Sil</button></div>';
     if (cStat) { html += '<div style="margin-top:20px;border-top:1px solid var(--brd);padding-top:14px;"><h4 style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:600;">\u0130statistikler</h4><div style="font-size:11px;color:var(--tx3);line-height:1.8;">Sahne Say\u0131s\u0131: <span style="color:var(--tx);">' + cStat.sceneCount + '</span><br>Toplam S\u00fcre: <span style="color:var(--tx);">' + _formatDuration(cStat.totalDur) + '</span><br>Diyalog Kelime: <span style="color:var(--tx);">' + cStat.dialogueWords + '</span></div></div>'; }
@@ -6073,7 +6074,8 @@ App.Characters = (function(){
   }
   function saveCharacterDetail(charId) {
     var nameEl = document.getElementById('charDetailName'); if (!nameEl) return; var name = nameEl.value.trim(); if (!name) { App.UI.toast('\u0130sim bo\u015f olamaz', 'error'); return; }
-    S.updateCharacter(charId, { name: name, color: U.sanitizeColor(document.getElementById('charDetailColor').value), role: document.getElementById('charDetailRole').value, birthDate: document.getElementById('charDetailBirth').value || null, deathDate: document.getElementById('charDetailDeath').value || null, notes: document.getElementById('charDetailNotes').value });
+    var _anlEl = document.getElementById('charDetailAnalysis');
+    S.updateCharacter(charId, { name: name, color: U.sanitizeColor(document.getElementById('charDetailColor').value), role: document.getElementById('charDetailRole').value, birthDate: document.getElementById('charDetailBirth').value || null, deathDate: document.getElementById('charDetailDeath').value || null, analysis: _anlEl ? _anlEl.value : '', notes: document.getElementById('charDetailNotes').value });
     App.UI.toast('Karakter g\u00fcncellendi'); render(); _showCharacterDetail(charId);
   }
   function deleteCharacter(charId) {
@@ -6086,7 +6088,7 @@ App.Characters = (function(){
   function filterByRole(role) { _filterRole = role; render(); }
   function sortBy(field) { _sortBy = field; render(); }
   function search(query) { _searchQuery = query; render(); }
-  function selectCharacter(charId) { _selectedCharId = charId; render(); _showCharacterDetail(charId); }
+  function selectCharacter(charId) { App.Panels.setCurrentPanel('charDetail'); _selectedCharId = charId; render(); _showCharacterDetail(charId); }
   function deselectCharacter() { _selectedCharId = null; render(); }
   return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, deselectCharacter:deselectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter, addCharacter:addCharacter, getStats:_computeCharacterStats };
 })();

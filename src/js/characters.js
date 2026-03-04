@@ -339,6 +339,9 @@ App.Characters = (function(){
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Ölüm Tarihi</label>';
     html += '<input type="date" id="charDetailDeath" value="' + (ch.deathDate || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
 
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Karakter Analizi</label>';
+    html += '<textarea id="charDetailAnalysis" rows="3" placeholder="Karakterin motivasyonu, iç çatışması, dönüşüm yayı..." style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;resize:vertical;">' + U.escHtml(ch.analysis || '') + '</textarea></div>';
+
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Notlar</label>';
     html += '<textarea id="charDetailNotes" rows="3" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;resize:vertical;">' + U.escHtml(ch.notes || '') + '</textarea></div>';
 
@@ -399,6 +402,7 @@ App.Characters = (function(){
     var roleEl = document.getElementById('charDetailRole');
     var birthEl = document.getElementById('charDetailBirth');
     var deathEl = document.getElementById('charDetailDeath');
+    var analysisEl = document.getElementById('charDetailAnalysis');
     var notesEl = document.getElementById('charDetailNotes');
     if (!nameEl) return;
 
@@ -411,6 +415,7 @@ App.Characters = (function(){
       role: roleEl.value,
       birthDate: birthEl.value || null,
       deathDate: deathEl.value || null,
+      analysis: analysisEl ? analysisEl.value : '',
       notes: notesEl.value
     });
 
@@ -448,6 +453,7 @@ App.Characters = (function(){
 
   function addCharacter() {
     var id = U.genId('ch');
+    App.Panels.setCurrentPanel('charDetail');
     S.addCharacter({ id: id, name: 'Yeni Karakter', color: _randomColor(), role: '', notes: '', birthDate: null, deathDate: null });
     _selectedCharId = id;
     render();
@@ -494,6 +500,7 @@ App.Characters = (function(){
   }
 
   function selectCharacter(charId) {
+    App.Panels.setCurrentPanel('charDetail');
     _selectedCharId = charId;
     render();
     _showCharacterDetail(charId);
