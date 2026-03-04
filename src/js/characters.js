@@ -302,6 +302,7 @@ App.Characters = (function(){
     var ch = (P.characters || []).find(function(c) { return c.id === charId; });
     if (!ch) return;
 
+    App.Panels.setCurrentPanel('charDetail');
     var rp = document.getElementById('rPanel');
     rp.classList.add('open');
 
@@ -314,7 +315,7 @@ App.Characters = (function(){
     var html = '<div style="padding:16px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
     html += '<h3 style="font-size:14px;font-weight:600;">Karakter Detayı</h3>';
-    html += '<button class="close-btn" onclick="document.getElementById(\'rPanel\').classList.remove(\'open\');App.Characters._selectedCharId=null;App.Characters.render();">✕</button>';
+    html += '<button class="close-btn" onclick="App.Panels.closeAll();App.Characters.deselectCharacter();">✕</button>';
     html += '</div>';
 
     // Editable fields
@@ -426,7 +427,7 @@ App.Characters = (function(){
 
     S.removeCharacter(charId);
     _selectedCharId = null;
-    document.getElementById('rPanel').classList.remove('open');
+    App.Panels.closeAll();
     App.UI.toast('"' + name + '" silindi');
     render();
   }
@@ -498,6 +499,11 @@ App.Characters = (function(){
     _showCharacterDetail(charId);
   }
 
+  function deselectCharacter() {
+    _selectedCharId = null;
+    render();
+  }
+
   return {
     render: render,
     unmount: unmount,
@@ -509,6 +515,7 @@ App.Characters = (function(){
     saveCharacterDetail: saveCharacterDetail,
     deleteCharacter: deleteCharacter,
     addCharacter: addCharacter,
+    deselectCharacter: deselectCharacter,
     getStats: _computeCharacterStats,
     _selectedCharId: _selectedCharId
   };

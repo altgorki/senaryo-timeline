@@ -32,6 +32,7 @@ App.Panels = (function(){
     else if(currentPanel === 'review') { if(App.Review) App.Review.renderReviewPanel(); }
     else if(currentPanel === 'corkboard') { /* keep existing corkboard panel content */ }
     else if(currentPanel === 'relmap') { /* keep existing relmap panel content */ }
+    else if(currentPanel === 'charDetail') { /* managed by Characters module */ }
     else { rp.classList.remove('open'); }
   }
 

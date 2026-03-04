@@ -3891,6 +3891,7 @@ App.Panels = (function(){
     else if(currentPanel === 'changelog') App.Changelog.renderPanel();
     else if(currentPanel === 'notes') { App.Notes.setPanelOpen(true); App.Notes.renderPanel(); }
     else if(currentPanel === 'ai') { if(App.AI) App.AI.renderPanel(); }
+    else if(currentPanel === 'charDetail') { /* managed by Characters module */ }
     else { rp.classList.remove('open'); }
   }
 
@@ -4312,7 +4313,9 @@ App.Panels = (function(){
     App.UI.toast('Ayarlar kaydedildi');
   }
 
-  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, insertEditMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive };
+  function getCurrentPanel() { return currentPanel; }
+  function setCurrentPanel(name) { currentPanel = name; }
+  return { togglePanel, closeAll, openEditEvent, saveEvent, delEvent, rmCn, openAddConnection, doAddConnection, openAddEvent, doAddEvent, insertModalMention, insertEditMention, toggleWarnHL, setAnalysisTab, renderPanel, openSettings, saveSettings, renderWarnPanel, renderAnalysisPanel, isImpactActive, getCurrentPanel, setCurrentPanel };
 })();
 
 // ═══ ANALYSIS MODULE ═══
@@ -6050,10 +6053,11 @@ App.Characters = (function(){
   }
   function _showCharacterDetail(charId) {
     var P = S.get(); var ch = (P.characters || []).find(function(c) { return c.id === charId; }); if (!ch) return;
+    App.Panels.setCurrentPanel('charDetail');
     var rp = document.getElementById('rPanel'); rp.classList.add('open');
     var stats = _computeCharacterStats(); var cStat = stats.find(function(s) { return s.id === charId; });
     var events = P.events || []; var relationships = (P.characterRelationships || []).filter(function(r) { return r.from === charId || r.to === charId; }); var chars = P.characters || [];
-    var html = '<div style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="font-size:14px;font-weight:600;">Karakter Detay\u0131</h3><button class="close-btn" onclick="document.getElementById(\'rPanel\').classList.remove(\'open\');">✕</button></div>';
+    var html = '<div style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="font-size:14px;font-weight:600;">Karakter Detay\u0131</h3><button class="close-btn" onclick="App.Panels.closeAll();App.Characters.deselectCharacter();">✕</button></div>';
     html += '<div class="fg"><label style="font-size:11px;color:var(--tx3);">\u0130sim</label><input type="text" id="charDetailName" value="' + U.escHtml(ch.name || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Renk</label><input type="color" id="charDetailColor" value="' + (ch.color || '#3b82f6') + '" style="width:40px;height:28px;border:1px solid var(--brd);border-radius:var(--radius);background:var(--bg2);cursor:pointer;" /></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Rol</label><select id="charDetailRole" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;"><option value=""' + (!ch.role ? ' selected' : '') + '>Belirtilmemi\u015f</option><option value="Ana"' + (ch.role === 'Ana' ? ' selected' : '') + '>Ana</option><option value="Yan"' + (ch.role === 'Yan' ? ' selected' : '') + '>Yan</option><option value="Fig\u00fcran"' + (ch.role === 'Figüran' ? ' selected' : '') + '>Fig\u00fcran</option></select></div>';
@@ -6075,7 +6079,7 @@ App.Characters = (function(){
   function deleteCharacter(charId) {
     var P = S.get(); var ch = (P.characters || []).find(function(c) { return c.id === charId; }); var name = ch ? ch.name : 'Karakter';
     if (!confirm('"' + name + '" silinsin mi?')) return;
-    S.removeCharacter(charId); _selectedCharId = null; document.getElementById('rPanel').classList.remove('open'); App.UI.toast('"' + name + '" silindi'); render();
+    S.removeCharacter(charId); _selectedCharId = null; App.Panels.closeAll(); App.UI.toast('"' + name + '" silindi'); render();
   }
   function unmount() { _mounted = false; }
   function isMounted() { return _mounted; }
@@ -6083,7 +6087,8 @@ App.Characters = (function(){
   function sortBy(field) { _sortBy = field; render(); }
   function search(query) { _searchQuery = query; render(); }
   function selectCharacter(charId) { _selectedCharId = charId; render(); _showCharacterDetail(charId); }
-  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter, addCharacter:addCharacter, getStats:_computeCharacterStats };
+  function deselectCharacter() { _selectedCharId = null; render(); }
+  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, deselectCharacter:deselectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter, addCharacter:addCharacter, getStats:_computeCharacterStats };
 })();
 
 // ═══ DEMO PROJECT DATA (SAKAL) ═══
@@ -6381,7 +6386,8 @@ App.refresh = function() {
       App.UI.updateStatusBar();
       if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
       if(document.getElementById('rPanel').classList.contains('open')) {
-        if(!_isEditing && App._viewMode !== 'karakterler') {
+        var _cp = App.Panels.getCurrentPanel();
+        if(!_isEditing && _cp !== 'charDetail') {
           App.Panels.renderPanel();
         }
       }
