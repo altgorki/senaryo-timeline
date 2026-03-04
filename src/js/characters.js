@@ -157,6 +157,7 @@ App.Characters = (function(){
     html += '<option value="duration"' + (_sortBy === 'duration' ? ' selected' : '') + '>Ekran Süresi</option>';
     html += '<option value="dialogue"' + (_sortBy === 'dialogue' ? ' selected' : '') + '>Diyalog</option>';
     html += '</select>';
+    html += '<button class="btn btn-p btn-s" onclick="App.Characters.addCharacter()">+ Karakter</button>';
     html += '<div style="flex:1;"></div>';
     html += '<span style="font-size:11px;color:var(--tx3);">' + stats.length + ' karakter</span>';
     html += '</div>';
@@ -436,6 +437,22 @@ App.Characters = (function(){
     // Card click events are handled via inline onclick
   }
 
+  // ── Add character ──
+
+  var _colorPalette = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#f97316','#06b6d4','#ec4899','#8b5cf6','#14b8a6','#e11d48','#84cc16'];
+
+  function _randomColor() {
+    return _colorPalette[Math.floor(Math.random() * _colorPalette.length)];
+  }
+
+  function addCharacter() {
+    var id = U.genId('ch');
+    S.addCharacter({ id: id, name: 'Yeni Karakter', color: _randomColor(), role: '', notes: '', birthDate: null, deathDate: null });
+    _selectedCharId = id;
+    render();
+    _showCharacterDetail(id);
+  }
+
   // ── Helpers ──
 
   function _formatDuration(totalSec) {
@@ -491,6 +508,8 @@ App.Characters = (function(){
     selectCharacter: selectCharacter,
     saveCharacterDetail: saveCharacterDetail,
     deleteCharacter: deleteCharacter,
+    addCharacter: addCharacter,
+    getStats: _computeCharacterStats,
     _selectedCharId: _selectedCharId
   };
 })();

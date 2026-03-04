@@ -591,6 +591,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
 .char-chart-bar{height:100%;border-radius:5px;transition:width .3s;}
 .char-chart-value{font-size:10px;color:var(--tx4);width:50px;flex-shrink:0;}
 .char-heatmap-container{overflow-x:auto;padding-bottom:8px;}
+.notes-char-analysis{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);padding:10px;margin:0 10px 8px;}
+.notes-char-analysis-title{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:600;font-size:12px;color:var(--tx);user-select:none;}
+.notes-char-analysis-title:hover{color:var(--blue);}
+.notes-char-analysis-body{margin-top:8px;font-size:11px;line-height:1.6;}
+.notes-char-mini-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.notes-char-mini-bar div{height:100%;border-radius:2px;}
 @media(max-width:768px){.char-cards-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}.char-card-avatar{width:34px;height:34px;font-size:14px;}.char-toolbar .char-search{width:120px;}}
 </style>
 </head>
@@ -4752,6 +4758,7 @@ App.Notes = (function(){
   let _remoteListener = null;
   let _panelOpen = false;
   let _editingId = null;
+  let _charAnalysisOpen = true;
 
   function init() {
     if(!App.Sync || !App.Sync.isInRoom()) {
@@ -4844,12 +4851,59 @@ App.Notes = (function(){
     init();
   }
 
+  function _buildCharAnalysis() {
+    if (!App.Characters || !App.Characters.getStats) return '';
+    var stats = App.Characters.getStats();
+    if (!stats.length) return '';
+    var arrow = _charAnalysisOpen ? '▾' : '▸';
+    var h = '<div class="notes-char-analysis">';
+    h += '<div class="notes-char-analysis-title" onclick="App.Notes.toggleCharAnalysis()"><span>📊 Karakter Analizi</span><span style="font-size:10px;color:var(--tx4);">' + arrow + '</span></div>';
+    if (_charAnalysisOpen) {
+      h += '<div class="notes-char-analysis-body">';
+      h += '<div style="margin-bottom:6px;color:var(--tx3);">Toplam: <span style="color:var(--tx);">' + stats.length + '</span> karakter</div>';
+      var byScene = stats.slice().sort(function(a, b) { return b.sceneCount - a.sceneCount; });
+      var top3Scene = byScene.slice(0, 3).filter(function(s) { return s.sceneCount > 0; });
+      if (top3Scene.length) {
+        var maxScene = top3Scene[0].sceneCount || 1;
+        h += '<div style="margin-bottom:6px;"><span style="color:var(--tx2);font-weight:600;">En Çok Sahnede</span></div>';
+        top3Scene.forEach(function(ch) {
+          var pct = Math.round((ch.sceneCount / maxScene) * 100);
+          var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6';
+          h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
+          h += '<span style="width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2);">' + U.escHtml(ch.name) + '</span>';
+          h += '<div class="notes-char-mini-bar"><div style="width:' + pct + '%;background:' + bgColor + ';"></div></div>';
+          h += '<span style="color:var(--tx4);min-width:24px;text-align:right;">' + ch.sceneCount + '</span></div>';
+        });
+      }
+      var byDialogue = stats.slice().sort(function(a, b) { return b.dialogueWords - a.dialogueWords; });
+      var top3Dial = byDialogue.slice(0, 3).filter(function(s) { return s.dialogueWords > 0; });
+      if (top3Dial.length) {
+        var maxWords = top3Dial[0].dialogueWords || 1;
+        h += '<div style="margin:6px 0;"><span style="color:var(--tx2);font-weight:600;">En Çok Diyalog</span></div>';
+        top3Dial.forEach(function(ch) {
+          var pct = Math.round((ch.dialogueWords / maxWords) * 100);
+          var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6';
+          h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
+          h += '<span style="width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2);">' + U.escHtml(ch.name) + '</span>';
+          h += '<div class="notes-char-mini-bar"><div style="width:' + pct + '%;background:' + bgColor + ';"></div></div>';
+          h += '<span style="color:var(--tx4);min-width:24px;text-align:right;">' + ch.dialogueWords + '</span></div>';
+        });
+      }
+      h += '<div style="margin-top:8px;text-align:right;"><a href="#" style="color:var(--blue);font-size:10px;text-decoration:none;" onclick="event.preventDefault();App.setViewMode(\'karakterler\');">Tüm Karakterler →</a></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+  function toggleCharAnalysis() { _charAnalysisOpen = !_charAnalysisOpen; if (_panelOpen) renderPanel(); }
+
   function renderPanel() {
     const rp = U.$('rPanel');
     const myName = _getUserName();
     const sorted = _notes.slice().reverse();
 
     let h = '<div class="rpanel-hdr"><h3>📌 Notlar</h3><button class="close-btn" onclick="App.Panels.closeAll()">✕</button></div>';
+    h += _buildCharAnalysis();
     // Compose area
     h += '<div class="notes-compose">';
     h += '<textarea id="noteInput" placeholder="Not yaz..." onkeydown="if(event.ctrlKey&&event.key===\'Enter\'){App.Notes.addNote(this.value);this.value=\'\';event.preventDefault();}"></textarea>';
@@ -4902,7 +4956,7 @@ App.Notes = (function(){
     renderPanel();
   }
 
-  return { init, setPanelOpen, addNote, updateNote, removeNote, setupRemoteListener, teardownRemoteListener, renderPanel, startEdit, _cancelEdit };
+  return { init, setPanelOpen, addNote, updateNote, removeNote, setupRemoteListener, teardownRemoteListener, renderPanel, startEdit, _cancelEdit, toggleCharAnalysis };
 })();
 
 // ═══ AI ASSISTANT MODULE ═══
@@ -5948,6 +6002,9 @@ App.Characters = (function(){
     filtered.sort(function(a, b) { if (_sortBy === 'name') return a.name.localeCompare(b.name, 'tr'); if (_sortBy === 'scenes') return b.sceneCount - a.sceneCount; if (_sortBy === 'duration') return b.totalDur - a.totalDur; if (_sortBy === 'dialogue') return b.dialogueWords - a.dialogueWords; return 0; });
     return filtered;
   }
+  var _colorPalette = ['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#f97316','#06b6d4','#ec4899','#8b5cf6','#14b8a6','#e11d48','#84cc16'];
+  function _randomColor() { return _colorPalette[Math.floor(Math.random() * _colorPalette.length)]; }
+  function addCharacter() { var id = U.genId('ch'); S.addCharacter({ id: id, name: 'Yeni Karakter', color: _randomColor(), role: '', notes: '', birthDate: null, deathDate: null }); _selectedCharId = id; render(); _showCharacterDetail(id); }
   function _formatDuration(totalSec) { if (!totalSec) return '0:00'; var m = Math.floor(totalSec / 60); var s = totalSec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   function _truncName(name, max) { if (!name) return '?'; return name.length > max ? name.substring(0, max - 1) + '\u2026' : name; }
 
@@ -5967,6 +6024,7 @@ App.Characters = (function(){
     html += '<input type="text" class="char-search" placeholder="Karakter ara..." value="' + U.escHtml(_searchQuery) + '" oninput="App.Characters.search(this.value)" />';
     html += '<select class="char-filter-select" onchange="App.Characters.filterByRole(this.value)"><option value="all"' + (_filterRole === 'all' ? ' selected' : '') + '>T\u00fcm Roller</option><option value="Ana"' + (_filterRole === 'Ana' ? ' selected' : '') + '>Ana</option><option value="Yan"' + (_filterRole === 'Yan' ? ' selected' : '') + '>Yan</option><option value="Fig\u00fcran"' + (_filterRole === 'Figüran' ? ' selected' : '') + '>Fig\u00fcran</option></select>';
     html += '<select class="char-filter-select" onchange="App.Characters.sortBy(this.value)"><option value="name"' + (_sortBy === 'name' ? ' selected' : '') + '>Ada G\u00f6re</option><option value="scenes"' + (_sortBy === 'scenes' ? ' selected' : '') + '>Sahne Say\u0131s\u0131</option><option value="duration"' + (_sortBy === 'duration' ? ' selected' : '') + '>Ekran S\u00fcresi</option><option value="dialogue"' + (_sortBy === 'dialogue' ? ' selected' : '') + '>Diyalog</option></select>';
+    html += '<button class="btn btn-p btn-s" onclick="App.Characters.addCharacter()">+ Karakter</button>';
     html += '<div style="flex:1;"></div><span style="font-size:11px;color:var(--tx3);">' + stats.length + ' karakter</span></div>'; return html;
   }
   function _buildCharacterCards(stats) {
@@ -6045,7 +6103,7 @@ App.Characters = (function(){
   function sortBy(field) { _sortBy = field; render(); }
   function search(query) { _searchQuery = query; render(); }
   function selectCharacter(charId) { _selectedCharId = charId; render(); _showCharacterDetail(charId); }
-  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter };
+  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter, addCharacter:addCharacter, getStats:_computeCharacterStats };
 })();
 
 // ═══ DEMO PROJECT DATA (SAKAL) ═══

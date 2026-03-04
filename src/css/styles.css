@@ -706,6 +706,14 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 
 .char-heatmap-container{overflow-x:auto;padding-bottom:8px;}
 
+/* ── NOTES CHARACTER ANALYSIS ── */
+.notes-char-analysis{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);padding:10px;margin:0 10px 8px;}
+.notes-char-analysis-title{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:600;font-size:12px;color:var(--tx);user-select:none;}
+.notes-char-analysis-title:hover{color:var(--blue);}
+.notes-char-analysis-body{margin-top:8px;font-size:11px;line-height:1.6;}
+.notes-char-mini-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.notes-char-mini-bar div{height:100%;border-radius:2px;}
+
 @media(max-width:768px){
   .char-cards-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
   .char-card-avatar{width:34px;height:34px;font-size:14px;}
