@@ -36,7 +36,7 @@ App.Store = (function(){
   function markDirty(col) { if(Array.isArray(col)) col.forEach(function(c){ _dirty.add(c); }); else _dirty.add(col); }
   function getDirty() { return new Set(_dirty); }
   function clearDirty() { _dirty.clear(); }
-  function markAllDirty() { ['events','scenes','episodes','connections','characters','categories','characterRelationships','reviewComments'].forEach(function(c){ _dirty.add(c); }); }
+  function markAllDirty() { ['events','scenes','episodes','connections','characters','categories','characterRelationships','reviewComments','meta'].forEach(function(c){ _dirty.add(c); }); }
 
   // Snapshot for undo
   function snapshot() {

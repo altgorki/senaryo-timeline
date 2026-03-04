@@ -110,7 +110,9 @@ App.Projects = (function(){
     if(Object.keys(dataUpdate).length) {
       ref.child('data').update(dataUpdate);
     }
-    ref.child('meta').update({ title: P.meta.title, author: P.meta.author, settings: P.meta.settings, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+    var metaUpdate = { title: P.meta.title, author: P.meta.author, settings: P.meta.settings, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+    if (P.meta.charAnalysisText != null) metaUpdate.charAnalysisText = P.meta.charAnalysisText;
+    ref.child('meta').update(metaUpdate);
     const uid = App.Auth.getCurrentUser().uid;
     firebase.database().ref('userProjects/' + uid + '/' + _currentId).update({ title: P.meta.title, updatedAt: firebase.database.ServerValue.TIMESTAMP });
   }

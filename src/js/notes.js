@@ -9,6 +9,7 @@ App.Notes = (function(){
   let _panelOpen = false;
   let _editingId = null;
   let _charAnalysisOpen = true;
+  let _charAnalysisFocused = false;
 
   function init() {
     if(!_remoteRef) {
@@ -102,54 +103,20 @@ App.Notes = (function(){
   }
 
   function _buildCharAnalysis() {
-    if (!App.Characters || !App.Characters.getStats) return '';
-    var stats = App.Characters.getStats();
-    if (!stats.length) return '';
-
+    var S = App.Store;
+    var P = S.get();
+    var text = (P.meta && P.meta.charAnalysisText) || '';
     var arrow = _charAnalysisOpen ? '▾' : '▸';
+
     var h = '<div class="notes-char-analysis">';
     h += '<div class="notes-char-analysis-title" onclick="App.Notes.toggleCharAnalysis()">';
     h += '<span>📊 Karakter Analizi</span><span style="font-size:10px;color:var(--tx4);">' + arrow + '</span></div>';
 
     if (_charAnalysisOpen) {
       h += '<div class="notes-char-analysis-body">';
-      h += '<div style="margin-bottom:6px;color:var(--tx3);">Toplam: <span style="color:var(--tx);">' + stats.length + '</span> karakter</div>';
-
-      // Top 3 by scene count
-      var byScene = stats.slice().sort(function(a, b) { return b.sceneCount - a.sceneCount; });
-      var top3Scene = byScene.slice(0, 3).filter(function(s) { return s.sceneCount > 0; });
-      if (top3Scene.length) {
-        var maxScene = top3Scene[0].sceneCount || 1;
-        h += '<div style="margin-bottom:6px;"><span style="color:var(--tx2);font-weight:600;">En Çok Sahnede</span></div>';
-        top3Scene.forEach(function(ch) {
-          var pct = Math.round((ch.sceneCount / maxScene) * 100);
-          var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6';
-          h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
-          h += '<span style="width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2);">' + U.escHtml(ch.name) + '</span>';
-          h += '<div class="notes-char-mini-bar"><div style="width:' + pct + '%;background:' + bgColor + ';"></div></div>';
-          h += '<span style="color:var(--tx4);min-width:24px;text-align:right;">' + ch.sceneCount + '</span>';
-          h += '</div>';
-        });
-      }
-
-      // Top 3 by dialogue words
-      var byDialogue = stats.slice().sort(function(a, b) { return b.dialogueWords - a.dialogueWords; });
-      var top3Dial = byDialogue.slice(0, 3).filter(function(s) { return s.dialogueWords > 0; });
-      if (top3Dial.length) {
-        var maxWords = top3Dial[0].dialogueWords || 1;
-        h += '<div style="margin:6px 0;"><span style="color:var(--tx2);font-weight:600;">En Çok Diyalog</span></div>';
-        top3Dial.forEach(function(ch) {
-          var pct = Math.round((ch.dialogueWords / maxWords) * 100);
-          var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6';
-          h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
-          h += '<span style="width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2);">' + U.escHtml(ch.name) + '</span>';
-          h += '<div class="notes-char-mini-bar"><div style="width:' + pct + '%;background:' + bgColor + ';"></div></div>';
-          h += '<span style="color:var(--tx4);min-width:24px;text-align:right;">' + ch.dialogueWords + '</span>';
-          h += '</div>';
-        });
-      }
-
-      h += '<div style="margin-top:8px;text-align:right;"><a href="#" style="color:var(--blue);font-size:10px;text-decoration:none;" onclick="event.preventDefault();App.setViewMode(\'karakterler\');">Tüm Karakterler →</a></div>';
+      h += '<textarea id="charAnalysisInput" placeholder="Karakter analizi yaz..." onfocus="App.Notes._onCharAnalysisFocus()" onblur="App.Notes.saveCharAnalysis()"'
+        + ' style="width:100%;min-height:60px;padding:6px 8px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-family:inherit;font-size:11px;resize:vertical;outline:none;line-height:1.5;"'
+        + '>' + U.escHtml(text) + '</textarea>';
       h += '</div>';
     }
     h += '</div>';
@@ -159,6 +126,25 @@ App.Notes = (function(){
   function toggleCharAnalysis() {
     _charAnalysisOpen = !_charAnalysisOpen;
     if (_panelOpen) renderPanel();
+  }
+
+  function _onCharAnalysisFocus() {
+    _charAnalysisFocused = true;
+  }
+
+  function saveCharAnalysis() {
+    _charAnalysisFocused = false;
+    var ta = document.getElementById('charAnalysisInput');
+    if (!ta) return;
+    var S = App.Store;
+    var P = S.get();
+    var oldText = (P.meta && P.meta.charAnalysisText) || '';
+    var newText = ta.value;
+    if (newText === oldText) return;
+    if (!P.meta) P.meta = {};
+    P.meta.charAnalysisText = newText;
+    S.markDirty('meta');
+    S.emit('change', { type: 'charAnalysis' });
   }
 
   function renderPanel() {
@@ -221,5 +207,5 @@ App.Notes = (function(){
     renderPanel();
   }
 
-  return { init, setPanelOpen, addNote, updateNote, removeNote, setupRemoteListener, teardownRemoteListener, renderPanel, startEdit, _cancelEdit, toggleCharAnalysis };
+  return { init, setPanelOpen, addNote, updateNote, removeNote, setupRemoteListener, teardownRemoteListener, renderPanel, startEdit, _cancelEdit, toggleCharAnalysis, saveCharAnalysis, _onCharAnalysisFocus };
 })();
