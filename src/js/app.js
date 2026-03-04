@@ -354,7 +354,7 @@ App.refresh = function() {
       App.UI.updateStatusBar();
       if(App.Interaction.updateSelectionVisual) App.Interaction.updateSelectionVisual();
       if(document.getElementById('rPanel').classList.contains('open')) {
-        if(!_isEditing && App.Panels.getCurrentPanel() !== 'relmap') {
+        if(!_isEditing && App.Panels.getCurrentPanel() !== 'relmap' && App._viewMode !== 'karakterler') {
           App.Panels.renderPanel();
         }
       }
