@@ -568,6 +568,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
 .member-row:last-child{border:none;}
 .member-email{flex:1;font-size:13px;color:var(--tx);}
 .member-role{font-size:12px;color:var(--tx2);font-weight:500;}
+/* ── CHARACTERS VIEW ── */
+.karakterler-active #tlA{overflow-y:auto;}
+.char-toolbar{display:flex;gap:8px;align-items:center;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--brd);flex-wrap:wrap;}
+.char-toolbar .char-search{padding:6px 10px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;font-family:inherit;width:180px;outline:none;transition:border-color .15s;}
+.char-toolbar .char-search:focus{border-color:var(--blue);}
+.char-toolbar .char-filter-select{padding:5px 8px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx2);font-size:11px;font-family:inherit;cursor:pointer;}
+.char-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.char-card{background:var(--bg3);border:1px solid var(--brd);border-radius:var(--radius);padding:12px;display:flex;gap:10px;align-items:center;cursor:pointer;transition:all .15s;}
+.char-card:hover{border-color:var(--blue);transform:translateY(-1px);}
+.char-card.selected{box-shadow:0 0 0 2px var(--cyan);border-color:var(--cyan);}
+.char-card-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#fff;flex-shrink:0;}
+.char-card-info{overflow:hidden;min-width:0;}
+.char-card-name{font-size:12px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.char-card-role{font-size:10px;color:var(--tx3);margin-top:1px;}
+.char-card-stats{display:flex;gap:8px;margin-top:4px;font-size:10px;color:var(--tx4);}
+.char-card-stats span{white-space:nowrap;}
+.char-chart{display:flex;flex-direction:column;gap:4px;}
+.char-chart-row{display:flex;align-items:center;gap:8px;}
+.char-chart-label{font-size:11px;color:var(--tx3);width:90px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.char-chart-bar-wrap{flex:1;height:10px;background:var(--bg3);border-radius:5px;overflow:hidden;}
+.char-chart-bar{height:100%;border-radius:5px;transition:width .3s;}
+.char-chart-value{font-size:10px;color:var(--tx4);width:50px;flex-shrink:0;}
+.char-heatmap-container{overflow-x:auto;padding-bottom:8px;}
+@media(max-width:768px){.char-cards-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}.char-card-avatar{width:34px;height:34px;font-size:14px;}.char-toolbar .char-search{width:120px;}}
 </style>
 </head>
 <body>
@@ -627,6 +651,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
       <button class="view-mode" data-vm="screenplay" onclick="App.setViewMode('screenplay')">Senaryo</button>
       <button class="view-mode active" data-vm="split" onclick="App.setViewMode('split')">Bölünmüş</button>
       <button class="view-mode" data-vm="timeline" onclick="App.setViewMode('timeline')">Timeline</button>
+      <button class="view-mode" data-vm="karakterler" onclick="App.setViewMode('karakterler')">Karakterler</button>
     </div>
     <div class="sync-bar" id="syncBar">
       <span class="sync-dot connected" id="syncDot"></span>
@@ -5887,6 +5912,142 @@ App.Sync = (function(){
   return { init, handleStoreChange, isInRoom, leaveRoom };
 })();
 
+// ═══ CHARACTERS VIEW MODULE ═══
+App.Characters = (function(){
+  const U = App.Utils;
+  const S = App.Store;
+  let _mounted = false;
+  let _selectedCharId = null;
+  let _filterRole = 'all';
+  let _sortBy = 'name';
+  let _searchQuery = '';
+
+  function _computeCharacterStats() {
+    var P = S.get(); var chars = P.characters || []; var events = P.events || []; var scenes = P.scenes || []; var stats = [];
+    chars.forEach(function(ch) {
+      var sceneCount = 0, totalDur = 0, perEp = {}, dialogueWords = 0;
+      events.forEach(function(ev) {
+        if (ev.characters && ev.characters.indexOf(ch.id) >= 0) { sceneCount++; totalDur += (ev.dur || 0); var epId = ev.episodeId || '_none'; if (!perEp[epId]) perEp[epId] = { count: 0, dur: 0 }; perEp[epId].count++; perEp[epId].dur += (ev.dur || 0); }
+      });
+      scenes.forEach(function(sc) {
+        if (sc.characters && sc.characters.indexOf(ch.id) >= 0 && sc.content) { sc.content.forEach(function(block) { if (block.type === 'dialogue' && block.text) { dialogueWords += block.text.trim().split(/\s+/).filter(function(w) { return w.length > 0; }).length; } }); }
+      });
+      stats.push({ id: ch.id, name: ch.name || '', color: ch.color || '', role: ch.role || '', notes: ch.notes || '', birthDate: ch.birthDate || null, deathDate: ch.deathDate || null, sceneCount: sceneCount, totalDur: totalDur, perEp: perEp, dialogueWords: dialogueWords });
+    });
+    return stats;
+  }
+  function _computeCooccurrenceMatrix(stats) {
+    var P = S.get(); var events = P.events || []; var matrix = {}; var maxCount = 0;
+    events.forEach(function(ev) { var chs = ev.characters || []; for (var i = 0; i < chs.length; i++) { for (var j = i + 1; j < chs.length; j++) { var key = chs[i] < chs[j] ? chs[i] + '|' + chs[j] : chs[j] + '|' + chs[i]; if (!matrix[key]) matrix[key] = 0; matrix[key]++; if (matrix[key] > maxCount) maxCount = matrix[key]; } } });
+    return { pairs: matrix, maxCount: maxCount };
+  }
+  function _filterAndSort(stats) {
+    var filtered = stats;
+    if (_searchQuery) { var q = _searchQuery.toLowerCase(); filtered = filtered.filter(function(s) { return s.name.toLowerCase().indexOf(q) >= 0; }); }
+    if (_filterRole !== 'all') { filtered = filtered.filter(function(s) { return s.role === _filterRole; }); }
+    filtered.sort(function(a, b) { if (_sortBy === 'name') return a.name.localeCompare(b.name, 'tr'); if (_sortBy === 'scenes') return b.sceneCount - a.sceneCount; if (_sortBy === 'duration') return b.totalDur - a.totalDur; if (_sortBy === 'dialogue') return b.dialogueWords - a.dialogueWords; return 0; });
+    return filtered;
+  }
+  function _formatDuration(totalSec) { if (!totalSec) return '0:00'; var m = Math.floor(totalSec / 60); var s = totalSec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+  function _truncName(name, max) { if (!name) return '?'; return name.length > max ? name.substring(0, max - 1) + '\u2026' : name; }
+
+  function render() {
+    var container = document.getElementById('tlC'); if (!container) return; _mounted = true;
+    var allStats = _computeCharacterStats(); var stats = _filterAndSort(allStats); var cooc = _computeCooccurrenceMatrix(allStats);
+    var html = _buildToolbar(allStats);
+    html += '<div style="padding:16px;overflow-y:auto;height:calc(100vh - 160px);">';
+    html += '<h3 style="font-size:13px;color:var(--tx2);margin-bottom:12px;font-weight:600;">Karakter Kartlar\u0131</h3>' + _buildCharacterCards(stats);
+    html += '<h3 style="font-size:13px;color:var(--tx2);margin:24px 0 12px;font-weight:600;">Ekran S\u00fcresi</h3>' + _buildScreenTimeChart(stats);
+    html += '<h3 style="font-size:13px;color:var(--tx2);margin:24px 0 12px;font-weight:600;">Diyalog \u0130statistikleri</h3>' + _buildDialogueChart(stats);
+    html += '<h3 style="font-size:13px;color:var(--tx2);margin:24px 0 12px;font-weight:600;">Ortak Sahne Matrisi</h3>' + _buildCooccurrenceHeatmap(allStats, cooc);
+    html += '</div>'; container.innerHTML = html;
+  }
+  function _buildToolbar(stats) {
+    var html = '<div class="char-toolbar">';
+    html += '<input type="text" class="char-search" placeholder="Karakter ara..." value="' + U.escHtml(_searchQuery) + '" oninput="App.Characters.search(this.value)" />';
+    html += '<select class="char-filter-select" onchange="App.Characters.filterByRole(this.value)"><option value="all"' + (_filterRole === 'all' ? ' selected' : '') + '>T\u00fcm Roller</option><option value="Ana"' + (_filterRole === 'Ana' ? ' selected' : '') + '>Ana</option><option value="Yan"' + (_filterRole === 'Yan' ? ' selected' : '') + '>Yan</option><option value="Fig\u00fcran"' + (_filterRole === 'Figüran' ? ' selected' : '') + '>Fig\u00fcran</option></select>';
+    html += '<select class="char-filter-select" onchange="App.Characters.sortBy(this.value)"><option value="name"' + (_sortBy === 'name' ? ' selected' : '') + '>Ada G\u00f6re</option><option value="scenes"' + (_sortBy === 'scenes' ? ' selected' : '') + '>Sahne Say\u0131s\u0131</option><option value="duration"' + (_sortBy === 'duration' ? ' selected' : '') + '>Ekran S\u00fcresi</option><option value="dialogue"' + (_sortBy === 'dialogue' ? ' selected' : '') + '>Diyalog</option></select>';
+    html += '<div style="flex:1;"></div><span style="font-size:11px;color:var(--tx3);">' + stats.length + ' karakter</span></div>'; return html;
+  }
+  function _buildCharacterCards(stats) {
+    if (!stats.length) return '<div class="nw" style="padding:24px;">Karakter bulunamad\u0131.</div>';
+    var html = '<div class="char-cards-grid">'; stats.forEach(function(ch) {
+      var isSelected = _selectedCharId === ch.id; var initial = (ch.name || '?').charAt(0).toUpperCase(); var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6'; var durStr = _formatDuration(ch.totalDur); var roleLabel = ch.role ? U.escHtml(ch.role) : '';
+      html += '<div class="char-card' + (isSelected ? ' selected' : '') + '" onclick="App.Characters.selectCharacter(\'' + ch.id + '\')">';
+      html += '<div class="char-card-avatar" style="background:' + bgColor + ';">' + U.escHtml(initial) + '</div>';
+      html += '<div class="char-card-info"><div class="char-card-name">' + U.escHtml(ch.name || '\u0130simsiz') + '</div>';
+      if (roleLabel) html += '<div class="char-card-role">' + roleLabel + '</div>';
+      html += '<div class="char-card-stats"><span>' + ch.sceneCount + ' sahne</span><span>' + durStr + '</span><span>' + ch.dialogueWords + ' kelime</span></div></div></div>';
+    }); html += '</div>'; return html;
+  }
+  function _buildScreenTimeChart(stats) {
+    var sorted = stats.slice().sort(function(a, b) { return b.totalDur - a.totalDur; }); var maxDur = sorted.length ? sorted[0].totalDur : 1; if (maxDur === 0) maxDur = 1;
+    var html = '<div class="char-chart">'; sorted.forEach(function(ch) { var pct = Math.round((ch.totalDur / maxDur) * 100); var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6';
+      html += '<div class="char-chart-row"><span class="char-chart-label">' + U.escHtml(ch.name || '?') + '</span><div class="char-chart-bar-wrap"><div class="char-chart-bar" style="width:' + pct + '%;background:' + bgColor + ';" title="' + _formatDuration(ch.totalDur) + '"></div></div><span class="char-chart-value">' + _formatDuration(ch.totalDur) + '</span></div>';
+    }); html += '</div>'; return html;
+  }
+  function _buildDialogueChart(stats) {
+    var sorted = stats.slice().sort(function(a, b) { return b.dialogueWords - a.dialogueWords; }); var maxWords = sorted.length ? sorted[0].dialogueWords : 1; if (maxWords === 0) maxWords = 1;
+    var html = '<div class="char-chart">'; sorted.forEach(function(ch) { if (ch.dialogueWords === 0) return; var pct = Math.round((ch.dialogueWords / maxWords) * 100); var bgColor = ch.color ? U.sanitizeColor(ch.color) : '#3b82f6';
+      html += '<div class="char-chart-row"><span class="char-chart-label">' + U.escHtml(ch.name || '?') + '</span><div class="char-chart-bar-wrap"><div class="char-chart-bar" style="width:' + pct + '%;background:' + bgColor + ';" title="' + ch.dialogueWords + ' kelime"></div></div><span class="char-chart-value">' + ch.dialogueWords + '</span></div>';
+    }); if (!sorted.some(function(s) { return s.dialogueWords > 0; })) html += '<div class="nw" style="padding:12px;font-size:11px;">Diyalog verisi yok.</div>'; html += '</div>'; return html;
+  }
+  function _buildCooccurrenceHeatmap(allStats, cooc) {
+    if (allStats.length < 2 || allStats.length > 30) { return '<div class="nw" style="padding:12px;font-size:11px;">' + (allStats.length > 30 ? 'Çok fazla karakter.' : 'Yeterli karakter yok.') + '</div>'; }
+    var chars = allStats.slice().sort(function(a, b) { return a.name.localeCompare(b.name, 'tr'); }); var n = chars.length; var cellSize = 28; var labelWidth = 80;
+    var svgW = labelWidth + n * cellSize + 10; var svgH = labelWidth + n * cellSize + 10;
+    var html = '<div class="char-heatmap-container"><svg width="' + svgW + '" height="' + svgH + '" style="font-family:Inter,sans-serif;">';
+    for (var c = 0; c < n; c++) { var x = labelWidth + c * cellSize + cellSize / 2; html += '<text x="' + x + '" y="' + (labelWidth - 6) + '" text-anchor="end" font-size="9" fill="var(--tx3)" transform="rotate(-45 ' + x + ' ' + (labelWidth - 6) + ')">' + U.escHtml(_truncName(chars[c].name, 10)) + '</text>'; }
+    for (var r = 0; r < n; r++) { var y = labelWidth + r * cellSize;
+      html += '<text x="' + (labelWidth - 6) + '" y="' + (y + cellSize / 2 + 3) + '" text-anchor="end" font-size="9" fill="var(--tx3)">' + U.escHtml(_truncName(chars[r].name, 10)) + '</text>';
+      for (var c2 = 0; c2 < n; c2++) { var cx = labelWidth + c2 * cellSize;
+        if (r === c2) { html += '<rect x="' + cx + '" y="' + y + '" width="' + cellSize + '" height="' + cellSize + '" fill="var(--bg3)" stroke="var(--brd)" stroke-width="0.5"/><text x="' + (cx + cellSize / 2) + '" y="' + (y + cellSize / 2 + 3) + '" text-anchor="middle" font-size="9" fill="var(--tx4)">\u2014</text>'; }
+        else { var idA = chars[r].id, idB = chars[c2].id; var key = idA < idB ? idA + '|' + idB : idB + '|' + idA; var count = cooc.pairs[key] || 0; var intensity = cooc.maxCount > 0 ? count / cooc.maxCount : 0; var alpha = count > 0 ? 0.15 + intensity * 0.85 : 0; var fillColor = count > 0 ? 'rgba(59,130,246,' + alpha.toFixed(2) + ')' : 'var(--bg2)';
+          html += '<rect x="' + cx + '" y="' + y + '" width="' + cellSize + '" height="' + cellSize + '" fill="' + fillColor + '" stroke="var(--brd)" stroke-width="0.5"><title>' + U.escHtml(chars[r].name) + ' & ' + U.escHtml(chars[c2].name) + ': ' + count + ' ortak sahne</title></rect>';
+          if (count > 0) html += '<text x="' + (cx + cellSize / 2) + '" y="' + (y + cellSize / 2 + 3) + '" text-anchor="middle" font-size="8" fill="#fff" pointer-events="none">' + count + '</text>';
+        }
+      }
+    }
+    html += '</svg></div>'; return html;
+  }
+  function _showCharacterDetail(charId) {
+    var P = S.get(); var ch = (P.characters || []).find(function(c) { return c.id === charId; }); if (!ch) return;
+    var rp = document.getElementById('rPanel'); rp.classList.add('open');
+    var stats = _computeCharacterStats(); var cStat = stats.find(function(s) { return s.id === charId; });
+    var events = P.events || []; var relationships = (P.characterRelationships || []).filter(function(r) { return r.from === charId || r.to === charId; }); var chars = P.characters || [];
+    var html = '<div style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="font-size:14px;font-weight:600;">Karakter Detay\u0131</h3><button class="close-btn" onclick="document.getElementById(\'rPanel\').classList.remove(\'open\');">✕</button></div>';
+    html += '<div class="fg"><label style="font-size:11px;color:var(--tx3);">\u0130sim</label><input type="text" id="charDetailName" value="' + U.escHtml(ch.name || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Renk</label><input type="color" id="charDetailColor" value="' + (ch.color || '#3b82f6') + '" style="width:40px;height:28px;border:1px solid var(--brd);border-radius:var(--radius);background:var(--bg2);cursor:pointer;" /></div>';
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Rol</label><select id="charDetailRole" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;"><option value=""' + (!ch.role ? ' selected' : '') + '>Belirtilmemi\u015f</option><option value="Ana"' + (ch.role === 'Ana' ? ' selected' : '') + '>Ana</option><option value="Yan"' + (ch.role === 'Yan' ? ' selected' : '') + '>Yan</option><option value="Fig\u00fcran"' + (ch.role === 'Figüran' ? ' selected' : '') + '>Fig\u00fcran</option></select></div>';
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Do\u011fum Tarihi</label><input type="date" id="charDetailBirth" value="' + (ch.birthDate || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">\u00d6l\u00fcm Tarihi</label><input type="date" id="charDetailDeath" value="' + (ch.deathDate || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
+    html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Notlar</label><textarea id="charDetailNotes" rows="3" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;resize:vertical;">' + U.escHtml(ch.notes || '') + '</textarea></div>';
+    html += '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn btn-p" onclick="App.Characters.saveCharacterDetail(\'' + charId + '\')">Kaydet</button><button class="btn btn-d" onclick="App.Characters.deleteCharacter(\'' + charId + '\')">Sil</button></div>';
+    if (cStat) { html += '<div style="margin-top:20px;border-top:1px solid var(--brd);padding-top:14px;"><h4 style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:600;">\u0130statistikler</h4><div style="font-size:11px;color:var(--tx3);line-height:1.8;">Sahne Say\u0131s\u0131: <span style="color:var(--tx);">' + cStat.sceneCount + '</span><br>Toplam S\u00fcre: <span style="color:var(--tx);">' + _formatDuration(cStat.totalDur) + '</span><br>Diyalog Kelime: <span style="color:var(--tx);">' + cStat.dialogueWords + '</span></div></div>'; }
+    if (relationships.length) { html += '<div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:14px;"><h4 style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:600;">\u0130li\u015fkiler</h4>'; relationships.forEach(function(rel) { var otherId = rel.from === charId ? rel.to : rel.from; var other = chars.find(function(c) { return c.id === otherId; }); html += '<div style="font-size:11px;color:var(--tx3);margin-bottom:4px;">' + U.escHtml(other ? other.name : '?') + ' \u2014 <span style="color:var(--tx2);">' + U.escHtml(rel.label || rel.type || '') + '</span></div>'; }); html += '</div>'; }
+    var charEvents = events.filter(function(ev) { return ev.characters && ev.characters.indexOf(charId) >= 0; });
+    if (charEvents.length) { html += '<div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:14px;"><h4 style="font-size:12px;color:var(--tx2);margin-bottom:8px;font-weight:600;">Sahneler (' + charEvents.length + ')</h4><div style="max-height:200px;overflow-y:auto;">'; charEvents.forEach(function(ev) { var ep = (P.episodes || []).find(function(e) { return e.id === ev.episodeId; }); var epLabel = ep ? 'B' + ep.number : ''; html += '<div style="font-size:11px;color:var(--tx3);padding:3px 0;border-bottom:1px solid var(--bg3);cursor:pointer;" onclick="App.Panels.openEditEvent(\'' + ev.id + '\')" title="D\u00fczenle"><span style="color:var(--tx4);min-width:30px;display:inline-block;">' + U.escHtml(epLabel) + '</span> <span style="color:var(--tx2);">' + U.escHtml(ev.title || '\u0130simsiz') + '</span></div>'; }); html += '</div></div>'; }
+    html += '</div>'; rp.innerHTML = html;
+  }
+  function saveCharacterDetail(charId) {
+    var nameEl = document.getElementById('charDetailName'); if (!nameEl) return; var name = nameEl.value.trim(); if (!name) { App.UI.toast('\u0130sim bo\u015f olamaz', 'error'); return; }
+    S.updateCharacter(charId, { name: name, color: U.sanitizeColor(document.getElementById('charDetailColor').value), role: document.getElementById('charDetailRole').value, birthDate: document.getElementById('charDetailBirth').value || null, deathDate: document.getElementById('charDetailDeath').value || null, notes: document.getElementById('charDetailNotes').value });
+    App.UI.toast('Karakter g\u00fcncellendi'); render(); _showCharacterDetail(charId);
+  }
+  function deleteCharacter(charId) {
+    var P = S.get(); var ch = (P.characters || []).find(function(c) { return c.id === charId; }); var name = ch ? ch.name : 'Karakter';
+    if (!confirm('"' + name + '" silinsin mi?')) return;
+    S.removeCharacter(charId); _selectedCharId = null; document.getElementById('rPanel').classList.remove('open'); App.UI.toast('"' + name + '" silindi'); render();
+  }
+  function unmount() { _mounted = false; }
+  function isMounted() { return _mounted; }
+  function filterByRole(role) { _filterRole = role; render(); }
+  function sortBy(field) { _sortBy = field; render(); }
+  function search(query) { _searchQuery = query; render(); }
+  function selectCharacter(charId) { _selectedCharId = charId; render(); _showCharacterDetail(charId); }
+  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter };
+})();
+
 // ═══ DEMO PROJECT DATA (SAKAL) ═══
 function getDemoProject() {
   const U = App.Utils;
@@ -6084,15 +6245,27 @@ App.setViewMode = function(mode) {
     sp.classList.add('open'); sp.style.display = '';
     tl.style.display = ''; // Keep visible — used as editor canvas
     document.body.classList.add('screenplay-editor-active');
+    document.body.classList.remove('karakterler-active');
+    if(App.Characters && App.Characters.isMounted()) App.Characters.unmount();
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
   } else if(mode === 'timeline') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Characters && App.Characters.isMounted()) App.Characters.unmount();
+    document.body.classList.remove('karakterler-active');
     App.Timeline.render();
+  } else if(mode === 'karakterler') {
+    sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
+    if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    document.body.classList.remove('screenplay-editor-active');
+    document.body.classList.add('karakterler-active');
+    App.Characters.render();
   } else { // split
     sp.classList.add('open'); sp.style.display = ''; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Characters && App.Characters.isMounted()) App.Characters.unmount();
+    document.body.classList.remove('karakterler-active');
     App.Timeline.render();
   }
   // On mobile, adjust sp-panel max-height for split
@@ -6120,7 +6293,9 @@ App.refresh = function() {
 
   App.Timeline.initFilter();
   App.Timeline.buildToolbar();
-  if(App.ScreenplayEditor.isActive()) {
+  if(App._viewMode === 'karakterler') {
+    App.Characters.render();
+  } else if(App.ScreenplayEditor.isActive()) {
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
   } else {
@@ -6153,7 +6328,9 @@ App.refresh = function() {
         App.UI.updateStatusBar();
         return;
       }
-      if(App.ScreenplayEditor.isActive()) {
+      if(App._viewMode === 'karakterler') {
+        App.Characters.render();
+      } else if(App.ScreenplayEditor.isActive()) {
         App.Screenplay.render();
         if(!fromEditor) {
           App.ScreenplayEditor.buildFromState();

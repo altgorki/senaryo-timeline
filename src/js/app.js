@@ -204,44 +204,65 @@ App.setViewMode = function(mode) {
     document.body.classList.add('screenplay-editor-active');
     document.body.classList.remove('kartlar-active');
     document.body.classList.remove('kronoloji-active');
+    document.body.classList.remove('karakterler-active');
     if(App.Chronology.isMounted()) App.Chronology.unmount();
+    if(App.Characters.isMounted()) App.Characters.unmount();
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
   } else if(mode === 'timeline') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     if(App.Chronology.isMounted()) App.Chronology.unmount();
+    if(App.Characters.isMounted()) App.Characters.unmount();
     document.body.classList.remove('kartlar-active');
     document.body.classList.remove('kronoloji-active');
+    document.body.classList.remove('karakterler-active');
     App.Timeline.render();
   } else if(mode === 'kartlar') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     if(App.Chronology.isMounted()) App.Chronology.unmount();
+    if(App.Characters.isMounted()) App.Characters.unmount();
     document.body.classList.remove('screenplay-editor-active');
     document.body.classList.remove('kronoloji-active');
+    document.body.classList.remove('karakterler-active');
     document.body.classList.add('kartlar-active');
     App.Corkboard.render();
   } else if(mode === 'iliskiler') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Characters.isMounted()) App.Characters.unmount();
     document.body.classList.remove('screenplay-editor-active');
     document.body.classList.remove('kartlar-active');
     document.body.classList.remove('kronoloji-active');
+    document.body.classList.remove('karakterler-active');
     App.RelationshipMap.render();
   } else if(mode === 'kronoloji') {
     sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Characters.isMounted()) App.Characters.unmount();
     document.body.classList.remove('screenplay-editor-active');
     document.body.classList.remove('kartlar-active');
+    document.body.classList.remove('karakterler-active');
     document.body.classList.add('kronoloji-active');
     App.Chronology.render();
+  } else if(mode === 'karakterler') {
+    sp.classList.remove('open'); sp.style.display = 'none'; tl.style.display = '';
+    if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
+    if(App.Chronology.isMounted()) App.Chronology.unmount();
+    document.body.classList.remove('screenplay-editor-active');
+    document.body.classList.remove('kartlar-active');
+    document.body.classList.remove('kronoloji-active');
+    document.body.classList.add('karakterler-active');
+    App.Characters.render();
   } else { // split
     sp.classList.add('open'); sp.style.display = ''; tl.style.display = '';
     if(App.ScreenplayEditor.isActive()) App.ScreenplayEditor.unmount();
     if(App.Chronology.isMounted()) App.Chronology.unmount();
+    if(App.Characters.isMounted()) App.Characters.unmount();
     document.body.classList.remove('kartlar-active');
     document.body.classList.remove('kronoloji-active');
+    document.body.classList.remove('karakterler-active');
     App.Timeline.render();
   }
   // On mobile, adjust sp-panel max-height for split
@@ -276,6 +297,8 @@ App.refresh = function() {
     App.Corkboard.render();
   } else if(App._viewMode === 'iliskiler') {
     App.RelationshipMap.render();
+  } else if(App._viewMode === 'karakterler') {
+    App.Characters.render();
   } else if(App.ScreenplayEditor.isActive()) {
     App.ScreenplayEditor.buildFromState();
     App.ScreenplayEditor.render();
@@ -316,6 +339,8 @@ App.refresh = function() {
         App.Corkboard.render();
       } else if(App._viewMode === 'iliskiler') {
         if(!data || data.type !== 'relMapDrag') App.RelationshipMap.render();
+      } else if(App._viewMode === 'karakterler') {
+        App.Characters.render();
       } else if(App.ScreenplayEditor.isActive()) {
         App.Screenplay.render();
         if(!fromEditor) {

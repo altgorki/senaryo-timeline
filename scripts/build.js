@@ -44,6 +44,7 @@ const JS_FILES = [
   'ai.js',
   'corkboard.js',
   'chronology.js',
+  'characters.js',
   'io.js',
   'export.js',
   'review.js',
