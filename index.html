@@ -238,6 +238,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
 .close-btn{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:6px;border-radius:8px;line-height:1;transition:all .2s;}
 .close-btn:hover{color:var(--tx);background:var(--bg4);}
 
+/* Character detail scroll */
+.chardetail-scroll{padding:16px;overflow-y:auto;height:100%;flex:1;}
+
+/* Character detail fullscreen */
+.rpanel.chardetail-fullscreen{width:50vw;max-width:640px;transition:width .25s ease;}
+
 /* Tabs */
 .rtabs{display:flex;border-bottom:0.5px solid rgba(0,0,0,.1);background:var(--bg3);flex-shrink:0;}
 .rtab{flex:1;padding:10px 6px;text-align:center;font-size:11px;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s cubic-bezier(.4,0,.2,1);font-family:inherit;font-weight:500;background:none;border-top:none;border-left:none;border-right:none;}
@@ -459,6 +465,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
   /* Right panel — full width overlay */
   .rpanel{position:fixed;bottom:0;left:0;right:0;width:100%!important;max-height:60vh;border-left:none;border-top:0.5px solid rgba(0,0,0,.1);z-index:60;border-radius:16px 16px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.08);}
   .rpanel.open{width:100%!important;}
+  .rpanel.chardetail-fullscreen{max-height:85vh;width:100%!important;max-width:100%!important;}
 
   /* Event blocks — larger touch targets */
   .evb{font-size:12px;min-height:40px;}
@@ -3878,7 +3885,9 @@ App.Panels = (function(){
   function closeAll() {
     currentPanel = null; editId = null; activeWarnIdx = -1;
     if(App.Notes) App.Notes.setPanelOpen(false);
-    U.$('rPanel').classList.remove('open');
+    var rp = U.$('rPanel');
+    rp.classList.remove('open');
+    rp.classList.remove('chardetail-fullscreen');
     App.Timeline.clrHL();
   }
 
@@ -6057,7 +6066,8 @@ App.Characters = (function(){
     var rp = document.getElementById('rPanel'); rp.classList.add('open');
     var stats = _computeCharacterStats(); var cStat = stats.find(function(s) { return s.id === charId; });
     var events = P.events || []; var relationships = (P.characterRelationships || []).filter(function(r) { return r.from === charId || r.to === charId; }); var chars = P.characters || [];
-    var html = '<div style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="font-size:14px;font-weight:600;">Karakter Detay\u0131</h3><button class="close-btn" onclick="App.Panels.closeAll();App.Characters.deselectCharacter();">✕</button></div>';
+    var isFullscreen = rp.classList.contains('chardetail-fullscreen');
+    var html = '<div class="chardetail-scroll"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="font-size:14px;font-weight:600;">Karakter Detay\u0131</h3><div style="display:flex;gap:4px;align-items:center;"><button class="close-btn" onclick="App.Characters.toggleCharDetailFullscreen()" title="' + (isFullscreen ? 'K\u00fc\u00e7\u00fclt' : 'Tam Ekran') + '">' + (isFullscreen ? '\u2296' : '\u2295') + '</button><button class="close-btn" onclick="App.Panels.closeAll();App.Characters.deselectCharacter();">✕</button></div></div>';
     html += '<div class="fg"><label style="font-size:11px;color:var(--tx3);">\u0130sim</label><input type="text" id="charDetailName" value="' + U.escHtml(ch.name || '') + '" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;" /></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Renk</label><input type="color" id="charDetailColor" value="' + (ch.color || '#3b82f6') + '" style="width:40px;height:28px;border:1px solid var(--brd);border-radius:var(--radius);background:var(--bg2);cursor:pointer;" /></div>';
     html += '<div class="fg" style="margin-top:10px;"><label style="font-size:11px;color:var(--tx3);">Rol</label><select id="charDetailRole" style="width:100%;padding:6px 8px;background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius);color:var(--tx);font-size:12px;"><option value=""' + (!ch.role ? ' selected' : '') + '>Belirtilmemi\u015f</option><option value="Ana"' + (ch.role === 'Ana' ? ' selected' : '') + '>Ana</option><option value="Yan"' + (ch.role === 'Yan' ? ' selected' : '') + '>Yan</option><option value="Fig\u00fcran"' + (ch.role === 'Figüran' ? ' selected' : '') + '>Fig\u00fcran</option></select></div>';
@@ -6089,8 +6099,9 @@ App.Characters = (function(){
   function sortBy(field) { _sortBy = field; render(); }
   function search(query) { _searchQuery = query; render(); }
   function selectCharacter(charId) { App.Panels.setCurrentPanel('charDetail'); _selectedCharId = charId; render(); _showCharacterDetail(charId); }
-  function deselectCharacter() { _selectedCharId = null; render(); }
-  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, deselectCharacter:deselectCharacter, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter, addCharacter:addCharacter, getStats:_computeCharacterStats };
+  function deselectCharacter() { _selectedCharId = null; var rp = document.getElementById('rPanel'); if (rp) rp.classList.remove('chardetail-fullscreen'); render(); }
+  function toggleCharDetailFullscreen() { var rp = document.getElementById('rPanel'); if (!rp) return; rp.classList.toggle('chardetail-fullscreen'); if (_selectedCharId) _showCharacterDetail(_selectedCharId); }
+  return { render:render, unmount:unmount, isMounted:isMounted, filterByRole:filterByRole, sortBy:sortBy, search:search, selectCharacter:selectCharacter, deselectCharacter:deselectCharacter, toggleCharDetailFullscreen:toggleCharDetailFullscreen, saveCharacterDetail:saveCharacterDetail, deleteCharacter:deleteCharacter, addCharacter:addCharacter, getStats:_computeCharacterStats };
 })();
 
 // ═══ DEMO PROJECT DATA (SAKAL) ═══

@@ -312,11 +312,14 @@ App.Characters = (function(){
     var relationships = (P.characterRelationships || []).filter(function(r) { return r.from === charId || r.to === charId; });
     var chars = P.characters || [];
 
-    var html = '<div style="padding:16px;">';
+    var isFullscreen = rp.classList.contains('chardetail-fullscreen');
+    var html = '<div class="chardetail-scroll">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
     html += '<h3 style="font-size:14px;font-weight:600;">Karakter Detayı</h3>';
+    html += '<div style="display:flex;gap:4px;align-items:center;">';
+    html += '<button class="close-btn" onclick="App.Characters.toggleCharDetailFullscreen()" title="' + (isFullscreen ? 'Küçült' : 'Tam Ekran') + '">' + (isFullscreen ? '⊖' : '⊕') + '</button>';
     html += '<button class="close-btn" onclick="App.Panels.closeAll();App.Characters.deselectCharacter();">✕</button>';
-    html += '</div>';
+    html += '</div></div>';
 
     // Editable fields
     html += '<div class="fg"><label style="font-size:11px;color:var(--tx3);">İsim</label>';
@@ -508,7 +511,16 @@ App.Characters = (function(){
 
   function deselectCharacter() {
     _selectedCharId = null;
+    var rp = document.getElementById('rPanel');
+    if (rp) rp.classList.remove('chardetail-fullscreen');
     render();
+  }
+
+  function toggleCharDetailFullscreen() {
+    var rp = document.getElementById('rPanel');
+    if (!rp) return;
+    rp.classList.toggle('chardetail-fullscreen');
+    if (_selectedCharId) _showCharacterDetail(_selectedCharId);
   }
 
   return {
@@ -523,6 +535,7 @@ App.Characters = (function(){
     deleteCharacter: deleteCharacter,
     addCharacter: addCharacter,
     deselectCharacter: deselectCharacter,
+    toggleCharDetailFullscreen: toggleCharDetailFullscreen,
     getStats: _computeCharacterStats,
     _selectedCharId: _selectedCharId
   };

@@ -16,7 +16,9 @@ App.Panels = (function(){
   function closeAll() {
     currentPanel = null; editId = null; activeWarnIdx = -1;
     if(App.Notes) App.Notes.setPanelOpen(false);
-    U.$('rPanel').classList.remove('open');
+    var rp = U.$('rPanel');
+    rp.classList.remove('open');
+    rp.classList.remove('chardetail-fullscreen');
     App.Timeline.clrHL();
   }
 
