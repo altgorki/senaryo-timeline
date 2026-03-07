@@ -8859,6 +8859,7 @@ App.Export = (function(){
 
   let _jsPDFLoaded = false;
   let _exportPrefs = null;
+  var _fontCache = { regular: null, bold: null };
 
   function _loadPrefs() {
     if(_exportPrefs) return _exportPrefs;
@@ -9024,6 +9025,7 @@ App.Export = (function(){
   // ══════════════════════════════════════
   function exportPDF(opts) {
     _ensureJsPDF(function() {
+    _loadFonts(function() {
       const blocks = _buildScreenplayBlocks(opts.scope || 'all');
       const P = S.get();
       const isLetter = opts.pageSize === 'letter';
@@ -9037,7 +9039,9 @@ App.Export = (function(){
       const lineH = 4.2; // ~12pt Courier
 
       var doc = new jspdf.jsPDF({ unit: 'mm', format: isLetter ? 'letter' : 'a4' });
-      doc.setFont('courier', 'normal');
+      _registerFonts(doc);
+      var fn = _fontName();
+      doc.setFont(fn, 'normal');
       var pageNum = 1;
       var y = marginTop;
 
@@ -9076,14 +9080,14 @@ App.Export = (function(){
       if(opts.watermark) _addWatermark(doc, opts.watermark, pageW, pageH);
 
       blocks.forEach(function(block) {
-        doc.setFont('courier', 'normal');
+        doc.setFont(fn, 'normal');
         doc.setTextColor(0);
 
         if(block.type === 'episode-header') {
           checkPage(3);
           y += lineH * 2;
           doc.setFontSize(14);
-          doc.setFont('courier', 'bold');
+          doc.setFont(fn, 'bold');
           doc.text(block.text, marginLeft, y);
           y += lineH * 2;
           doc.setFontSize(12);
@@ -9094,14 +9098,14 @@ App.Export = (function(){
           checkPage(3);
           y += lineH;
           doc.setFontSize(12);
-          doc.setFont('courier', 'bold');
+          doc.setFont(fn, 'bold');
           var headText = block.text;
           if(opts.sceneNums && block.sceneNum) {
-            doc.setFont('courier', 'normal');
+            doc.setFont(fn, 'normal');
             doc.setTextColor(120);
             doc.text(String(block.sceneNum), marginLeft - 12, y);
             doc.setTextColor(0);
-            doc.setFont('courier', 'bold');
+            doc.setFont(fn, 'bold');
             doc.text(String(block.sceneNum), pageW - marginRight + 4, y);
           }
           doc.setTextColor(0);
@@ -9116,7 +9120,7 @@ App.Export = (function(){
         }
 
         doc.setFontSize(12);
-        doc.setFont('courier', 'normal');
+        doc.setFont(fn, 'normal');
 
         if(block.type === 'action') {
           var actionLines = doc.splitTextToSize(block.text, usableW);
@@ -9179,6 +9183,7 @@ App.Export = (function(){
       App.UI.closeModal();
       App.UI.toast('PDF indirildi');
     });
+    });
   }
 
   function _addWatermark(doc, text, pageW, pageH) {
@@ -9190,6 +9195,45 @@ App.Export = (function(){
     // Diagonal watermark
     doc.text(text, cx, cy, { align: 'center', angle: 45 });
     doc.restoreGraphicsState();
+  }
+
+  function _arrayBufferToBase64(buffer) {
+    var bytes = new Uint8Array(buffer);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i += 8192) {
+      var chunk = bytes.subarray(i, Math.min(i + 8192, bytes.length));
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+  }
+
+  function _loadFonts(callback) {
+    if (_fontCache.regular) { callback(); return; }
+    var done = 0;
+    function check() { if (++done >= 2) callback(); }
+    fetch('https://fonts.gstatic.com/s/courierprime/v11/u-450q2lgwslOqpF_6gQ8kELWwY.ttf')
+      .then(function(r) { return r.arrayBuffer(); })
+      .then(function(buf) { _fontCache.regular = _arrayBufferToBase64(buf); check(); })
+      .catch(function() { check(); });
+    fetch('https://fonts.gstatic.com/s/courierprime/v11/u-4k0q2lgwslOqpF_6gQ8kELY7pMf-c.ttf')
+      .then(function(r) { return r.arrayBuffer(); })
+      .then(function(buf) { _fontCache.bold = _arrayBufferToBase64(buf); check(); })
+      .catch(function() { check(); });
+  }
+
+  function _registerFonts(doc) {
+    if (_fontCache.regular) {
+      doc.addFileToVFS('CourierPrime-Regular.ttf', _fontCache.regular);
+      doc.addFont('CourierPrime-Regular.ttf', 'CourierPrime', 'normal');
+    }
+    if (_fontCache.bold) {
+      doc.addFileToVFS('CourierPrime-Bold.ttf', _fontCache.bold);
+      doc.addFont('CourierPrime-Bold.ttf', 'CourierPrime', 'bold');
+    }
+  }
+
+  function _fontName() {
+    return _fontCache.regular ? 'CourierPrime' : 'courier';
   }
 
   function _ensureJsPDF(callback) {
