@@ -113,6 +113,8 @@ App.Panels = (function(){
       const sc = S.getScene(ev.sceneId);
       if(sc) {
         sc.screenplay = screenplay;
+        // Sync screenplay → content
+        sc.content = App.Screenplay.screenplayToContent(screenplay, S.get().characters);
         sc.title = ev.title;
         sc.category = ev.category;
         sc.episodeId = ev.episodeId;
@@ -127,7 +129,7 @@ App.Panels = (function(){
       P.scenes.push({
         id: scId, episodeId: ev.episodeId, order, title: ev.title, location: '', timeOfDay: '',
         category: ev.category, characters: ev.characters,
-        content: [{ type: 'action', text: screenplay.replace(/@\[[^\]]+\]\([^)]+\)/g, m => '@' + m.match(/@\[([^\]]+)\]/)[1]) }],
+        content: App.Screenplay.screenplayToContent(screenplay, P.characters),
         screenplay: screenplay
       });
       ev.sceneId = scId;
@@ -283,8 +285,6 @@ App.Panels = (function(){
     const cat = document.getElementById('nC').value;
     const sVal = (parseInt(document.getElementById('nS').value) || 0) * 60;
     const durVal = (parseInt(document.getElementById('nDur').value) || 3) * 60;
-    // Plain text for description (strip mention markers)
-    const desc = screenplay.replace(/@\[[^\]]+\]\([^)]+\)/g, m => '@' + m.match(/@\[([^\]]+)\]/)[1]);
     // Create scene + event
     const P = S.get();
     const existing = P.scenes.filter(s => s.episodeId === epId);
@@ -295,7 +295,7 @@ App.Panels = (function(){
     P.scenes.push({
       id: scId, episodeId: epId, order, title: t, location: '', timeOfDay: '',
       category: cat, characters: ch,
-      content: [{ type: 'action', text: desc }],
+      content: App.Screenplay.screenplayToContent(screenplay, P.characters),
       screenplay: screenplay
     });
     const storyDate = (document.getElementById('nStoryDate').value||'').trim() || null;

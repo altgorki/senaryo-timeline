@@ -76,19 +76,19 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .scene-card-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg4);color:var(--tx3);}
 .scene-card-chars{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;}
 .scene-card-char{width:22px;height:22px;border-radius:50%;background:var(--bg5);font-size:9px;display:flex;align-items:center;justify-content:center;color:var(--tx2);border:1px solid var(--brd);}
-.scene-card-body{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);}
+.scene-card-body{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);overflow:hidden;}
 .scene-card.expanded .scene-card-body{display:block;}
 
 /* Scene editor */
-.scene-editor{padding:8px;}
+.scene-editor{padding:8px;overflow:hidden;}
 .scene-block{margin-bottom:6px;border-radius:4px;position:relative;}
-.scene-block-action{padding:6px 8px;background:var(--bg3);border:1px solid var(--brd);border-radius:4px;min-height:30px;font-size:12px;color:var(--tx2);line-height:1.5;outline:none;}
+.scene-block-action{padding:6px 8px;background:var(--bg3);border:1px solid var(--brd);border-radius:4px;min-height:30px;font-size:12px;color:var(--tx2);line-height:1.5;outline:none;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;}
 .scene-block-action:focus{border-color:var(--blue);background:var(--bg4);}
 .scene-block-dialogue{border:1px solid var(--brd);border-radius:4px;overflow:hidden;}
 .scene-block-dialogue .char-line{padding:4px 8px;background:var(--bg4);font-size:11px;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:6px;}
 .scene-block-dialogue .char-line select{padding:2px 6px;font-size:11px;background:var(--bg3);border:1px solid var(--brd);color:var(--tx);border-radius:3px;font-family:inherit;}
 .scene-block-dialogue .paren{padding:2px 8px;font-size:10px;color:var(--tx3);font-style:italic;}
-.scene-block-dialogue .dial-text{padding:6px 8px;background:var(--bg3);min-height:28px;font-size:12px;color:var(--tx);outline:none;line-height:1.5;}
+.scene-block-dialogue .dial-text{padding:6px 8px;background:var(--bg3);min-height:28px;font-size:12px;color:var(--tx);outline:none;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;}
 .scene-block-dialogue .dial-text:focus{background:var(--bg4);}
 .scene-block-transition{padding:4px 8px;background:var(--bg4);border:1px solid var(--brd);border-radius:4px;text-align:center;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;}
 .scene-meta-row{display:flex;gap:8px;margin-bottom:6px;}
@@ -119,9 +119,9 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .add-scene-btn:hover{background:var(--bg3);color:var(--blue);}
 
 /* ── SCREENPLAY EDITOR (Professional) ── */
-.sp-editor-wrap{flex:1;overflow-y:auto;background:#fff;padding:20px 20px 20px 20px;display:block;}
-.sp-editor-page{width:100%;background:#fff;color:#111;font-family:'Courier New','Courier',monospace;font-size:12pt;line-height:1.2;position:relative;padding:20px 16px 100px 16px;}
-.sp-el{position:relative;margin-bottom:12pt;outline:none;min-height:1em;white-space:pre-wrap;word-wrap:break-word;}
+.sp-editor-wrap{flex:1;overflow-y:auto;overflow-x:hidden;background:#fff;padding:20px 20px 20px 20px;display:block;}
+.sp-editor-page{width:100%;max-width:100%;background:#fff;color:#111;font-family:'Courier New','Courier',monospace;font-size:12pt;line-height:1.2;position:relative;padding:20px 16px 100px 16px;overflow-wrap:break-word;word-break:break-word;}
+.sp-el{position:relative;margin-bottom:12pt;outline:none;min-height:1em;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;max-width:100%;}
 .sp-el:empty::before{content:attr(data-placeholder);color:#999;pointer-events:none;}
 .sp-el.sp-action{/* full width default */}
 .sp-el.sp-character{text-transform:uppercase;margin-left:37%;margin-bottom:0;}
@@ -159,7 +159,7 @@ body{font-family:'Inter','DM Sans','Segoe UI',sans-serif;background:var(--bg);co
 .sp-block-actions button:hover{background:#f0f7ff;border-color:#3b82f6;}
 /* screenplay mode overrides for timeline area */
 .screenplay-editor-active #tlA{cursor:default!important;overflow:hidden!important;background:#fff;}
-.screenplay-editor-active #tlC{transform:none!important;display:flex!important;flex-direction:column!important;position:relative!important;height:100%!important;align-items:stretch!important;}
+.screenplay-editor-active #tlC{transform:none!important;display:flex!important;flex-direction:column!important;position:relative!important;height:100%!important;align-items:stretch!important;width:100%!important;max-width:100%!important;overflow:hidden!important;}
 
 /* ── TIMELINE ── */
 .tl-area{flex:1;overflow:auto;position:relative;cursor:grab;}

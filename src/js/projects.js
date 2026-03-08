@@ -422,6 +422,29 @@ App.Projects = (function(){
 
   // ── Ekranlar ──
   function _initEditor() {
+    // ── Migration: screenplay ↔ content senkronizasyonu ──
+    var _P = S.get();
+    var _migrated = false;
+    (_P.scenes || []).forEach(function(sc) {
+      var hasScreenplay = sc.screenplay && sc.screenplay.trim();
+      var hasContent = sc.content && sc.content.length > 0;
+      var contentIsDefault = hasContent && sc.content.length === 1 && sc.content[0].type === 'action' && !sc.content[0].text;
+      var contentIsMinimal = hasContent && sc.content.length === 1 && sc.content[0].type === 'action' && sc.content[0].text && sc.content[0].text.length < 5;
+      if(hasScreenplay && (!hasContent || contentIsDefault || contentIsMinimal)) {
+        // screenplay → content: senaryo metni var ama content boş/varsayılan
+        sc.content = App.Screenplay.screenplayToContent(sc.screenplay, _P.characters);
+        _migrated = true;
+      } else if(hasContent && !contentIsDefault && !hasScreenplay) {
+        // content → screenplay: content var ama screenplay boş
+        sc.screenplay = App.Screenplay.contentToScreenplay(sc.content, _P.characters);
+        _migrated = true;
+      }
+    });
+    if(_migrated) {
+      S.markDirty('scenes');
+      if(App.AutoSave) App.AutoSave.save();
+    }
+
     App.Timeline.initFilter();
     App.Timeline.buildToolbar();
     App.Timeline.render();

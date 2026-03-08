@@ -538,6 +538,8 @@ App.ScreenplayEditor = (function(){
       }
 
       sc.content = newContent;
+      // Sync content → screenplay
+      sc.screenplay = App.Screenplay.contentToScreenplay(newContent, P.characters);
     });
 
     S.markDirty('scenes');

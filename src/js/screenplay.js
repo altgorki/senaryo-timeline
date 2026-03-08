@@ -216,6 +216,8 @@ App.Screenplay = (function(){
     S.snapshot();
     sc.content = sc.content || [];
     sc.content.push(block);
+    // Sync content → screenplay
+    sc.screenplay = contentToScreenplay(sc.content, S.get().characters);
     const bi = sc.content.length - 1;
     updateTimelineDuration(sc);
     S.markDirty('scenes');
@@ -240,6 +242,8 @@ App.Screenplay = (function(){
     if(sc.content[bi].text === text) return;
     S.snapshot();
     sc.content[bi].text = text;
+    // Sync content → screenplay
+    sc.screenplay = contentToScreenplay(sc.content, S.get().characters);
     // Update timeline duration silently (no full re-render to preserve editing)
     updateTimelineDuration(sc);
     S.markDirty(['scenes','events']);
@@ -324,6 +328,86 @@ App.Screenplay = (function(){
     return text;
   }
 
+  // ── SYNC HELPERS: screenplay ↔ content ──
+  function screenplayToContent(text, characters) {
+    if(!text || !text.trim()) return [{ type: 'action', text: '' }];
+    function stripMentions(s) {
+      return s.replace(/@\[[^\]]+\]\([^)]+\)/g, function(m) {
+        return '@' + m.match(/@\[([^\]]+)\]/)[1];
+      });
+    }
+    var lines = text.split('\n');
+    var content = [];
+    var i = 0;
+    while(i < lines.length) {
+      var trimmed = lines[i].trim();
+      if(!trimmed) { i++; continue; }
+      // Character mention line: @[Name](id)
+      var charMatch = trimmed.match(/^@\[([^\]]+)\]\(([^)]+)\)\s*$/);
+      var isCharLine = false;
+      var charId = '';
+      if(charMatch) {
+        isCharLine = true;
+        charId = charMatch[2];
+      } else if(trimmed === trimmed.toUpperCase() && /[A-ZÇĞİÖŞÜ]/.test(trimmed) && trimmed.length < 40 && !/[.,!?]$/.test(trimmed)) {
+        var ch = characters.find(function(c) { return c.name.toUpperCase() === trimmed; });
+        if(ch) { isCharLine = true; charId = ch.id; }
+      }
+      if(isCharLine) {
+        var block = { type: 'dialogue', characterId: charId, text: '', parenthetical: '' };
+        i++;
+        // Parenthetical
+        if(i < lines.length) {
+          var nextTr = lines[i].trim();
+          if(nextTr.startsWith('(') && nextTr.endsWith(')')) {
+            block.parenthetical = nextTr.slice(1, -1);
+            i++;
+          }
+        }
+        // Dialogue text until empty line or next character/transition
+        var dLines = [];
+        while(i < lines.length) {
+          var dl = lines[i].trim();
+          if(!dl) break;
+          if(dl.match(/^@\[[^\]]+\]\([^)]+\)\s*$/)) break;
+          if(dl === dl.toUpperCase() && /[A-ZÇĞİÖŞÜ]/.test(dl) && dl.length < 40 && !/[.,!?]$/.test(dl)) {
+            if(characters.find(function(c) { return c.name.toUpperCase() === dl; })) break;
+          }
+          if(/^[A-ZÇĞİÖŞÜ\s]+:$/.test(dl)) break;
+          dLines.push(stripMentions(dl));
+          i++;
+        }
+        block.text = dLines.join('\n');
+        content.push(block);
+      } else if(/^[A-ZÇĞİÖŞÜ\s]+:$/.test(trimmed)) {
+        content.push({ type: 'transition', text: trimmed });
+        i++;
+      } else {
+        content.push({ type: 'action', text: stripMentions(trimmed) });
+        i++;
+      }
+    }
+    return content.length ? content : [{ type: 'action', text: '' }];
+  }
+
+  function contentToScreenplay(content, characters) {
+    if(!content || !content.length) return '';
+    var parts = [];
+    content.forEach(function(block) {
+      if(block.type === 'action') {
+        if(block.text) parts.push(block.text);
+      } else if(block.type === 'dialogue') {
+        var ch = block.characterId ? characters.find(function(c) { return c.id === block.characterId; }) : null;
+        if(ch) parts.push('@[' + ch.name + '](' + ch.id + ')');
+        if(block.parenthetical) parts.push('(' + block.parenthetical + ')');
+        if(block.text) parts.push(block.text);
+      } else if(block.type === 'transition') {
+        parts.push(block.text || 'KESME');
+      }
+    });
+    return parts.join('\n');
+  }
+
   function saveScreenplay(scId, el) {
     const sc = S.getScene(scId);
     if(!sc) return;
@@ -332,6 +416,8 @@ App.Screenplay = (function(){
     if(sc.screenplay === newText) return;
     S.snapshot();
     sc.screenplay = newText;
+    // Sync screenplay → content
+    sc.content = screenplayToContent(newText, S.get().characters);
     // Extract characters from mentions and sync
     const mentionIds = [];
     el.querySelectorAll('.mention[data-char-id]').forEach(m => {
@@ -575,6 +661,8 @@ App.Screenplay = (function(){
     if(!sc || !sc.content[bi]) return;
     S.snapshot();
     sc.content[bi].characterId = charId;
+    // Sync content → screenplay
+    sc.screenplay = contentToScreenplay(sc.content, S.get().characters);
     if(charId && !(sc.characters||[]).includes(charId)) {
       sc.characters = sc.characters || [];
       sc.characters.push(charId);
@@ -675,5 +763,5 @@ App.Screenplay = (function(){
     App.UI.toast('Bölüm silindi');
   }
 
-  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, deleteEpisode, showEpMenu, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline, formatScreenplayHTML, getActiveSceneId };
+  return { render, toggleEp, selectScene, addEpisode, addScene, deleteScene, deleteEpisode, showEpMenu, addBlock, saveBlock, saveBlockChar, saveSceneMeta, removeSceneChar, insertMention, openSceneFromTimeline, formatScreenplayHTML, getActiveSceneId, screenplayToContent, contentToScreenplay };
 })();
